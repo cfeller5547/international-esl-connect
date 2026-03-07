@@ -1,0 +1,787 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum AgeBand {
+  age_13_15
+  age_16_18
+  age_18_24
+}
+
+enum LanguageCode {
+  english
+  spanish
+  chinese
+}
+
+enum SchoolLevel {
+  high_school
+  college
+}
+
+enum AssessmentContext {
+  onboarding_quick
+  onboarding_full
+  reassessment
+  mini_mock
+}
+
+enum AssessmentAttemptStatus {
+  in_progress
+  completed
+  abandoned
+}
+
+enum Skill {
+  listening
+  speaking
+  reading
+  writing
+  vocabulary
+  grammar
+}
+
+enum LevelLabel {
+  very_basic
+  basic
+  intermediate
+  advanced
+}
+
+enum ReportType {
+  baseline_quick
+  baseline_full
+  reassessment
+  mini_mock
+}
+
+enum ContentSourceType {
+  teacher_provided
+  placeholder
+}
+
+enum ContentType {
+  lesson
+  worksheet
+  video
+}
+
+enum ContentStatus {
+  draft
+  published
+  archived
+}
+
+enum ContentAssetType {
+  video
+  pdf
+  image
+  text
+  external_url
+}
+
+enum LearnEntrySource {
+  home
+  learn
+  homework_help
+}
+
+enum ActivityType {
+  lesson
+  worksheet
+  speaking_apply
+  daily_challenge
+}
+
+enum ActivityStatus {
+  in_progress
+  completed
+  paused
+}
+
+enum HomeworkInputType {
+  pdf
+  image
+  text
+}
+
+enum HomeworkUploadStatus {
+  uploaded
+  extracting_text
+  segmenting_questions
+  parsed
+  needs_review
+  failed
+}
+
+enum HomeworkParseStage {
+  extracting_text
+  segmenting_questions
+  confidence_scoring
+}
+
+enum JobStatus {
+  queued
+  running
+  completed
+  failed
+}
+
+enum HomeworkHelpResult {
+  correct
+  incorrect
+  partial
+}
+
+enum HomeworkHelpSessionStatus {
+  active
+  completed
+  abandoned
+}
+
+enum SyllabusSourceType {
+  upload
+  manual_topics
+}
+
+enum TestPrepPlanStatus {
+  active
+  completed
+  abandoned
+}
+
+enum SpeakMode {
+  free_speech
+  guided
+}
+
+enum InteractionMode {
+  text
+  voice
+}
+
+enum SpeakSessionStatus {
+  active
+  completed
+  abandoned
+}
+
+enum Speaker {
+  ai
+  student
+}
+
+enum ShareCardType {
+  level
+  conversation_milestone
+  improvement
+  level_up
+}
+
+enum RecommendationSurface {
+  home
+  learn
+  speak
+}
+
+enum SubscriptionPlan {
+  free
+  pro
+}
+
+enum SubscriptionStatus {
+  active
+  canceled
+  trialing
+}
+
+enum UsageMetricKey {
+  speak_voice_seconds
+  speak_text_turns
+  homework_uploads
+  reassessments
+  test_prep_plans
+}
+
+enum UsageWindowType {
+  daily
+  weekly
+  monthly
+  lifetime
+}
+
+model User {
+  id                        String                 @id @default(uuid()) @db.Uuid
+  email                     String                 @unique
+  passwordHash              String                 @map("password_hash")
+  firstName                 String?                @map("first_name")
+  ageBand                   String                 @map("age_band")
+  nativeLanguage            String                 @map("native_language")
+  targetLanguage            String                 @map("target_language")
+  schoolLevel               String                 @map("school_level")
+  currentLevel              String?                @map("current_level")
+  fullDiagnosticCompletedAt DateTime?              @map("full_diagnostic_completed_at")
+  createdAt                 DateTime               @default(now()) @map("created_at")
+  updatedAt                 DateTime               @updatedAt @map("updated_at")
+  userStreak                UserStreak?
+  assessmentAttempts        AssessmentAttempt[]
+  reports                   Report[]
+  curriculumProgress        UserCurriculumProgress[]
+  unitProgress              UserUnitProgress[]
+  unitActivityProgress      UserUnitActivityProgress[]
+  learnSessions             LearnSession[]
+  activityAttempts          ActivityAttempt[]
+  homeworkUploads           HomeworkUpload[]
+  homeworkHelpSessions      HomeworkHelpSession[]
+  syllabusProfiles          SyllabusProfile[]
+  classContextProfile       ClassContextProfile?
+  testPrepPlans             TestPrepPlan[]
+  speakSessions             SpeakSession[]
+  phraseBankItems           PhraseBankItem[]
+  shareCards                ShareCard[]
+  recommendationSnapshots   RecommendationSnapshot[]
+  subscription              Subscription?
+  usageCounters             UsageCounter[]
+  analyticsEvents           AnalyticsEvent[]
+
+  @@map("users")
+}
+
+model UserStreak {
+  id                       String   @id @default(uuid()) @db.Uuid
+  userId                   String   @unique @map("user_id") @db.Uuid
+  currentStreakDays        Int      @default(0) @map("current_streak_days")
+  longestStreakDays        Int      @default(0) @map("longest_streak_days")
+  lastQualifyingActivityAt DateTime? @map("last_qualifying_activity_date")
+  lastMilestoneEmitted     Int?     @map("last_milestone_emitted")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+  user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_streaks")
+}
+
+model GuestOnboardingSession {
+  id                 String               @id @default(uuid()) @db.Uuid
+  sessionToken       String               @unique @map("session_token")
+  profilePayload     Json?                @map("profile_payload")
+  expiresAt          DateTime             @map("expires_at")
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @updatedAt @map("updated_at")
+  assessmentAttempts AssessmentAttempt[]
+  reports            Report[]
+
+  @@map("guest_onboarding_sessions")
+}
+
+model AssessmentAttempt {
+  id                          String                        @id @default(uuid()) @db.Uuid
+  userId                      String?                       @map("user_id") @db.Uuid
+  guestSessionId              String?                       @map("guest_session_id") @db.Uuid
+  context                     String
+  testPrepPlanId              String?                       @map("test_prep_plan_id") @db.Uuid
+  status                      String
+  responsesPayload            Json?                         @map("responses_payload")
+  startedAt                   DateTime                      @default(now()) @map("started_at")
+  completedAt                 DateTime?                     @map("completed_at")
+  user                        User?                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guestSession                GuestOnboardingSession?       @relation(fields: [guestSessionId], references: [id], onDelete: Cascade)
+  testPrepPlan                TestPrepPlan?                 @relation(fields: [testPrepPlanId], references: [id], onDelete: SetNull)
+  skillScores                 AssessmentSkillScore[]
+  conversationMetrics         AssessmentConversationMetric?
+  report                      Report?
+
+  @@index([userId, status])
+  @@index([guestSessionId, status])
+  @@map("assessment_attempts")
+}
+
+model AssessmentSkillScore {
+  id                  String            @id @default(uuid()) @db.Uuid
+  assessmentAttemptId String            @map("assessment_attempt_id") @db.Uuid
+  skill               String
+  score               Int
+  evidencePayload     Json              @map("evidence_payload")
+  assessmentAttempt   AssessmentAttempt @relation(fields: [assessmentAttemptId], references: [id], onDelete: Cascade)
+
+  @@unique([assessmentAttemptId, skill])
+  @@map("assessment_skill_scores")
+}
+
+model AssessmentConversationMetric {
+  id                    String            @id @default(uuid()) @db.Uuid
+  assessmentAttemptId   String            @unique @map("assessment_attempt_id") @db.Uuid
+  turnCount             Int               @default(0) @map("turn_count")
+  durationSeconds       Int               @default(0) @map("duration_seconds")
+  pronunciationScore    Int               @default(0) @map("pronunciation_score")
+  fluencyScore          Int               @default(0) @map("fluency_score")
+  grammarUsageScore     Int               @default(0) @map("grammar_usage_score")
+  listeningResponseScore Int              @default(0) @map("listening_response_score")
+  assessmentAttempt     AssessmentAttempt @relation(fields: [assessmentAttemptId], references: [id], onDelete: Cascade)
+
+  @@map("assessment_conversation_metrics")
+}
+
+model Report {
+  id                String           @id @default(uuid()) @db.Uuid
+  userId            String?          @map("user_id") @db.Uuid
+  guestSessionId    String?          @map("guest_session_id") @db.Uuid
+  assessmentAttemptId String         @unique @map("assessment_attempt_id") @db.Uuid
+  reportType        String           @map("report_type")
+  overallScore      Int              @map("overall_score")
+  levelLabel        String           @map("level_label")
+  summaryPayload    Json             @map("summary_payload")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  user              User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guestSession      GuestOnboardingSession? @relation(fields: [guestSessionId], references: [id], onDelete: Cascade)
+  assessmentAttempt AssessmentAttempt @relation(fields: [assessmentAttemptId], references: [id], onDelete: Cascade)
+  skillSnapshots    ReportSkillSnapshot[]
+  comparisonAsCurrent ReportComparison? @relation("CurrentReport")
+  comparisonAsPrevious ReportComparison[] @relation("PreviousReport")
+  shareCards        ShareCard[]
+
+  @@index([userId, createdAt])
+  @@map("reports")
+}
+
+model ReportSkillSnapshot {
+  id                    String   @id @default(uuid()) @db.Uuid
+  reportId              String   @map("report_id") @db.Uuid
+  skill                 String
+  score                 Int
+  interpretationText    String   @map("interpretation_text")
+  recommendedActionText String   @map("recommended_action_text")
+  visualPayload         Json     @map("visual_payload")
+  report                Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@unique([reportId, skill])
+  @@map("report_skill_snapshots")
+}
+
+model ReportComparison {
+  id               String @id @default(uuid()) @db.Uuid
+  reportId         String @unique @map("report_id") @db.Uuid
+  previousReportId String @map("previous_report_id") @db.Uuid
+  deltaPayload     Json   @map("delta_payload")
+  report           Report @relation("CurrentReport", fields: [reportId], references: [id], onDelete: Cascade)
+  previousReport   Report @relation("PreviousReport", fields: [previousReportId], references: [id], onDelete: Cascade)
+
+  @@map("report_comparisons")
+}
+
+model Curriculum {
+  id                String                   @id @default(uuid()) @db.Uuid
+  level             String
+  targetLanguage    String                   @map("target_language")
+  title             String
+  description       String
+  active            Boolean                  @default(true)
+  createdAt         DateTime                 @default(now()) @map("created_at")
+  updatedAt         DateTime                 @updatedAt @map("updated_at")
+  units             CurriculumUnit[]
+  userProgress      UserCurriculumProgress[]
+  unitProgress      UserUnitProgress[]
+
+  @@unique([level, targetLanguage])
+  @@map("curricula")
+}
+
+model CurriculumUnit {
+  id                String                   @id @default(uuid()) @db.Uuid
+  curriculumId      String                   @map("curriculum_id") @db.Uuid
+  slug              String
+  title             String
+  summary           String
+  canDoStatement    String                   @map("can_do_statement")
+  theme             String
+  keyVocabulary     Json                     @map("key_vocabulary")
+  languageFocus     Json                     @map("language_focus")
+  performanceTask   String                   @map("performance_task")
+  orderIndex        Int                      @map("order_index")
+  createdAt         DateTime                 @default(now()) @map("created_at")
+  updatedAt         DateTime                 @updatedAt @map("updated_at")
+  curriculum        Curriculum               @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+  activities        CurriculumUnitActivity[]
+  userProgress      UserUnitProgress[]
+  activeCurriculumProgress UserCurriculumProgress[] @relation("CurrentUnlockedUnit")
+
+  @@unique([curriculumId, slug])
+  @@unique([curriculumId, orderIndex])
+  @@map("curriculum_units")
+}
+
+model CurriculumUnitActivity {
+  id                String                   @id @default(uuid()) @db.Uuid
+  unitId            String                   @map("unit_id") @db.Uuid
+  activityType      String                   @map("activity_type")
+  title             String
+  description       String
+  orderIndex        Int                      @map("order_index")
+  contentItemId     String?                  @map("content_item_id") @db.Uuid
+  required          Boolean                  @default(true)
+  activityPayload   Json                     @default("{}") @map("activity_payload")
+  createdAt         DateTime                 @default(now()) @map("created_at")
+  updatedAt         DateTime                 @updatedAt @map("updated_at")
+  unit              CurriculumUnit           @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  contentItem       ContentItem?             @relation(fields: [contentItemId], references: [id], onDelete: SetNull)
+  userProgress      UserUnitActivityProgress[]
+
+  @@unique([unitId, activityType])
+  @@unique([unitId, orderIndex])
+  @@map("curriculum_unit_activities")
+}
+
+model UserCurriculumProgress {
+  id                String                   @id @default(uuid()) @db.Uuid
+  userId            String                   @map("user_id") @db.Uuid
+  curriculumId      String                   @map("curriculum_id") @db.Uuid
+  currentUnitId     String?                  @map("current_unit_id") @db.Uuid
+  isActive          Boolean                  @default(false) @map("is_active")
+  startedAt         DateTime                 @default(now()) @map("started_at")
+  completedAt       DateTime?                @map("completed_at")
+  archivedAt        DateTime?                @map("archived_at")
+  user              User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  curriculum        Curriculum               @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+  currentUnit       CurriculumUnit?          @relation("CurrentUnlockedUnit", fields: [currentUnitId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, curriculumId])
+  @@index([userId, isActive])
+  @@map("user_curriculum_progress")
+}
+
+model UserUnitProgress {
+  id                String                   @id @default(uuid()) @db.Uuid
+  userId            String                   @map("user_id") @db.Uuid
+  curriculumId      String                   @map("curriculum_id") @db.Uuid
+  unitId            String                   @map("unit_id") @db.Uuid
+  status            String
+  unlockedAt        DateTime?                @map("unlocked_at")
+  completedAt       DateTime?                @map("completed_at")
+  createdAt         DateTime                 @default(now()) @map("created_at")
+  updatedAt         DateTime                 @updatedAt @map("updated_at")
+  user              User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  curriculum        Curriculum               @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+  unit              CurriculumUnit           @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  activityProgress  UserUnitActivityProgress[]
+
+  @@unique([userId, unitId])
+  @@index([userId, curriculumId, status])
+  @@map("user_unit_progress")
+}
+
+model UserUnitActivityProgress {
+  id                String                   @id @default(uuid()) @db.Uuid
+  userId            String                   @map("user_id") @db.Uuid
+  unitProgressId    String                   @map("unit_progress_id") @db.Uuid
+  activityId        String                   @map("activity_id") @db.Uuid
+  status            String
+  score             Int?
+  responsePayload   Json                     @default("{}") @map("response_payload")
+  completedAt       DateTime?                @map("completed_at")
+  createdAt         DateTime                 @default(now()) @map("created_at")
+  updatedAt         DateTime                 @updatedAt @map("updated_at")
+  user              User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  unitProgress      UserUnitProgress         @relation(fields: [unitProgressId], references: [id], onDelete: Cascade)
+  activity          CurriculumUnitActivity   @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, activityId])
+  @@index([userId, unitProgressId, status])
+  @@map("user_unit_activity_progress")
+}
+
+model ContentItem {
+  id             String            @id @default(uuid()) @db.Uuid
+  sourceType     String            @map("source_type")
+  contentType    String            @map("content_type")
+  title          String
+  description    String?
+  targetLanguage String            @map("target_language")
+  skillTags      Json              @map("skill_tags")
+  topicTags      Json              @map("topic_tags")
+  difficultyBand String?           @map("difficulty_band")
+  status         String
+  publishedAt    DateTime?         @map("published_at")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  assets         ContentAsset[]
+  curriculumActivities CurriculumUnitActivity[]
+  activityAttempts ActivityAttempt[]
+
+  @@index([contentType, targetLanguage, status])
+  @@map("content_items")
+}
+
+model ContentAsset {
+  id              String           @id @default(uuid()) @db.Uuid
+  contentItemId   String           @map("content_item_id") @db.Uuid
+  assetType       String @map("asset_type")
+  assetUrl        String?          @map("asset_url")
+  textPayload     Json?            @map("text_payload")
+  metadataPayload Json             @map("metadata_payload")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  contentItem     ContentItem      @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+
+  @@map("content_assets")
+}
+
+model LearnSession {
+  id          String          @id @default(uuid()) @db.Uuid
+  userId      String          @map("user_id") @db.Uuid
+  entrySource String @map("entry_source")
+  startedAt   DateTime        @default(now()) @map("started_at")
+  endedAt     DateTime?       @map("ended_at")
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activityAttempts ActivityAttempt[]
+
+  @@map("learn_sessions")
+}
+
+model ActivityAttempt {
+  id            String         @id @default(uuid()) @db.Uuid
+  userId        String         @map("user_id") @db.Uuid
+  learnSessionId String?       @map("learn_session_id") @db.Uuid
+  activityType  String   @map("activity_type")
+  contentId     String?        @map("content_id") @db.Uuid
+  score         Int?
+  status        String
+  startedAt     DateTime       @default(now()) @map("started_at")
+  completedAt   DateTime?      @map("completed_at")
+  metadata      Json           @default("{}")
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  learnSession  LearnSession?  @relation(fields: [learnSessionId], references: [id], onDelete: SetNull)
+  contentItem   ContentItem?   @relation(fields: [contentId], references: [id], onDelete: SetNull)
+
+  @@index([userId, activityType, status])
+  @@map("activity_attempts")
+}
+
+model HomeworkUpload {
+  id               String             @id @default(uuid()) @db.Uuid
+  userId           String             @map("user_id") @db.Uuid
+  fileUrl          String             @map("file_url")
+  inputType        String  @map("input_type")
+  parsedPayload    Json               @default("{}") @map("parsed_payload")
+  status           String
+  parseConfidence  Float?             @map("parse_confidence")
+  parserVersion    String?            @map("parser_version")
+  errorCode        String?            @map("error_code")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parseJobs        HomeworkParseJob[]
+  helpSessions     HomeworkHelpSession[]
+  syllabusProfiles SyllabusProfile[]  @relation("SyllabusUpload")
+
+  @@index([userId, createdAt])
+  @@map("homework_uploads")
+}
+
+model HomeworkParseJob {
+  id               String              @id @default(uuid()) @db.Uuid
+  homeworkUploadId String              @map("homework_upload_id") @db.Uuid
+  stage            String
+  status           String
+  detailsPayload   Json                @default("{}") @map("details_payload")
+  startedAt        DateTime?           @map("started_at")
+  completedAt      DateTime?           @map("completed_at")
+  homeworkUpload   HomeworkUpload      @relation(fields: [homeworkUploadId], references: [id], onDelete: Cascade)
+
+  @@map("homework_parse_jobs")
+}
+
+model HomeworkHelpSession {
+  id               String                    @id @default(uuid()) @db.Uuid
+  userId           String                    @map("user_id") @db.Uuid
+  homeworkUploadId String                    @map("homework_upload_id") @db.Uuid
+  status           String
+  createdAt        DateTime                  @default(now()) @map("created_at")
+  completedAt      DateTime?                 @map("completed_at")
+  user             User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  homeworkUpload   HomeworkUpload            @relation(fields: [homeworkUploadId], references: [id], onDelete: Cascade)
+  steps            HomeworkHelpStep[]
+
+  @@index([userId, status])
+  @@map("homework_help_sessions")
+}
+
+model HomeworkHelpStep {
+  id             String              @id @default(uuid()) @db.Uuid
+  sessionId      String              @map("session_id") @db.Uuid
+  questionIndex  Int                 @map("question_index")
+  studentAnswer  Json                @default("{}") @map("student_answer")
+  hintLevelUsed  Int                 @default(0) @map("hint_level_used")
+  result         String
+  feedbackPayload Json               @map("feedback_payload")
+  session        HomeworkHelpSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, questionIndex])
+  @@map("homework_help_steps")
+}
+
+model SyllabusProfile {
+  id             String             @id @default(uuid()) @db.Uuid
+  userId         String             @map("user_id") @db.Uuid
+  sourceType     String @map("source_type")
+  sourceUploadId String?            @map("source_upload_id") @db.Uuid
+  topicsPayload  Json               @map("topics_payload")
+  activeFrom     DateTime           @map("active_from")
+  activeTo       DateTime           @map("active_to")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+  user           User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceUpload   HomeworkUpload?    @relation("SyllabusUpload", fields: [sourceUploadId], references: [id], onDelete: SetNull)
+
+  @@index([userId, activeTo])
+  @@map("syllabus_profiles")
+}
+
+model ClassContextProfile {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @unique @map("user_id") @db.Uuid
+  schoolName     String?  @map("school_name")
+  className      String?  @map("class_name")
+  instructorName String?  @map("instructor_name")
+  periodLabel    String?  @map("period_label")
+  courseLevel    String?  @map("course_level")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("class_context_profiles")
+}
+
+model TestPrepPlan {
+  id               String              @id @default(uuid()) @db.Uuid
+  userId           String              @map("user_id") @db.Uuid
+  targetDate       DateTime            @map("target_date")
+  topicsPayload    Json                @map("topics_payload")
+  planPayload      Json                @map("plan_payload")
+  status           String
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assessmentAttempts AssessmentAttempt[]
+
+  @@index([userId, status, targetDate])
+  @@map("test_prep_plans")
+}
+
+model SpeakSession {
+  id              String             @id @default(uuid()) @db.Uuid
+  userId          String             @map("user_id") @db.Uuid
+  mode            String
+  interactionMode String    @map("interaction_mode")
+  scenarioKey     String?            @map("scenario_key")
+  durationSeconds Int                @default(0) @map("duration_seconds")
+  status          String
+  startedAt       DateTime           @default(now()) @map("started_at")
+  completedAt     DateTime?          @map("completed_at")
+  summaryPayload  Json               @default("{}") @map("summary_payload")
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  turns           SpeakTurn[]
+  phrases         PhraseBankItem[]
+
+  @@index([userId, status])
+  @@map("speak_sessions")
+}
+
+model SpeakTurn {
+  id             String       @id @default(uuid()) @db.Uuid
+  speakSessionId String       @map("speak_session_id") @db.Uuid
+  speaker        String
+  turnIndex      Int          @map("turn_index")
+  transcriptText String       @map("transcript_text")
+  audioRef       String?      @map("audio_ref")
+  metricsPayload Json         @default("{}") @map("metrics_payload")
+  speakSession   SpeakSession @relation(fields: [speakSessionId], references: [id], onDelete: Cascade)
+
+  @@unique([speakSessionId, turnIndex])
+  @@map("speak_turns")
+}
+
+model PhraseBankItem {
+  id                  String       @id @default(uuid()) @db.Uuid
+  userId              String       @map("user_id") @db.Uuid
+  sourceSpeakSessionId String?     @map("source_speak_session_id") @db.Uuid
+  phraseText          String       @map("phrase_text")
+  translationText     String?      @map("translation_text")
+  contextPayload      Json         @map("context_payload")
+  createdAt           DateTime     @default(now()) @map("created_at")
+  user                User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceSpeakSession  SpeakSession? @relation(fields: [sourceSpeakSessionId], references: [id], onDelete: SetNull)
+
+  @@map("phrase_bank_items")
+}
+
+model ShareCard {
+  id            String        @id @default(uuid()) @db.Uuid
+  userId        String        @map("user_id") @db.Uuid
+  reportId      String?       @map("report_id") @db.Uuid
+  cardType      String @map("card_type")
+  assetUrl      String        @map("asset_url")
+  metadataPayload Json        @map("metadata_payload")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  report        Report?       @relation(fields: [reportId], references: [id], onDelete: SetNull)
+
+  @@map("share_cards")
+}
+
+model RecommendationSnapshot {
+  id                    String                @id @default(uuid()) @db.Uuid
+  userId                String                @map("user_id") @db.Uuid
+  surface               String
+  recommendationPayload Json                  @map("recommendation_payload")
+  createdAt             DateTime              @default(now()) @map("created_at")
+  user                  User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("recommendation_snapshots")
+}
+
+model Subscription {
+  id        String             @id @default(uuid()) @db.Uuid
+  userId    String             @unique @map("user_id") @db.Uuid
+  plan      String
+  status    String
+  startedAt DateTime           @default(now()) @map("started_at")
+  renewalAt DateTime?          @map("renewal_at")
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+model UsageCounter {
+  id         String          @id @default(uuid()) @db.Uuid
+  userId     String          @map("user_id") @db.Uuid
+  metricKey  String  @map("metric_key")
+  windowType String @map("window_type")
+  windowStart DateTime       @map("window_start")
+  windowEnd  DateTime        @map("window_end")
+  usedValue  Int             @default(0) @map("used_value")
+  limitValue Int             @map("limit_value")
+  updatedAt  DateTime        @updatedAt @map("updated_at")
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, metricKey, windowType, windowStart])
+  @@map("usage_counters")
+}
+
+model AnalyticsEvent {
+  id                 String   @id @default(uuid()) @db.Uuid
+  eventId            String   @unique @map("event_id")
+  eventName          String   @map("event_name")
+  occurredAt         DateTime @default(now()) @map("occurred_at")
+  userId             String?  @map("user_id") @db.Uuid
+  guestSessionToken  String?  @map("guest_session_token")
+  sessionId          String   @map("session_id")
+  route              String
+  platform           String   @default("web")
+  appVersion         String   @default("0.1.0") @map("app_version")
+  eventSchemaVersion String   @default("1") @map("event_schema_version")
+  properties         Json     @default("{}")
+  user               User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([eventName, occurredAt])
+  @@map("analytics_events")
+}

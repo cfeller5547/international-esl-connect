@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ESL Logo — Text Proportion Exploration</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #1F4E79;
+    --secondary: #2A9D8F;
+    --accent: #F4A261;
+    --background: #F8FAFC;
+    --surface: #FFFFFF;
+    --text: #0F172A;
+    --muted: #64748B;
+    --border: #E2E8F0;
+    --muted-bg: #F1F5F9;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Outfit',sans-serif; background:var(--background); color:var(--text); -webkit-font-smoothing:antialiased; }
+  .page { max-width:1060px; margin:0 auto; padding:48px 40px 100px; }
+
+  .section-label {
+    font-size:10px; font-weight:600; letter-spacing:2.5px; text-transform:uppercase;
+    color:var(--muted); margin-bottom:20px; margin-top:48px;
+    display:flex; align-items:center; gap:12px;
+  }
+  .section-label::after { content:''; flex:1; height:1px; background:var(--border); }
+
+  /* Navbar sims */
+  .navbar {
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    padding:0 28px; height:64px;
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .navbar.dark { background:var(--text); border-color:#1E293B; }
+  .nav-links {
+    display:flex; gap:28px; font-size:14px; font-weight:500; color:var(--muted);
+  }
+  .nav-links span:first-child { color:var(--text); font-weight:600; }
+  .nav-links.on-dark span:first-child { color:var(--background); }
+
+  /* Variant grid */
+  .vgrid {
+    display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;
+  }
+  .vcell {
+    background:var(--surface); border:1px solid var(--border); border-radius:12px;
+    padding:40px 28px; display:flex; align-items:center; justify-content:center;
+    position:relative; min-height:110px;
+  }
+  .vcell.dark { background:var(--text); border-color:#1E293B; }
+  .vcell.on-primary { background:var(--primary); border-color:#1a4267; }
+  .vcell .tag {
+    position:absolute; top:10px; left:14px;
+    font-size:9px; font-weight:600; letter-spacing:1.2px; text-transform:uppercase; opacity:0.3;
+  }
+  .vcell .tag.lt { color:var(--text); }
+  .vcell .tag.dk { color:var(--surface); }
+
+  /* Notes card */
+  .notes {
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    padding:28px 32px; margin-top:32px;
+  }
+  .notes h3 {
+    font-family:'Cormorant Garamond',serif; font-size:20px; font-weight:600;
+    color:var(--text); margin-bottom:12px;
+  }
+  .notes p { font-size:13px; color:var(--muted); line-height:1.7; }
+  .notes p strong { color:var(--text); font-weight:600; }
+  .notes ul { margin-top:12px; padding-left:20px; }
+  .notes li { font-size:13px; color:var(--muted); line-height:1.9; }
+  .notes li strong { color:var(--text); font-weight:600; }
+  .notes code {
+    background:var(--muted-bg); padding:1px 5px; border-radius:4px;
+    font-size:11px; color:var(--primary);
+  }
+
+  @media(max-width:700px) {
+    .vgrid { grid-template-columns:1fr; }
+    .page { padding:32px 20px 60px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- ============================================================
+     THE FINAL LOCKUP
+     Icon height = 64 units (r=32, spans y=8 to y=72)
+     Text block: "ESL" caps-top ≈ y=10, "INTL CONNECT" baseline ≈ y=68
+     Both lines together fill the icon's full vertical span.
+     ============================================================ -->
+
+<!-- ===== NAVBAR — LIGHT ===== -->
+<div class="section-label" style="margin-top:0;">Navbar — Light Background</div>
+
+<div class="navbar">
+  <svg viewBox="0 0 440 80" xmlns="http://www.w3.org/2000/svg" height="44">
+    <defs><clipPath id="gc-n1"><circle cx="40" cy="40" r="36"/></clipPath></defs>
+    <g>
+      <circle cx="40" cy="40" r="32" fill="none" stroke="#1F4E79" stroke-width="2.6"/>
+      <ellipse cx="40" cy="40" rx="32" ry="12" fill="none" stroke="#2A9D8F" stroke-width="2" opacity="0.6" transform="rotate(-25 40 40)" clip-path="url(#gc-n1)"/>
+      <ellipse cx="40" cy="40" rx="12" ry="32" fill="none" stroke="#1F4E79" stroke-width="2" opacity="0.35" transform="rotate(-25 40 40)" clip-path="url(#gc-n1)"/>
+      <ellipse cx="40" cy="40" rx="32" ry="5" fill="none" stroke="#2A9D8F" stroke-width="1.1" opacity="0.22" transform="rotate(8 40 40)" clip-path="url(#gc-n1)"/>
+      <circle cx="65" cy="16" r="5.5" fill="#F4A261"/>
+    </g>
+    <text x="92" y="33" font-family="'Cormorant Garamond',serif" font-weight="700" font-size="34" fill="#0F172A" letter-spacing="1">ESL</text>
+    <text x="92" y="60" font-family="'Outfit',sans-serif" font-weight="500" font-size="18" fill="#64748B" letter-spacing="2">INTERNATIONAL CONNECT</text>
+  </svg>
+  <div class="nav-links">
+    <span>Home</span><span>Learn</span><span>Speak</span><span>Progress</span><span>More</span>
+  </div>
+</div>
+
+<!-- ===== NAVBAR — DARK ===== -->
+<div class="section-label">Navbar — Dark Background</div>
+
+<div class="navbar dark">
+  <svg viewBox="0 0 440 80" xmlns="http://www.w3.org/2000/svg" height="44">
+    <defs><clipPath id="gc-n2"><circle cx="40" cy="40" r="36"/></clipPath></defs>
+    <g>
+      <circle cx="40" cy="40" r="32" fill="none" stroke="#F8FAFC" stroke-width="2.6" opacity="0.7"/>
+      <ellipse cx="40" cy="40" rx="32" ry="12" fill="none" stroke="#2A9D8F" stroke-width="2" opacity="0.5" transform="rotate(-25 40 40)" clip-path="url(#gc-n2)"/>
+      <ellipse cx="40" cy="40" rx="12" ry="32" fill="none" stroke="#F8FAFC" stroke-width="2" opacity="0.2" transform="rotate(-25 40 40)" clip-path="url(#gc-n2)"/>
+      <ellipse cx="40" cy="40" rx="32" ry="5" fill="none" stroke="#2A9D8F" stroke-width="1.1" opacity="0.15" transform="rotate(8 40 40)" clip-path="url(#gc-n2)"/>
+      <circle cx="65" cy="16" r="5.5" fill="#F4A261"/>
+    </g>
+    <text x="92" y="33" font-family="'Cormorant Garamond',serif" font-weight="700" font-size="34" fill="#F8FAFC" letter-spacing="1">ESL</text>
+    <text x="92" y="60" font-family="'Outfit',sans-serif" font-weight="500" font-size="18" fill="#64748B" letter-spacing="2">INTERNATIONAL CONNECT</text>
+  </svg>
+  <div class="nav-links on-dark">
+    <span>Home</span><span>Learn</span><span>Speak</span><span>Progress</span><span>More</span>
+  </div>
+</div>
+
+<!-- ===== ALL FOUR VARIANTS ===== -->
+<div class="section-label">All Lockup Variants</div>
+
+<div class="vgrid">
+  <!-- Background -->
+  <div class="vcell">
+    <span class="tag lt">Background #F8FAFC</span>
+    <svg viewBox="0 0 440 80" xmlns="http://www.w3.org/2000/svg" width="380">
+      <defs><clipPath id="gc-v1"><circle cx="40" cy="40" r="36"/></clipPath></defs>
+      <g>
+        <circle cx="40" cy="40" r="32" fill="none" stroke="#1F4E79" stroke-width="2.6"/>
+        <ellipse cx="40" cy="40" rx="32" ry="12" fill="none" stroke="#2A9D8F" stroke-width="2" opacity="0.6" transform="rotate(-25 40 40)" clip-path="url(#gc-v1)"/>
+        <ellipse cx="40" cy="40" rx="12" ry="32" fill="none" stroke="#1F4E79" stroke-width="2" opacity="0.35" transform="rotate(-25 40 40)" clip-path="url(#gc-v1)"/>
+        <ellipse cx="40" cy="40" rx="32" ry="5" fill="none" stroke="#2A9D8F" stroke-width="1.1" opacity="0.22" transform="rotate(8 40 40)" clip-path="url(#gc-v1)"/>
+        <circle cx="65" cy="16" r="5.5" fill="#F4A261"/>
+      </g>
+      <text x="92" y="33" font-family="'Cormorant Garamond',serif" font-weight="700" font-size="34" fill="#0F172A" letter-spacing="1">ESL</text>
+      <text x="92" y="60" font-family="'Outfit',sans-serif" font-weight="500" font-size="18" fill="#64748B" letter-spacing="2">INTERNATIONAL CONNECT</text>
+    </svg>
+  </div>
+  <!-- Text / Dark -->
+  <div class="vcell dark">
+    <span class="tag dk">Text #0F172A</span>
+    <svg viewBox="0 0 440 80" xmlns="http://www.w3.org/2000/svg" width="380">
+      <defs><clipPath id="gc-v2"><circle cx="40" cy="40" r="36"/></clipPath></defs>
+      <g>
+        <circle cx="40" cy="40" r="32" fill="none" stroke="#F8FAFC" stroke-width="2.6" opacity="0.7"/>
+        <ellipse cx="40" cy="40" rx="32" ry="12" fill="none" stroke="#2A9D8F" stroke-width="2" opacity="0.5" transform="rotate(-25 40 40)" clip-path="url(#gc-v2)"/>
+        <ellipse cx="40" cy="40" rx="12" ry="32" fill="none" stroke="#F8FAFC" stroke-width="2" opacity="0.2" transform="rotate(-25 40 40)" clip-path="url(#gc-v2)"/>
+        <ellipse cx="40" cy="40" rx="32" ry="5" fill="none" stroke="#2A9D8F" stroke-width="1.1" opacity="0.15" transform="rotate(8 40 40)" clip-path="url(#gc-v2)"/>
+        <circle cx="65" cy="16" r="5.5" fill="#F4A261"/>
+      </g>
+      <text x="92" y="33" font-family="'Cormorant Garamond',serif" font-weight="700" font-size="34" fill="#F8FAFC" letter-spacing="1">ESL</text>
+      <text x="92" y="60" font-family="'Outfit',sans-serif" font-weight="500" font-size="18" fill="#64748B" letter-spacing="2">INTERNATIONAL CONNECT</text>
+    </svg>
+  </div>
+  <!-- Surface -->
+  <div class="vcell" style="background:#fff;">
+    <span class="tag lt">Surface #FFFFFF</span>
+    <svg viewBox="0 0 440 80" xmlns="http://www.w3.org/2000/svg" width="380">
+      <defs><clipPath id="gc-v3"><circle cx="40" cy="40" r="36"/></clipPath></defs>
+      <g>
+        <circle cx="40" cy="40" r="32" fill="none" stroke="#1F4E79" stroke-width="2.6"/>
+        <ellipse cx="40" cy="40" rx="32" ry="12" fill="none" stroke="#2A9D8F" stroke-width="2" opacity="0.6" transform="rotate(-25 40 40)" clip-path="url(#gc-v3)"/>
+        <ellipse cx="40" cy="40" rx="12" ry="32" fill="none" stroke="#1F4E79" stroke-width="2" opacity="0.35" transform="rotate(-25 40 40)" clip-path="url(#gc-v3)"/>
+        <ellipse cx="40" cy="40" rx="32" ry="5" fill="none" stroke="#2A9D8F" stroke-width="1.1" opacity="0.22" transform="rotate(8 40 40)" clip-path="url(#gc-v3)"/>
+        <circle cx="65" cy="16" r="5.5" fill="#F4A261"/>
+      </g>
+      <text x="92" y="33" font-family="'Cormorant Garamond',serif" font-weight="700" font-size="34" fill="#0F172A" letter-spacing="1">ESL</text>
+      <text x="92" y="60" font-family="'Outfit',sans-serif" font-weight="500" font-size="18" fill="#64748B" letter-spacing="2">INTERNATIONAL CONNECT</text>
+    </svg>
+  </div>
+  <!-- On Primary -->
+  <div class="vcell on-primary">
+    <span class="tag dk">Primary #1F4E79</span>
+    <svg viewBox="0 0 440 80" xmlns="http://www.w3.org/2000/svg" width="380">
+      <defs><clipPath id="gc-v4"><circle cx="40" cy="40" r="36"/></clipPath></defs>
+      <g>
+        <circle cx="40" cy="40" r="32" fill="none" stroke="#FFFFFF" stroke-width="2.6" opacity="0.85"/>
+        <ellipse cx="40" cy="40" rx="32" ry="12" fill="none" stroke="#FFFFFF" stroke-width="2" opacity="0.3" transform="rotate(-25 40 40)" clip-path="url(#gc-v4)"/>
+        <ellipse cx="40" cy="40" rx="12" ry="32" fill="none" stroke="#FFFFFF" stroke-width="2" opacity="0.18" transform="rotate(-25 40 40)" clip-path="url(#gc-v4)"/>
+        <ellipse cx="40" cy="40" rx="32" ry="5" fill="none" stroke="#FFFFFF" stroke-width="1.1" opacity="0.12" transform="rotate(8 40 40)" clip-path="url(#gc-v4)"/>
+        <circle cx="65" cy="16" r="5.5" fill="#F4A261"/>
+      </g>
+      <text x="92" y="33" font-family="'Cormorant Garamond',serif" font-weight="700" font-size="34" fill="#FFFFFF" letter-spacing="1">ESL</text>
+      <text x="92" y="60" font-family="'Outfit',sans-serif" font-weight="500" font-size="18" fill="#F8FAFC" letter-spacing="2" opacity="0.65">INTERNATIONAL CONNECT</text>
+    </svg>
+  </div>
+</div>
+
+<!-- ===== SPEC NOTES ===== -->
+<div class="notes">
+  <h3>Proportion Spec</h3>
+  <p>The text block now fills the icon's full vertical span. The icon is 64 units tall (radius 32, centered at y=40), running from <strong>y=8 to y=72</strong>. The two text lines are sized and positioned to match:</p>
+  <ul>
+    <li><strong>"ESL"</strong> — Cormorant Garamond, <code>34px</code>, weight <code>700</code>, tracking <code>1</code>. Baseline at <code>y=33</code>. Cap-height tops out around <code>y≈9</code>, aligning with the icon's top edge.</li>
+    <li><strong>"INTERNATIONAL CONNECT"</strong> — Outfit, <code>18px</code>, weight <code>500</code>, tracking <code>2</code>. Baseline at <code>y=60</code>. Cap-height tops around <code>y≈47</code>, giving a clear <code>14-unit gap</code> between the two lines. The baseline at 60 sits proportionally near the icon's lower third.</li>
+    <li><strong>Icon</strong> — centered at <code>40,40</code>, r=<code>32</code>. Text starts at <code>x=92</code> (12 units right of the icon's edge at x=72+accent).</li>
+    <li><strong>viewBox</strong> — <code>440 × 80</code>. Wider than before to accommodate the larger descriptor without clipping.</li>
+  </ul>
+</div>
+
+</div>
+</body>
+</html>
