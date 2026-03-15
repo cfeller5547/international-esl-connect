@@ -87,6 +87,7 @@ Must log:
 Sensitive logs:
 - never log secrets
 - avoid logging full student submitted content when not required
+- never log raw OpenAI API keys, full audio payloads, or full base64 transcript attachments
 
 ## 8. Operational Readiness Checklist
 
@@ -97,6 +98,7 @@ Before production:
 4. Alert routing configured
 5. Incident playbook for AI dependency outage
 6. AI cost guardrails configured (voice quota, per-tier limits, fallback behavior)
+7. OpenAI credentials rotated out of any ad hoc local chat exposure and stored only in environment secrets
 
 ## 9. Cost and Tier Guardrails
 
@@ -115,7 +117,16 @@ Before production:
    - `testPrepPlansPer30Days`: 2
 6. Limit events must fire with machine-readable limit keys for paywall logic.
 
-## 10. Homework Parse Quality Guardrails
+## 10. AI Voice Runtime Guardrails
+
+1. OpenAI is the configured provider for conversation generation, audio transcription, and TTS in MVP.
+2. If OpenAI is unavailable:
+   - live voice mode must be disabled
+   - text-mode speaking missions must remain available where possible
+3. Raw learner audio should not be retained by default after transcription unless an explicit product requirement is added later.
+4. Learn speaking benchmark missions are feedback-only and must never change level placement or create report artifacts.
+
+## 11. Homework Parse Quality Guardrails
 
 1. OCR/text extraction + segmentation confidence must be captured as `parse_confidence`.
 2. If `parse_confidence < 0.65`, set `needs_review` and require manual review fallback.

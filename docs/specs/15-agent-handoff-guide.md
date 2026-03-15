@@ -55,6 +55,21 @@ Current Learn UX shape:
   - lesson overview
   - short quick check
 - activity completion shows a short transition state before routing forward
+- speaking flow is:
+  - brief
+  - focused conversation
+  - focused review
+  - optional retry
+- Pro Learn speaking is voice-first and uses a shorter realtime voice path inside Learn
+- free Learn speaking is text-first and uses the same transcript-first conversation surface without live mic
+- Learn speaking hides visible turn-count mechanics from the main conversation body
+
+Current Speak UX shape:
+- free users use text-first Speak with starter prompts
+- Pro voice Speak uses browser-mic realtime conversation backed by OpenAI Realtime
+- active voice sessions live on `/app/speak/session/:sessionId`
+- realtime transcript snapshots sync back through the app before the session is completed
+- Learn voice missions use parallel Learn-scoped realtime routes under `/api/v1/learn/curriculum/speaking/:sessionId/*`
 
 ## 3. Read First
 
@@ -115,10 +130,13 @@ Do not casually change these:
 - `src/features/learn/lesson-player.tsx`
 - `src/features/learn/worksheet-player.tsx`
 - `src/features/learn/structured-response-activity.tsx`
+- `src/features/learn/learn-speaking-mission.tsx`
+- `src/features/learn/use-learn-realtime-conversation.ts`
 - `src/features/learn/checkpoint-player.tsx`
 - `src/features/learn/learn-activity-transition.tsx`
 - `src/features/learn/learn-flow.ts`
 - `src/server/services/curriculum-service.ts`
+- `src/server/services/learn-speaking-service.ts`
 - `src/server/curriculum-blueprint.ts`
 
 ### Tools
@@ -130,7 +148,15 @@ Do not casually change these:
 
 ### Speak
 - `src/app/app/speak/*`
+- `src/features/speak/speak-realtime-session-panel.tsx`
+- `src/features/speak/use-voice-recorder.ts`
+- `src/server/services/conversation-service.ts`
 - `src/server/services/speak-service.ts`
+
+### AI provider
+- `src/server/openai.ts`
+- `src/server/ai/openai-conversation.ts`
+- `src/server/env.ts`
 
 ### Progress and reports
 - `src/app/app/progress/*`
@@ -196,6 +222,14 @@ Environment notes:
 - Postgres runs via Docker on `localhost:5434`
 - this workspace has commonly used `3002` for production-mode browser testing
 - do not assume `3000` is free in this environment
+- OpenAI-backed voice requires local environment values for:
+  - `OPENAI_API_KEY`
+  - `OPENAI_TEXT_MODEL`
+  - `OPENAI_REALTIME_MODEL`
+  - `OPENAI_TRANSCRIPTION_MODEL`
+  - `OPENAI_TTS_MODEL`
+  - `OPENAI_TTS_VOICE`
+  - `OPENAI_REALTIME_VOICE`
 
 ## 7. Verification Standard
 

@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Volume2 } from "lucide-react";
+import { Mic, Volume2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { useVoiceRecorder } from "@/features/speak/use-voice-recorder";
 
 type Turn = {
   speaker: "ai" | "student";
@@ -14,11 +15,13 @@ type Turn = {
 
 type SpeakSessionPanelProps = {
   sessionId: string;
+  interactionMode: "text" | "voice";
   initialTurns: Turn[];
 };
 
 export function SpeakSessionPanel({
   sessionId,
+  interactionMode,
   initialTurns,
 }: SpeakSessionPanelProps) {
   const [input, setInput] = useState("");
@@ -35,6 +38,7 @@ export function SpeakSessionPanel({
     }>;
     vocabulary: Array<{ term: string; definition: string; translation: string }>;
   }>(null);
+  const recorder = useVoiceRecorder();
 
   const aiTurns = useMemo(
     () => transcript.filter((turn) => turn.speaker === "ai"),
@@ -52,31 +56,83 @@ export function SpeakSessionPanel({
 
   async function handleSend() {
     setPending(true);
-    const response = await fetch("/api/v1/speak/session/turn", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        sessionId,
-        studentInput: {
-          text: input,
+    try {
+      const response = await fetch("/api/v1/speak/session/turn", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      }),
-    });
-    const payload = (await response.json()) as {
-      aiResponseText: string;
-      microCoaching?: string;
-    };
+        body: JSON.stringify({
+          sessionId,
+          studentInput: {
+            text: input,
+          },
+        }),
+      });
+      const payload = (await response.json()) as {
+        aiResponseText: string;
+        microCoaching?: string;
+        studentTranscriptText?: string | null;
+      };
 
-    setTranscript((current) => [
-      ...current,
-      { speaker: "student", text: input },
-      { speaker: "ai", text: payload.aiResponseText },
-    ]);
-    setFeedback(payload.microCoaching ?? null);
-    setInput("");
-    setPending(false);
+      setTranscript((current) => [
+        ...current,
+        { speaker: "student", text: payload.studentTranscriptText?.trim() || input },
+        { speaker: "ai", text: payload.aiResponseText },
+      ]);
+      setFeedback(payload.microCoaching ?? null);
+      setInput("");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleVoiceTurn() {
+    try {
+      recorder.resetError();
+      if (!recorder.recording) {
+        await recorder.startRecording();
+        return;
+      }
+
+      const audio = await recorder.stopRecording();
+      if (!audio) {
+        return;
+      }
+
+      setPending(true);
+      const response = await fetch("/api/v1/speak/session/turn", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          sessionId,
+          studentInput: {
+            audioDataUrl: audio.audioDataUrl,
+            audioMimeType: audio.audioMimeType,
+            durationSeconds: audio.durationSeconds,
+          },
+        }),
+      });
+      const payload = (await response.json()) as {
+        aiResponseText: string;
+        microCoaching?: string;
+        studentTranscriptText?: string | null;
+      };
+
+      setTranscript((current) => [
+        ...current,
+        {
+          speaker: "student",
+          text: payload.studentTranscriptText?.trim() || "Voice response recorded.",
+        },
+        { speaker: "ai", text: payload.aiResponseText },
+      ]);
+      setFeedback(payload.microCoaching ?? null);
+    } finally {
+      setPending(false);
+    }
   }
 
   async function handleFinish() {
@@ -154,11 +210,24 @@ export function SpeakSessionPanel({
               <Button onClick={handleSend} disabled={pending || input.trim().length < 2}>
                 Send
               </Button>
+              {interactionMode === "voice" ? (
+                <Button
+                  variant={recorder.recording ? "accent" : "outline"}
+                  onClick={handleVoiceTurn}
+                  disabled={pending}
+                >
+                  <Mic className="size-4" />
+                  {recorder.recording ? "Stop" : "Record"}
+                </Button>
+              ) : null}
               <Button variant="secondary" onClick={handleFinish} disabled={pending}>
                 Finish session
               </Button>
             </div>
           )}
+          {recorder.error ? (
+            <p className="text-sm text-destructive">{recorder.error}</p>
+          ) : null}
           {feedback ? (
             <div className="rounded-2xl border border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
               {feedback}

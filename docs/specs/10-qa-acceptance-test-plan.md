@@ -83,6 +83,32 @@ Pass condition:
 Pass condition:
 - level assignment is deterministic and upward-only
 
+## 3.2.4 Learn Speaking Missions
+
+1. Open `/app/learn/unit/:unitSlug/speaking` on a free account.
+2. Verify the speaking activity opens in `Brief` with scenario, goal, and text-first start path.
+3. Start the mission and complete it end-to-end in text mode without leaving Learn.
+4. Verify the active conversation state uses compact speaking-specific chrome rather than the full generic Learn activity header.
+5. Verify only one dominant response action is visible at a time during the conversation.
+6. Verify the active conversation state does not show mechanic-heavy copy such as explicit reply quotas or `unlock feedback` language.
+7. Verify `See feedback` does not appear until the required learner replies are complete.
+8. Verify the first AI turn is a natural scenario opener and does not use text such as `Let's practice` or `Start with this`.
+9. Verify AI follow-up turns acknowledge the learner's last point and ask one short next question.
+10. Verify the feedback state shows one outcome label, one strength, one improvement, and 2-3 highlighted transcript moments by default.
+11. Open full transcript and verify it is optional rather than the default review surface.
+12. Save a phrase from the Learn review and verify it persists to the shared phrase bank.
+13. Retry the same mission and verify the new session links back to the prior attempt cleanly.
+14. Open unit `3` or `6` in any curriculum and verify the speaking mission renders benchmark-mode copy and requires the longer turn count.
+15. Confirm mission completion alone does not change `currentLevel` and does not create a Progress report entry.
+16. On a Pro account, verify the speaking activity opens voice-first with a single `Start conversation` CTA.
+17. On a Pro account, start the Learn voice mission and verify the page opens a bounded live voice conversation inside Learn rather than the full Speak session shell.
+18. On a Pro account, confirm transcript snapshots sync while the Learn voice conversation is active and that `See feedback` becomes available after the hidden participation threshold is met.
+19. On a Pro account, confirm mic-denied or unavailable cases fall back cleanly to text without losing mission state.
+
+Pass condition:
+- speaking missions feel like one bounded curriculum task, not a generic Speak detour
+- review stays focused and actionable
+
 ## 3.3 Homework Help
 
 1. Open Homework Help from Home quick action or Tools.
@@ -143,6 +169,26 @@ Pass condition:
 
 Pass condition:
 - no empty-state confusion before first message
+
+## 3.6.2 Speak Realtime Voice
+
+1. Log in as a Pro user.
+2. Open Speak and switch interaction mode to `Voice (Pro)`.
+3. Start a new Speak session.
+4. Verify the session page shows `Start live conversation` before the mic becomes active.
+5. Start the live conversation and verify the browser negotiates the realtime voice session successfully.
+6. Speak for multiple turns and verify:
+   - transcript updates while the conversation is live
+   - the AI responds in real time
+   - transcript sync requests remain successful
+7. Finish the session.
+8. Verify no late transcript-sync failures occur after completion.
+9. Verify the review surface loads with summary feedback and phrase-bank save actions.
+
+Pass condition:
+- the live voice path feels like an actual back-and-forth conversation
+- no duplicate-turn sync failures occur under normal browser use
+- teardown to review is clean
 
 ## 3.7 Test Prep Sprint
 
@@ -234,6 +280,11 @@ Verify events fire for:
 - `tools_viewed`
 - `homework_help_opened_from_tools`
 - `test_prep_opened_from_tools`
+- `learn_speaking_mission_started`
+- `learn_speaking_mission_completed`
+- `learn_speaking_feedback_viewed`
+- `learn_speaking_retry_started`
+- `learn_speaking_phrase_saved`
 
 Reserved and not currently required in the shipped build:
 - `homework_quick_action_clicked`

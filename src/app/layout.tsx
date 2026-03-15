@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   description:
     "Academic language support for students: assessment, learning plans, speaking practice, homework help, and progress tracking.",
   applicationName: "ESL International Connect",
-  metadataBase: new URL("http://localhost:3000"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
   icons: {
     icon: "/brand/logo-icon-favicon.svg",
   },

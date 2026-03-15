@@ -2,13 +2,16 @@ import { notFound } from "next/navigation";
 
 import { CheckpointPlayer } from "@/features/learn/checkpoint-player";
 import { LearnActivityShell } from "@/features/learn/learn-activity-shell";
+import { LearnSpeakingMission } from "@/features/learn/learn-speaking-mission";
 import { LessonPlayer } from "@/features/learn/lesson-player";
 import { StructuredResponseActivity } from "@/features/learn/structured-response-activity";
 import { WorksheetPlayer } from "@/features/learn/worksheet-player";
+import { PageShell } from "@/components/ui-kit/page-shell";
 import { getCurrentUser } from "@/server/auth";
 import { trackEvent } from "@/server/analytics";
 import { ContentService } from "@/server/services/content-service";
 import { CurriculumService } from "@/server/services/curriculum-service";
+import { LearnSpeakingService } from "@/server/services/learn-speaking-service";
 
 const COMPLETION_ENDPOINT = "/api/v1/learn/curriculum/activity/complete";
 
@@ -151,40 +154,26 @@ export default async function CurriculumActivityPage({
   }
 
   if (activity.activityType === "speaking") {
-    const prompts = Array.isArray(activity.payload.prompts)
-      ? activity.payload.prompts.map(String)
-      : [unit.canDoStatement];
+    const missionView = await LearnSpeakingService.getMissionView(user.id, unitSlug);
 
     return (
-      <LearnActivityShell
-        curriculumTitle={curriculum.curriculum.title}
-        unitTitle={unit.title}
-        unitOrder={unit.orderIndex}
-        unitSlug={unit.slug}
-        canDoStatement={unit.canDoStatement}
-        performanceTask={unit.performanceTask}
-        activityType="speaking"
-        activityTitle={activity.title}
-        activityDescription={activity.description}
-        activities={unit.activities}
-        upcomingAction={upcomingAction}
-      >
-        <StructuredResponseActivity
-          endpoint={COMPLETION_ENDPOINT}
+      <PageShell className="px-0 py-0">
+        <LearnSpeakingMission
           unitSlug={unitSlug}
           unitTitle={unit.title}
-          activityType="speaking"
-          title={activity.title}
-          description={activity.description}
-          prompts={prompts}
-          criteria={[
-            `Show this can-do goal: ${unit.canDoStatement}`,
-            `Use vocabulary from ${unit.title}.`,
-            "Respond in full connected sentences.",
-          ]}
+          unitOrder={unit.orderIndex}
+          canDoStatement={unit.canDoStatement}
+          performanceTask={unit.performanceTask}
+          mission={missionView.mission}
+          plan={missionView.plan}
+          voiceEnabled={missionView.voiceEnabled}
+          progressStatus={missionView.progressStatus as "locked" | "unlocked" | "completed"}
+          initialSession={missionView.session}
+          savedReview={missionView.savedReview}
+          completionEndpoint={COMPLETION_ENDPOINT}
           fallbackHref="/app/learn"
         />
-      </LearnActivityShell>
+      </PageShell>
     );
   }
 

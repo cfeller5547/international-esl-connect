@@ -17,11 +17,13 @@ import {
 type SpeakLaunchPanelProps = {
   starters: Array<{ key: string; label: string; prompt: string }>;
   guidedScenarios: Array<{ key: string; title: string; description: string }>;
+  voiceConfigured: boolean;
 };
 
 export function SpeakLaunchPanel({
   starters,
   guidedScenarios,
+  voiceConfigured,
 }: SpeakLaunchPanelProps) {
   const router = useRouter();
   const [starterKey, setStarterKey] = useState(starters[0]?.key ?? "school_day");
@@ -109,7 +111,9 @@ export function SpeakLaunchPanel({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="text">Text-first</SelectItem>
-                <SelectItem value="voice">Voice (Pro)</SelectItem>
+                <SelectItem value="voice" disabled={!voiceConfigured}>
+                  Voice {!voiceConfigured ? "(Unavailable)" : "(Pro)"}
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -175,6 +179,9 @@ export function SpeakLaunchPanel({
           <p>Free plans default to text-first speaking practice with starter prompts.</p>
           <p>After each turn, you get one short improvement cue instead of a wall of corrections.</p>
           <p>Completed sessions unlock transcript review and phrase saving.</p>
+          {!voiceConfigured ? (
+            <p>Voice mode appears automatically once OpenAI is configured on this environment.</p>
+          ) : null}
         </CardContent>
       </Card>
     </div>

@@ -7,6 +7,7 @@ import { SpeakService } from "@/server/services/speak-service";
 
 const schema = z.object({
   sessionId: z.string().min(1),
+  durationSeconds: z.number().min(0).optional(),
 });
 
 export async function POST(request: Request) {
@@ -17,7 +18,11 @@ export async function POST(request: Request) {
     }
 
     const payload = await parseJson(request, schema);
-    return ok(await SpeakService.completeSession(payload.sessionId, user.id));
+    return ok(
+      await SpeakService.completeSession(payload.sessionId, user.id, {
+        durationSeconds: payload.durationSeconds,
+      })
+    );
   } catch (error) {
     return toErrorResponse(error);
   }

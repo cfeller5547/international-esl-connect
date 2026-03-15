@@ -1,0 +1,95 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - link "ESL International Connect home" [ref=e5] [cursor=pointer]:
+          - /url: /app/home
+          - img "ESL International Connect" [ref=e6]
+        - button "Account" [ref=e7]
+    - main [ref=e8]:
+      - main [ref=e307]:
+        - generic [ref=e308]:
+          - generic [ref=e310]:
+            - link "Back to roadmap" [ref=e312] [cursor=pointer]:
+              - /url: /app/learn
+              - img [ref=e313]
+              - text: Back to roadmap
+            - generic [ref=e315]:
+              - generic [ref=e316]:
+                - generic [ref=e317]: Unit 1
+                - generic [ref=e318]: Writing
+                - generic [ref=e319]: Unit step 4 of 5
+              - paragraph [ref=e320]: Intermediate English
+              - heading "Tell Stories Clearly" [level=1] [ref=e321]
+              - paragraph [ref=e322]: Writing Task. Write a short response that proves the unit goal.
+              - paragraph [ref=e323]: I can tell a clear story with context, sequence, and detail.
+            - generic [ref=e324]:
+              - generic [ref=e325]:
+                - img [ref=e326]
+                - generic [ref=e329]: Lesson
+              - generic [ref=e330]:
+                - img [ref=e331]
+                - generic [ref=e334]: Practice
+              - generic [ref=e335]:
+                - img [ref=e336]
+                - generic [ref=e339]: Speak
+              - generic [ref=e340]:
+                - img [ref=e341]
+                - generic [ref=e344]: Write
+              - generic [ref=e345]:
+                - img [ref=e346]
+                - generic [ref=e350]: Check
+            - heading "Need context?" [level=3] [ref=e353]:
+              - button "Need context?" [ref=e354]:
+                - text: Need context?
+                - img
+          - generic [ref=e356]:
+            - generic [ref=e358]:
+              - paragraph [ref=e359]: Writing brief
+              - generic [ref=e360]: Writing Task
+              - paragraph [ref=e361]: Tell a connected story about a meaningful past experience. Write 5 to 8 sentences that fit the scenario and unit goal.
+            - generic [ref=e362]:
+              - generic [ref=e364]:
+                - paragraph [ref=e365]: Writing task
+                - paragraph [ref=e366]: Tell a connected story about a meaningful past experience. Write 5 to 8 sentences that fit the scenario and unit goal.
+              - generic [ref=e367]:
+                - paragraph [ref=e368]:
+                  - img [ref=e369]
+                  - text: What a strong response should show
+                - list [ref=e372]:
+                  - listitem [ref=e373]: "- Show the unit goal: I can tell a clear story with context, sequence, and detail."
+                  - listitem [ref=e374]: "- Use language from this unit: narrative sequencing, past framing, reflection"
+                  - listitem [ref=e375]: "- Include vocabulary such as suddenly, eventually, detail"
+              - generic [ref=e376]:
+                - textbox "Write your full response here." [ref=e377]
+                - generic [ref=e378]:
+                  - paragraph [ref=e379]:
+                    - img [ref=e380]
+                    - text: Aim for a clear beginning, supporting detail, and a clean finish.
+                  - paragraph [ref=e383]: 0 words
+              - generic [ref=e384]:
+                - button "Save writing response" [disabled]
+    - navigation [ref=e110]:
+      - generic [ref=e111]:
+        - link "Home" [ref=e112] [cursor=pointer]:
+          - /url: /app/home
+          - img [ref=e113]
+          - generic [ref=e116]: Home
+        - link "Learn" [ref=e117] [cursor=pointer]:
+          - /url: /app/learn
+          - img [ref=e118]
+          - generic [ref=e120]: Learn
+        - link "Speak" [ref=e121] [cursor=pointer]:
+          - /url: /app/speak
+          - img [ref=e122]
+          - generic [ref=e126]: Speak
+        - link "Tools" [ref=e127] [cursor=pointer]:
+          - /url: /app/tools
+          - img [ref=e128]
+          - generic [ref=e130]: Tools
+        - link "Progress" [ref=e131] [cursor=pointer]:
+          - /url: /app/progress
+          - img [ref=e132]
+          - generic [ref=e136]: Progress
+  - region "Notifications alt+T"
+  - alert [ref=e137]

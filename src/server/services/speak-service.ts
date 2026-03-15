@@ -1,21 +1,27 @@
-import { SPEAK_STARTERS } from "@/lib/constants";
+import { GUIDED_SCENARIOS, SPEAK_STARTERS } from "@/lib/constants";
 import { AppError } from "@/server/errors";
-import { prisma } from "@/server/prisma";
 
-import {
-  generateSpeakReply,
-  generateTranscriptAnnotations,
-} from "../ai/heuristics";
 import { trackEvent } from "../analytics";
 
-import { StreakService } from "./streak-service";
-import { UsageService } from "./usage-service";
+import { ConversationService } from "./conversation-service";
 
 function resolveStarterPrompt(starterKey?: string | null) {
   return (
     SPEAK_STARTERS.find((starter) => starter.key === starterKey)?.prompt ??
     SPEAK_STARTERS[0].prompt
   );
+}
+
+function resolveScenario(scenarioKey?: string | null) {
+  const scenario =
+    GUIDED_SCENARIOS.find((entry) => entry.key === scenarioKey) ??
+    GUIDED_SCENARIOS[0];
+
+  return {
+    title: scenario?.title ?? "Guided scenario",
+    description:
+      scenario?.description ?? "Practice a short academic speaking scenario.",
+  };
 }
 
 export const SpeakService = {
@@ -38,52 +44,76 @@ export const SpeakService = {
     scenarioKey?: string | null;
     summaryPayload?: Record<string, unknown>;
   }) {
-    const subscription = await UsageService.getOrCreateSubscription(userId);
+    const starterPrompt = resolveStarterPrompt(starterKey);
+    const scenario = resolveScenario(scenarioKey);
 
-    if (interactionMode === "voice" && subscription.plan !== "pro") {
-      await trackEvent({
-        eventName: "voice_mode_upgrade_prompt_shown",
-        route: "/app/speak",
-        userId,
-        properties: {},
-      });
-
-      throw new AppError(
-        "VOICE_MODE_UPGRADE_REQUIRED",
-        "Voice input requires Pro on this build.",
-        402
-      );
-    }
-
-    const session = await prisma.speakSession.create({
-      data: {
+    try {
+      const session = await ConversationService.startSession({
         userId,
         mode,
         interactionMode,
+        surface: "speak",
+        missionKind: mode,
         scenarioKey: scenarioKey ?? starterKey,
-        status: "active",
+        seedOpeningTurn: interactionMode !== "voice",
         summaryPayload: {
           starterKey,
-          starterPrompt: resolveStarterPrompt(starterKey),
+          starterPrompt,
+          scenarioTitle: mode === "guided" ? scenario.title : "Open speaking practice",
+          scenarioSetup:
+            mode === "guided"
+              ? scenario.description
+              : starterPrompt,
+          targetPhrases: [],
+          followUpPrompts:
+            mode === "guided"
+              ? [
+                  "Answer with one clear idea, then add a helpful detail.",
+                  "Explain why that matters.",
+                  "Give one specific example from class, work, or daily life.",
+                ]
+              : [
+                  "Say a little more about that.",
+                  "Give one specific example.",
+                  "Explain why that matters to you.",
+                ],
+          successCriteria: [
+            "Respond clearly to the prompt.",
+            "Add at least one useful detail.",
+          ],
           ...summaryPayload,
         },
-      },
-    });
+      });
 
-    await trackEvent({
-      eventName: "speak_session_started",
-      route: "/app/speak",
-      userId,
-      properties: {
-        mode,
-        scenario_key: scenarioKey ?? starterKey,
-      },
-    });
+      await trackEvent({
+        eventName: "speak_session_started",
+        route: "/app/speak",
+        userId,
+        properties: {
+          mode,
+          scenario_key: scenarioKey ?? starterKey,
+        },
+      });
 
-    return {
-      sessionId: session.id,
-      starterPrompt: resolveStarterPrompt(starterKey),
-    };
+      return {
+        sessionId: session.sessionId,
+        starterPrompt,
+      };
+    } catch (error) {
+      if (
+        error instanceof AppError &&
+        error.code === "VOICE_MODE_UPGRADE_REQUIRED"
+      ) {
+        await trackEvent({
+          eventName: "voice_mode_upgrade_prompt_shown",
+          route: "/app/speak",
+          userId,
+          properties: {},
+        });
+      }
+
+      throw error;
+    }
   },
 
   async submitTurn({
@@ -96,67 +126,28 @@ export const SpeakService = {
     studentInput: {
       text?: string;
       audioRef?: string;
+      audioDataUrl?: string;
+      audioMimeType?: string;
+      durationSeconds?: number;
     };
   }) {
-    const session = await prisma.speakSession.findFirstOrThrow({
-      where: {
-        id: sessionId,
-        userId,
-      },
-      include: {
-        turns: {
-          orderBy: { turnIndex: "asc" },
-        },
-      },
+    const reply = await ConversationService.submitTurn({
+      sessionId,
+      userId,
+      studentInput,
     });
 
-    await UsageService.assertWithinLimit(userId, "speak_text_turns");
-    await UsageService.increment(userId, "speak_text_turns");
-
-    const starterPrompt = String(
-      (session.summaryPayload as Record<string, unknown>)?.starterPrompt ??
-        resolveStarterPrompt((session.summaryPayload as Record<string, unknown>)?.starterKey as string)
-    );
-
-    const studentText = studentInput.text?.trim() ?? "";
-    const nextTurnIndex = session.turns.length + 1;
-
-    await prisma.speakTurn.create({
-      data: {
-        speakSessionId: session.id,
-        speaker: "student",
-        turnIndex: nextTurnIndex,
-        transcriptText: studentText,
-        audioRef: studentInput.audioRef,
-        metricsPayload: {},
-      },
-    });
-
-    const reply = generateSpeakReply({
-      starterPrompt,
-      studentInput: studentText,
-    });
-
-    await prisma.speakTurn.create({
-      data: {
-        speakSessionId: session.id,
-        speaker: "ai",
-        turnIndex: nextTurnIndex + 1,
-        transcriptText: reply.aiResponseText,
-        metricsPayload: {
-          microCoaching: reply.microCoaching,
-          turnSignals: reply.turnSignals,
-        },
-      },
-    });
+    const session = await ConversationService.getSession(sessionId, userId);
+    const turnIndex =
+      session?.turns.filter((turn) => turn.speaker === "student").length ?? 0;
 
     await trackEvent({
       eventName: "speak_turn_submitted",
       route: `/app/speak/session/${sessionId}`,
       userId,
       properties: {
-        turn_index: nextTurnIndex,
-        input_mode: session.interactionMode,
+        turn_index: turnIndex,
+        input_mode: session?.interactionMode ?? "text",
       },
     });
 
@@ -164,95 +155,86 @@ export const SpeakService = {
       aiResponseText: reply.aiResponseText,
       transcriptUpdated: true,
       microCoaching: reply.microCoaching,
+      aiAudioBase64: reply.aiAudioBase64 ?? null,
+      studentTranscriptText: reply.studentTranscriptText ?? null,
     };
   },
 
-  async completeSession(sessionId: string, userId: string) {
-    const session = await prisma.speakSession.findFirstOrThrow({
-      where: {
-        id: sessionId,
+  async createRealtimeClientSecret(sessionId: string, userId: string) {
+    return ConversationService.getRealtimeClientSecret({
+      sessionId,
+      userId,
+    });
+  },
+
+  async syncRealtimeTranscript({
+    sessionId,
+    userId,
+    turns,
+  }: {
+    sessionId: string;
+    userId: string;
+    turns: Array<{
+      speaker: "ai" | "student";
+      text: string;
+    }>;
+  }) {
+    const sync = await ConversationService.syncRealtimeTranscript({
+      sessionId,
+      userId,
+      turns,
+    });
+
+    if (sync.newStudentTurns > 0) {
+      await trackEvent({
+        eventName: "speak_turn_submitted",
+        route: `/app/speak/session/${sessionId}`,
         userId,
-      },
-      include: {
-        turns: {
-          orderBy: { turnIndex: "asc" },
+        properties: {
+          turn_index: sync.studentTurnCount,
+          input_mode: "voice",
         },
-      },
-    });
+      });
+    }
 
-    const studentTurns = session.turns.filter((turn) => turn.speaker === "student");
-    const summary = {
-      strengths: ["You stayed engaged through the conversation.", "You added useful detail."],
-      improvements: ["Practice longer responses.", "Check verb tense consistency."],
-    };
+    return sync;
+  },
 
-    await prisma.speakSession.update({
-      where: { id: sessionId },
-      data: {
-        status: "completed",
-        completedAt: new Date(),
-        durationSeconds: studentTurns.length * 30,
-        summaryPayload: {
-          ...(session.summaryPayload as Record<string, unknown>),
-          ...summary,
-        },
-      },
+  async completeSession(
+    sessionId: string,
+    userId: string,
+    options?: {
+      durationSeconds?: number;
+    }
+  ) {
+    const completion = await ConversationService.completeSession({
+      sessionId,
+      userId,
+      durationSecondsOverride: options?.durationSeconds,
     });
+    const session = await ConversationService.getSession(sessionId, userId);
 
     await trackEvent({
       eventName: "speak_session_completed",
       route: `/app/speak/session/${sessionId}`,
       userId,
       properties: {
-        mode: session.mode,
-        duration_seconds: studentTurns.length * 30,
-        turn_count: studentTurns.length,
+        mode: session?.mode ?? "guided",
+        duration_seconds: completion.durationSeconds,
+        turn_count: completion.studentTurnCount,
       },
     });
 
-    const chainContext = session.summaryPayload as Record<string, unknown>;
-    if (chainContext?.chainLessonId && chainContext?.chainWorksheetId) {
-      await trackEvent({
-        eventName: "learn_chain_completed",
-        route: `/app/speak/session/${sessionId}`,
-        userId,
-        properties: {
-          lesson_id: chainContext.chainLessonId,
-          worksheet_id: chainContext.chainWorksheetId,
-          speaking_session_id: sessionId,
-        },
-      });
-    }
-
-    await StreakService.recordQualifyingActivity(userId);
-
-    return { summary };
+    return {
+      summary: {
+        strengths: [completion.review.strength],
+        improvements: [completion.review.improvement],
+      },
+    };
   },
 
   async getTranscript(sessionId: string, userId: string) {
-    const session = await prisma.speakSession.findFirstOrThrow({
-      where: {
-        id: sessionId,
-        userId,
-      },
-      include: {
-        turns: {
-          orderBy: { turnIndex: "asc" },
-        },
-      },
-    });
-
-    const transcript = generateTranscriptAnnotations(
-      session.turns.map((turn) => ({
-        speaker: turn.speaker,
-        text: turn.transcriptText,
-      }))
-    );
-
-    return {
-      sessionId,
-      ...transcript,
-    };
+    return ConversationService.getTranscript(sessionId, userId);
   },
 
   async savePhrase({
@@ -266,32 +248,15 @@ export const SpeakService = {
     phraseText: string;
     translationText?: string;
   }) {
-    const phrase = await prisma.phraseBankItem.create({
-      data: {
-        userId,
-        sourceSpeakSessionId: sessionId,
-        phraseText,
-        translationText,
-        contextPayload: {},
-      },
-    });
-
-    await trackEvent({
-      eventName: "transcript_phrase_saved",
-      route: `/app/speak/session/${sessionId}`,
+    return ConversationService.savePhrase({
+      sessionId,
       userId,
-      properties: {
-        session_id: sessionId,
-      },
+      phraseText,
+      translationText,
     });
-
-    return phrase;
   },
 
   async listSavedPhrases(userId: string) {
-    return prisma.phraseBankItem.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-    });
+    return ConversationService.listSavedPhrases(userId);
   },
 };

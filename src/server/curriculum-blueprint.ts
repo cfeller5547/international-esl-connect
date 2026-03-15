@@ -1,3 +1,6 @@
+import { inferLearnOpeningQuestion } from "@/server/learn-speaking-prompts";
+import { AUTHORED_SPEAKING_MISSIONS } from "@/server/curriculum-speaking-missions";
+
 export const CURRICULUM_LEVELS = [
   "very_basic",
   "basic",
@@ -42,7 +45,18 @@ export type UnitBlueprint = {
   lessonSections: Array<{ title: string; body: string }>;
   lessonChecks: LessonCheck[];
   practiceQuestions: PracticeQuestion[];
-  speakingPrompts: string[];
+  speakingMission: {
+    scenarioTitle: string;
+    scenarioSetup: string;
+    counterpartRole: string;
+    openingQuestion: string;
+    warmupPrompts: string[];
+    targetPhrases: string[];
+    followUpPrompts: string[];
+    successCriteria: string[];
+    modelExample: string;
+    isBenchmark: boolean;
+  };
   writingPrompt: string;
   writingCriteria: string[];
   checkpointQuestions: LessonCheck[];
@@ -186,7 +200,44 @@ function createPracticeQuestions(
   ];
 }
 
+function inferCounterpartRole(raw: RawUnitBlueprint) {
+  const normalized = `${raw.scenario} ${raw.performanceTask}`.toLowerCase();
+
+  if (normalized.includes("interview")) {
+    return "interviewer";
+  }
+
+  if (normalized.includes("customer")) {
+    return "customer";
+  }
+
+  if (
+    normalized.includes("classmate") ||
+    normalized.includes("partner") ||
+    normalized.includes("group")
+  ) {
+    return "classmate";
+  }
+
+  if (normalized.includes("teacher") || normalized.includes("class")) {
+    return "teacher";
+  }
+
+  return "conversation partner";
+}
+
+function createOpeningQuestion(raw: RawUnitBlueprint) {
+  return inferLearnOpeningQuestion({
+    scenarioTitle: raw.title,
+    scenarioSetup: raw.scenario,
+    canDoStatement: raw.canDoStatement,
+    performanceTask: raw.performanceTask,
+  });
+}
+
 function createUnit(raw: RawUnitBlueprint, level: CurriculumLevel, unitIndex: number): UnitBlueprint {
+  const authoredSpeakingMission = AUTHORED_SPEAKING_MISSIONS[raw.slug];
+
   return {
     ...raw,
     lessonSections: [
@@ -205,11 +256,35 @@ function createUnit(raw: RawUnitBlueprint, level: CurriculumLevel, unitIndex: nu
     ],
     lessonChecks: createChecks(raw),
     practiceQuestions: createPracticeQuestions(level, unitIndex, raw),
-    speakingPrompts: [
-      `Respond to this scenario: ${raw.scenario}`,
-      `Use vocabulary such as ${raw.keyVocabulary.slice(0, 3).join(", ")} in your response.`,
-      `Speak toward this goal: ${raw.canDoStatement}`,
-    ],
+    speakingMission: {
+      scenarioTitle: authoredSpeakingMission?.scenarioTitle ?? raw.title,
+      scenarioSetup: authoredSpeakingMission?.scenarioSetup ?? raw.scenario,
+      counterpartRole:
+        authoredSpeakingMission?.counterpartRole ?? inferCounterpartRole(raw),
+      openingQuestion:
+        authoredSpeakingMission?.openingQuestion ?? createOpeningQuestion(raw),
+      warmupPrompts:
+        authoredSpeakingMission?.warmupPrompts ?? [
+          "Say the main idea of this situation in one sentence.",
+          `Practice one phrase using ${raw.keyVocabulary.slice(0, 2).join(" and ")}.`,
+        ],
+      targetPhrases:
+        authoredSpeakingMission?.targetPhrases ?? raw.keyVocabulary.slice(0, 4),
+      followUpPrompts:
+        authoredSpeakingMission?.followUpPrompts ?? [
+          `Respond to this scenario: ${raw.scenario}`,
+          `Add one useful detail that supports this goal: ${raw.canDoStatement}`,
+          `Finish by showing this performance task: ${raw.performanceTask}`,
+        ],
+      successCriteria:
+        authoredSpeakingMission?.successCriteria ?? [
+          raw.canDoStatement,
+          `Use language focus such as ${raw.languageFocus.join(", ")}.`,
+          `Include vocabulary such as ${raw.keyVocabulary.slice(0, 3).join(", ")}.`,
+        ],
+      modelExample: authoredSpeakingMission?.modelExample ?? raw.performanceTask,
+      isBenchmark: unitIndex === 3 || unitIndex === 6,
+    },
     writingPrompt: `${raw.performanceTask} Write 5 to 8 sentences that fit the scenario and unit goal.`,
     writingCriteria: [
       `Show the unit goal: ${raw.canDoStatement}`,

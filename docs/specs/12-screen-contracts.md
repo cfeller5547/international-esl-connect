@@ -176,6 +176,61 @@ This document translates product and UX principles into concrete, testable scree
   - if unit finished, unlock next unit and route directly to its first activity after the completion transition
 - Instrumentation: `unit_activity_completed`, `unit_completed`.
 
+### `/app/learn/unit/:unitSlug/speaking`
+- Goal: complete the unit speaking mission inside Learn without leaving the curriculum flow.
+- Primary CTA:
+  - `Start conversation` in brief
+  - one response action at a time in conversation (`Start live conversation`, `Reconnect live voice`, or `Send`)
+  - `See feedback` after the required replies are complete
+  - `Try again` or `Continue to writing` in feedback
+- Secondary actions: `Back`, `Use keyboard instead`, `Type instead`, optional `See full transcript`.
+- Required components:
+  - focused speaking shell with compact route chrome, not the full generic Learn activity header
+  - brief state with:
+    - scenario title
+    - one-sentence setup
+    - one plain-language goal
+    - collapsed helpful phrases authored for that unit mission
+    - collapsed example response authored for that unit mission
+    - one dominant `Start conversation` CTA
+  - conversation state with:
+    - one dominant transcript/conversation panel
+    - an opening counterpart turn that already sounds like the live scene and does not require extra interpretation from the learner
+    - the latest counterpart turn visually anchored
+    - mostly hidden progress language with only a soft momentum cue
+    - one primary response control at a time
+    - collapsed hint support
+    - Pro live voice path uses a bounded realtime voice exchange inside Learn
+    - free path uses transcript-first text chat
+  - feedback state with:
+    - one simple outcome label
+    - one strength
+    - one improvement target
+    - 2-3 highlighted transcript moments
+    - optional full transcript
+    - phrase save actions
+    - retry CTA
+  - benchmark units (`3` and `6`) must use stronger benchmark-mode copy but stay inside Learn
+- Loading/empty/error:
+  - if an active mission already exists, reopen in-progress state instead of restarting
+  - if mic access is denied or voice is unavailable, preserve mission state and offer text fallback
+  - if the unit or activity is locked, show the standard locked-state recovery path
+- Default interaction behavior:
+  - Pro is voice-first by default
+  - free is text-first by default
+- Conversation behavior:
+  - the first AI turn must be a natural scenario opener, not procedural setup text such as `Let's practice` or `Start with this`
+  - the live exchange must avoid visible `reply count` or `unlock feedback` copy in the main body
+- Exit transition:
+  - completing the conversation moves into feedback first
+  - completing the underlying speaking activity routes to writing through the existing activity-completion chain
+- Instrumentation:
+  - `learn_speaking_mission_started`
+  - `learn_speaking_mission_completed`
+  - `learn_speaking_feedback_viewed`
+  - `learn_speaking_retry_started`
+  - `learn_speaking_phrase_saved`
+
 ## 3.5 Speak
 
 ### `/app/speak`
@@ -185,7 +240,8 @@ This document translates product and UX principles into concrete, testable scree
 - Required components:
   - mode cards
   - scenario list
-  - quick mic check
+  - clear interaction-mode selector (`Text-first`, `Voice (Pro)`)
+  - quick mic readiness cue when `Voice (Pro)` is selected
   - free-speech starter chips (at least 4 prompts)
   - first-time default starter preselected to avoid blank state
 - Loading/empty/error:
@@ -199,12 +255,19 @@ This document translates product and UX principles into concrete, testable scree
 - Primary CTA: `Send` / `Finish session`.
 - Secondary actions: mic toggle, text fallback, end session.
 - Required components:
-  - transcript pane
-  - input controls
-  - speaking/listening state indicator
-  - inline corrections in transcript review
-  - save-to-phrase-bank action
+  - shared transcript pane
+  - activity-state indicator (`Ready to start`, `Connecting`, `Listening`, `Thinking`, `Speaking`, `Session complete`, `Connection issue`)
+  - text input controls for text-first sessions
+  - live voice surface for active Pro voice sessions:
+    - explicit `Start live conversation` CTA
+    - browser mic handoff
+    - transcript that grows as the live session unfolds
+    - one visible `Finish session` action
+  - post-session review with inline corrections and phrase-bank actions
 - Loading/empty/error: resilient reconnect flow for temporary AI failures.
+- Voice rule:
+  - active voice sessions should feel like real-time back-and-forth audio, not turn-by-turn upload
+  - transcript sync must survive overlapping browser updates without dropping the session
 - Exit transition: post-session summary then recommend next Learn step.
 - Instrumentation: `speak_turn_submitted`, `speak_session_completed`, `transcript_phrase_saved`.
 

@@ -28,12 +28,13 @@ This keeps delivery speed high while preserving clean boundaries.
 3. Assessment engine
 4. Learn recommendation engine
 5. Homework Help orchestration
-6. Speak session orchestration
+6. Shared conversation/session orchestration
 7. Content catalog and ingestion layer (teacher-provided + placeholder)
 8. Test prep planning and mini mock orchestration
 9. Report generation and comparison service
 10. Streak and engagement milestone tracker
-11. Persistence layer (database + object storage)
+11. AI provider integration (OpenAI for text, transcription, TTS, and realtime voice)
+12. Persistence layer (database + object storage)
 
 ## 4. Proposed Runtime Topology
 
@@ -94,6 +95,8 @@ Define service modules:
 - `CurriculumService`
 - `RecommendationService`
 - `HomeworkHelpService`
+- `ConversationService`
+- `LearnSpeakingService`
 - `SpeakService`
 - `ContentService`
 - `TestPrepService`
@@ -107,6 +110,18 @@ Each service should:
 
 Speak tier rule:
 - `SpeakService` must enforce free-tier text-first defaults and plan-aware voice gating before expensive voice pipeline calls.
+
+Conversation provider rule:
+- OpenAI is the live AI provider for conversation generation, transcription, TTS, and browser-based realtime voice in MVP.
+- Environment configuration must be explicit via:
+  - `OPENAI_API_KEY`
+  - `OPENAI_TEXT_MODEL`
+  - `OPENAI_REALTIME_MODEL`
+  - `OPENAI_TRANSCRIPTION_MODEL`
+  - `OPENAI_TTS_MODEL`
+  - `OPENAI_TTS_VOICE`
+  - `OPENAI_REALTIME_VOICE`
+- If the OpenAI key is absent, development fallback behavior may remain heuristic for text responses, but live voice mode must stay unavailable.
 
 Streak rule:
 - `StreakService` recomputes streaks on qualifying activity completion and emits milestone events idempotently.
@@ -167,6 +182,28 @@ Required output fields from `RecommendationService`:
 5. auto-transition to the next required activity in the unit
 6. completing the checkpoint unlocks the next unit
 7. inline progress update emitted
+
+### 9.2.1 Learn Speaking Mission Flow
+1. Learn loads mission view for `/app/learn/unit/:unitSlug/speaking`
+2. `LearnSpeakingService` resolves the unit speaking payload and latest linked session
+3. `ConversationService` starts or resumes a shared conversation session with `surface = learn`
+4. Learn `start` returns `sessionId`, `deliveryMode`, `openingTurn`, `resumeState`, and `canFinish`
+5. free users continue through the text turn route; Pro voice users request a short-lived realtime client secret from `/api/v1/learn/curriculum/speaking/:sessionId/realtime`
+6. browser opens a WebRTC connection directly to OpenAI Realtime for the bounded Learn voice exchange
+7. transcript snapshots sync back to `/api/v1/learn/curriculum/speaking/:sessionId/sync`
+8. completion generates a focused mission review with highlights
+9. the review is persisted on the linked unit activity progress row
+10. final curriculum completion still flows through `CurriculumService`
+
+### 9.2.2 Speak Realtime Voice Flow
+1. user starts a Speak session with `interactionMode = voice`
+2. `SpeakService` creates the session without seeding a fake first turn
+3. session page requests a short-lived realtime client secret from `/api/v1/speak/session/:sessionId/realtime`
+4. browser opens a WebRTC connection directly to OpenAI Realtime
+5. transcript snapshots sync back to `/api/v1/speak/session/:sessionId/sync`
+6. user finishes the session explicitly
+7. server completes the session, stores evaluation payload, and returns transcript review
+8. phrase-bank saves continue through the shared conversation/session layer
 
 ### 9.3 Reassessment Report Loop
 1. user starts new assessment from Progress

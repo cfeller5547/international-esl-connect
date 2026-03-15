@@ -1,0 +1,154 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e51]:
+    - banner [ref=e52]:
+      - generic [ref=e53]:
+        - link "ESL International Connect home" [ref=e54] [cursor=pointer]:
+          - /url: /app/home
+          - img "ESL International Connect" [ref=e55]
+        - navigation [ref=e56]:
+          - link "Home" [ref=e57] [cursor=pointer]:
+            - /url: /app/home
+          - link "Learn" [ref=e58] [cursor=pointer]:
+            - /url: /app/learn
+          - link "Speak" [ref=e59] [cursor=pointer]:
+            - /url: /app/speak
+          - link "Tools" [ref=e60] [cursor=pointer]:
+            - /url: /app/tools
+          - link "Progress" [ref=e61] [cursor=pointer]:
+            - /url: /app/progress
+        - button "Account" [ref=e62]
+    - main [ref=e63]:
+      - generic [ref=e162]:
+        - generic [ref=e163]:
+          - generic [ref=e164]:
+            - generic [ref=e165]:
+              - generic [ref=e166]:
+                - generic [ref=e167]: Speak live
+                - generic [ref=e168]: Open speaking practice
+                - paragraph [ref=e169]: Tell me about your classes today.
+              - generic [ref=e170]:
+                - generic [ref=e171]:
+                  - img
+                  - text: Session complete
+                - button "Finish session" [ref=e186]:
+                  - img
+                  - text: Finish session
+            - generic [ref=e172]: "Opening prompt: Tell me about your classes today."
+          - generic [ref=e173]:
+            - generic [ref=e180]:
+              - generic [ref=e187]: "Hi there! Welcome to our open speaking practice. Let's get started with something simple: tell me about your classes today. What subjects did you have, and how did they go?"
+              - generic [ref=e188]: to practice speaking today.
+              - generic [ref=e189]: Great idea! We can definitely focus on that. What's one question you’d like to practice answering?
+              - generic [ref=e190]: Yesterday I studied grammar after school and then I read a short article.
+              - generic [ref=e191]: Nice! What kind of grammar did you study, and what was the article about?
+              - generic [ref=e192]: I get that.
+              - generic [ref=e193]: I think speaking is difficult sometimes, but I want to become more confident.
+              - generic [ref=e194]: Hello, I want to practice speaking English today.
+              - generic [ref=e195]: That's great! Let's start with something simple. How was your day today?
+              - generic [ref=e196]: Yesterday I studied grammar after school and then I read a short article.
+              - generic [ref=e197]: That sounds productive. What was the article about?
+              - generic [ref=e198]: I think speaking is difficult sometimes, but I want to become more confident.
+              - generic [ref=e199]: Hello, I want to practice speaking English today.
+              - generic [ref=e200]: That's great! Let's jump in. Can you tell me more about your day so far?
+              - generic [ref=e201]: Yesterday I studied grammar after school and then I read a short article.
+              - generic [ref=e202]: That sounds productive. What was the article about?
+              - generic [ref=e203]: I think speaking is difficult sometimes, but I want to become more confident.
+              - generic [ref=e204]: Hello, I want to practice speaking English today.
+              - generic [ref=e205]: "That's great! Let's start with a simple question: what did you have for breakfast today?"
+              - generic [ref=e206]: Yesterday I studied grammar after school and then I read a short article.
+            - generic [ref=e182]:
+              - paragraph [ref=e183]: Review your session and save any useful phrases.
+              - paragraph [ref=e184]: "Student turns recorded: 11"
+        - generic [ref=e207]:
+          - generic [ref=e208]:
+            - generic [ref=e209]:
+              - generic [ref=e210]: Post-session review
+              - generic [ref=e211]: See what to keep and what to refine
+            - generic [ref=e212]:
+              - generic [ref=e213]:
+                - generic [ref=e214]:
+                  - paragraph [ref=e215]: What worked
+                  - paragraph [ref=e216]: You respond clearly and provide some useful details about your study activities.
+                - generic [ref=e217]:
+                  - paragraph [ref=e218]: Next improvement
+                  - paragraph [ref=e219]: Try to answer the questions directly in the current conversation instead of repeating earlier responses to keep the dialogue flowing naturally.
+              - generic [ref=e220]:
+                - generic [ref=e221]:
+                  - paragraph [ref=e222]: ai
+                  - paragraph [ref=e223]: "Hi there! Welcome to our open speaking practice. Let's get started with something simple: tell me about your classes today. What subjects did you have, and how did they go?"
+                - generic [ref=e224]:
+                  - paragraph [ref=e225]: student
+                  - paragraph [ref=e226]: to practice speaking today.
+                - generic [ref=e227]:
+                  - paragraph [ref=e228]: ai
+                  - paragraph [ref=e229]: Great idea! We can definitely focus on that. What's one question you’d like to practice answering?
+                - generic [ref=e230]:
+                  - paragraph [ref=e231]: student
+                  - paragraph [ref=e232]: Yesterday I studied grammar after school and then I read a short article.
+                - generic [ref=e233]:
+                  - paragraph [ref=e234]: ai
+                  - paragraph [ref=e235]: Nice! What kind of grammar did you study, and what was the article about?
+                - generic [ref=e236]:
+                  - paragraph [ref=e237]: ai
+                  - paragraph [ref=e238]: I get that.
+                - generic [ref=e239]:
+                  - paragraph [ref=e240]: student
+                  - paragraph [ref=e241]: I think speaking is difficult sometimes, but I want to become more confident.
+                - generic [ref=e242]:
+                  - paragraph [ref=e243]: student
+                  - paragraph [ref=e244]: Hello, I want to practice speaking English today.
+                - generic [ref=e245]:
+                  - paragraph [ref=e246]: ai
+                  - paragraph [ref=e247]: That's great! Let's start with something simple. How was your day today?
+                - generic [ref=e248]:
+                  - paragraph [ref=e249]: student
+                  - paragraph [ref=e250]: Yesterday I studied grammar after school and then I read a short article.
+                - generic [ref=e251]:
+                  - paragraph [ref=e252]: ai
+                  - paragraph [ref=e253]: That sounds productive. What was the article about?
+                - generic [ref=e254]:
+                  - paragraph [ref=e255]: student
+                  - paragraph [ref=e256]: I think speaking is difficult sometimes, but I want to become more confident.
+                - generic [ref=e257]:
+                  - paragraph [ref=e258]: student
+                  - paragraph [ref=e259]: Hello, I want to practice speaking English today.
+                - generic [ref=e260]:
+                  - paragraph [ref=e261]: ai
+                  - paragraph [ref=e262]: That's great! Let's jump in. Can you tell me more about your day so far?
+                - generic [ref=e263]:
+                  - paragraph [ref=e264]: student
+                  - paragraph [ref=e265]: Yesterday I studied grammar after school and then I read a short article.
+                - generic [ref=e266]:
+                  - paragraph [ref=e267]: ai
+                  - paragraph [ref=e268]: That sounds productive. What was the article about?
+                - generic [ref=e269]:
+                  - paragraph [ref=e270]: student
+                  - paragraph [ref=e271]: I think speaking is difficult sometimes, but I want to become more confident.
+                - generic [ref=e272]:
+                  - paragraph [ref=e273]: student
+                  - paragraph [ref=e274]: Hello, I want to practice speaking English today.
+                - generic [ref=e275]:
+                  - paragraph [ref=e276]: ai
+                  - paragraph [ref=e277]: "That's great! Let's start with a simple question: what did you have for breakfast today?"
+                - generic [ref=e278]:
+                  - paragraph [ref=e279]: student
+                  - paragraph [ref=e280]: Yesterday I studied grammar after school and then I read a short article.
+          - generic [ref=e281]:
+            - generic [ref=e282]:
+              - generic [ref=e283]: Phrase bank
+              - generic [ref=e284]: Save useful language from the session
+            - generic [ref=e285]:
+              - button "grammar The rules and structures used in a language. Save" [ref=e286]:
+                - generic [ref=e287]:
+                  - generic [ref=e288]:
+                    - paragraph [ref=e289]: grammar
+                    - paragraph [ref=e290]: The rules and structures used in a language.
+                  - generic [ref=e291]: Save
+              - button "confident Feeling sure and positive about your ability to do something. Save" [ref=e292]:
+                - generic [ref=e293]:
+                  - generic [ref=e294]:
+                    - paragraph [ref=e295]: confident
+                    - paragraph [ref=e296]: Feeling sure and positive about your ability to do something.
+                  - generic [ref=e297]: Save
+  - region "Notifications alt+T"
+  - alert [ref=e50]

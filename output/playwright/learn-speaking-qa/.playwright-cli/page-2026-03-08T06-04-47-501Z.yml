@@ -1,0 +1,129 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - link "ESL International Connect home" [ref=e5] [cursor=pointer]:
+          - /url: /app/home
+          - img "ESL International Connect" [ref=e6]
+        - button "Account" [ref=e7]
+    - main [ref=e8]:
+      - main [ref=e9]:
+        - generic [ref=e10]:
+          - generic [ref=e12]:
+            - link "Back to roadmap" [ref=e14] [cursor=pointer]:
+              - /url: /app/learn
+              - img [ref=e15]
+              - text: Back to roadmap
+            - generic [ref=e17]:
+              - generic [ref=e18]:
+                - generic [ref=e19]: Unit 1
+                - generic [ref=e20]: Speaking
+                - generic [ref=e21]: Unit step 3 of 5
+              - paragraph [ref=e22]: Intermediate English
+              - heading "Tell Stories Clearly" [level=1] [ref=e23]
+              - paragraph [ref=e24]: Speaking Mission. Use the unit language in a guided speaking mission.
+              - paragraph [ref=e25]: I can tell a clear story with context, sequence, and detail.
+            - generic [ref=e26]:
+              - generic [ref=e27]:
+                - img [ref=e28]
+                - generic [ref=e31]: Lesson
+              - generic [ref=e32]:
+                - img [ref=e33]
+                - generic [ref=e36]: Practice
+              - generic [ref=e37]:
+                - img [ref=e38]
+                - generic [ref=e41]: Speak
+              - generic [ref=e42]:
+                - img [ref=e43]
+                - generic [ref=e47]: Write
+              - generic [ref=e48]:
+                - img [ref=e49]
+                - generic [ref=e53]: Check
+            - heading "Need context?" [level=3] [ref=e56]:
+              - button "Need context?" [ref=e57]:
+                - text: Need context?
+                - img
+          - generic [ref=e59]:
+            - generic [ref=e139]:
+              - generic [ref=e140]:
+                - generic [ref=e141]: Mission in progress
+                - generic [ref=e142]: 3 of 3 turns complete
+              - generic [ref=e143]:
+                - generic [ref=e144]:
+                  - generic [ref=e145]:
+                    - paragraph [ref=e146]: Use it in real life
+                    - generic [ref=e147]: Tell Stories Clearly
+                  - generic [ref=e148]: Text-first mode
+                - paragraph [ref=e149]: Tell a connected story about a meaningful past experience.
+                - progressbar [ref=e150]
+            - generic [ref=e152]:
+              - generic [ref=e153]:
+                - paragraph [ref=e154]:
+                  - img [ref=e155]
+                  - text: Aim for one clear answer, then add a detail.
+                - paragraph [ref=e158]: I can tell a clear story with context, sequence, and detail.
+              - generic [ref=e159]:
+                - generic [ref=e160]:
+                  - paragraph [ref=e161]: Coach
+                  - paragraph [ref=e162]: "Let's practice tell stories clearly. You are sharing a memorable experience with a class or group. Start with this: Respond to this scenario: You are sharing a memorable experience with a class or group."
+                - generic [ref=e179]:
+                  - paragraph [ref=e180]: You
+                  - paragraph [ref=e181]: Last summer I visited Seattle with my cousin, and suddenly it started raining during our ferry ride.
+                - generic [ref=e182]:
+                  - paragraph [ref=e183]: Coach
+                  - paragraph [ref=e184]: That sounds exciting! What did you and your cousin do when it started raining?
+                - generic [ref=e185]:
+                  - paragraph [ref=e186]: You
+                  - paragraph [ref=e187]: We ran inside the ferry cabin, and eventually we laughed because everyone was trying to stay dry.
+                - generic [ref=e188]:
+                  - paragraph [ref=e189]: Coach
+                  - paragraph [ref=e190]: That's a fun moment! Can you tell me one interesting detail about the ferry ride?
+                - generic [ref=e191]:
+                  - paragraph [ref=e192]: You
+                  - paragraph [ref=e193]: One detail I remember is the gray water and the city skyline, which made the whole experience feel dramatic.
+                - generic [ref=e194]:
+                  - paragraph [ref=e195]: Coach
+                  - paragraph [ref=e196]: What happened after the ferry ride? Did you and your cousin do something special?
+              - generic [ref=e163]:
+                - generic [ref=e164]:
+                  - generic [ref=e165]:
+                    - paragraph [ref=e166]: Your next reply
+                    - paragraph [ref=e167]: Type one short answer that responds directly to the latest coach prompt.
+                  - button "Play coach" [ref=e168]:
+                    - img
+                    - text: Play coach
+                - generic [ref=e169]:
+                  - button "+ suddenly" [ref=e170]
+                  - button "+ eventually" [ref=e171]
+                  - button "+ detail" [ref=e172]
+                  - button "+ experience" [ref=e173]
+                - textbox "Type your next response." [ref=e174]
+                - generic [ref=e175]:
+                  - button "Send reply" [disabled]
+              - generic [ref=e176]:
+                - paragraph [ref=e177]: You have enough turns to unlock feedback.
+                - button "See feedback" [ref=e197]
+    - navigation [ref=e110]:
+      - generic [ref=e111]:
+        - link "Home" [ref=e112] [cursor=pointer]:
+          - /url: /app/home
+          - img [ref=e113]
+          - generic [ref=e116]: Home
+        - link "Learn" [ref=e117] [cursor=pointer]:
+          - /url: /app/learn
+          - img [ref=e118]
+          - generic [ref=e120]: Learn
+        - link "Speak" [ref=e121] [cursor=pointer]:
+          - /url: /app/speak
+          - img [ref=e122]
+          - generic [ref=e126]: Speak
+        - link "Tools" [ref=e127] [cursor=pointer]:
+          - /url: /app/tools
+          - img [ref=e128]
+          - generic [ref=e130]: Tools
+        - link "Progress" [ref=e131] [cursor=pointer]:
+          - /url: /app/progress
+          - img [ref=e132]
+          - generic [ref=e136]: Progress
+  - region "Notifications alt+T"
+  - alert [ref=e137]

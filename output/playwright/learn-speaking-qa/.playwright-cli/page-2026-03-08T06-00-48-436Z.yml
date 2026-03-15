@@ -1,0 +1,119 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - link "ESL International Connect home" [ref=e5] [cursor=pointer]:
+          - /url: /app/home
+          - img "ESL International Connect" [ref=e6]
+        - button "Account" [ref=e7]
+    - main [ref=e8]:
+      - main [ref=e9]:
+        - generic [ref=e10]:
+          - generic [ref=e12]:
+            - link "Back to roadmap" [ref=e14] [cursor=pointer]:
+              - /url: /app/learn
+              - img [ref=e15]
+              - text: Back to roadmap
+            - generic [ref=e17]:
+              - generic [ref=e18]:
+                - generic [ref=e19]: Unit 1
+                - generic [ref=e20]: Speaking
+                - generic [ref=e21]: Unit step 3 of 5
+              - paragraph [ref=e22]: Intermediate English
+              - heading "Tell Stories Clearly" [level=1] [ref=e23]
+              - paragraph [ref=e24]: Speaking Mission. Use the unit language in a guided speaking mission.
+              - paragraph [ref=e25]: I can tell a clear story with context, sequence, and detail.
+            - generic [ref=e26]:
+              - generic [ref=e27]:
+                - img [ref=e28]
+                - generic [ref=e31]: Lesson
+              - generic [ref=e32]:
+                - img [ref=e33]
+                - generic [ref=e36]: Practice
+              - generic [ref=e37]:
+                - img [ref=e38]
+                - generic [ref=e41]: Speak
+              - generic [ref=e42]:
+                - img [ref=e43]
+                - generic [ref=e47]: Write
+              - generic [ref=e48]:
+                - img [ref=e49]
+                - generic [ref=e53]: Check
+            - heading "Need context?" [level=3] [ref=e56]:
+              - button "Need context?" [ref=e57]:
+                - text: Need context?
+                - img
+          - generic [ref=e59]:
+            - generic [ref=e60]:
+              - generic [ref=e61]:
+                - generic [ref=e62]: Speaking mission
+                - generic [ref=e63]: Step 3 of 5
+              - generic [ref=e64]:
+                - paragraph [ref=e65]: Prepare
+                - generic [ref=e66]: Tell Stories Clearly
+                - paragraph [ref=e67]: You are sharing a memorable experience with a class or group.
+                - progressbar [ref=e68]
+            - generic [ref=e70]:
+              - generic [ref=e71]:
+                - generic [ref=e72]:
+                  - generic [ref=e73]:
+                    - paragraph [ref=e74]: Mission goal
+                    - paragraph [ref=e75]: I can tell a clear story with context, sequence, and detail.
+                  - generic [ref=e76]:
+                    - paragraph [ref=e77]: Final task
+                    - paragraph [ref=e78]: Tell a connected story about a meaningful past experience.
+                  - generic [ref=e79]:
+                    - paragraph [ref=e80]: Model response
+                    - paragraph [ref=e81]: Tell a connected story about a meaningful past experience.
+                  - generic [ref=e82]:
+                    - paragraph [ref=e83]: Target phrases
+                    - generic [ref=e84]:
+                      - generic [ref=e85]: suddenly
+                      - generic [ref=e86]: eventually
+                      - generic [ref=e87]: detail
+                      - generic [ref=e88]: experience
+                - generic [ref=e89]:
+                  - generic [ref=e90]:
+                    - paragraph [ref=e91]: Choose your mode
+                    - paragraph [ref=e92]: The mission stays the same. Only the interaction mode changes.
+                  - generic [ref=e93]:
+                    - button "Text-first Type each response and listen back when helpful." [ref=e94]:
+                      - paragraph [ref=e95]: Text-first
+                      - paragraph [ref=e96]: Type each response and listen back when helpful.
+                    - button "Live voice Speak out loud and let the app transcribe the turn." [ref=e97]:
+                      - paragraph [ref=e98]: Live voice
+                      - paragraph [ref=e99]: Speak out loud and let the app transcribe the turn.
+                  - paragraph [ref=e100]: Voice is ready. If the mic fails, you can still type and keep your progress.
+                  - heading "Warm up first if you want" [level=3] [ref=e103]:
+                    - button "Warm up first if you want" [ref=e104]:
+                      - text: Warm up first if you want
+                      - img
+              - generic [ref=e105]:
+                - generic [ref=e106]:
+                  - paragraph [ref=e107]: Ready to speak?
+                  - paragraph [ref=e108]: Keep it short, stay in the scenario, and give one clear detail.
+                - button "Start voice mission" [ref=e109]
+    - navigation [ref=e110]:
+      - generic [ref=e111]:
+        - link "Home" [ref=e112] [cursor=pointer]:
+          - /url: /app/home
+          - img [ref=e113]
+          - generic [ref=e116]: Home
+        - link "Learn" [ref=e117] [cursor=pointer]:
+          - /url: /app/learn
+          - img [ref=e118]
+          - generic [ref=e120]: Learn
+        - link "Speak" [ref=e121] [cursor=pointer]:
+          - /url: /app/speak
+          - img [ref=e122]
+          - generic [ref=e126]: Speak
+        - link "Tools" [ref=e127] [cursor=pointer]:
+          - /url: /app/tools
+          - img [ref=e128]
+          - generic [ref=e130]: Tools
+        - link "Progress" [ref=e131] [cursor=pointer]:
+          - /url: /app/progress
+          - img [ref=e132]
+          - generic [ref=e136]: Progress
+  - region "Notifications alt+T"
+  - alert [ref=e137]

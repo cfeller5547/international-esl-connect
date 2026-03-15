@@ -3,6 +3,7 @@ import { PageShell } from "@/components/ui-kit/page-shell";
 import { SpeakLaunchPanel } from "@/features/speak/speak-launch-panel";
 import { getCurrentUser } from "@/server/auth";
 import { trackEvent } from "@/server/analytics";
+import { env } from "@/server/env";
 
 export default async function SpeakPage() {
   const user = await getCurrentUser();
@@ -20,8 +21,11 @@ export default async function SpeakPage() {
 
   return (
     <PageShell className="px-0 py-0">
-      <SpeakLaunchPanel starters={[...SPEAK_STARTERS]} guidedScenarios={[...GUIDED_SCENARIOS]} />
+      <SpeakLaunchPanel
+        starters={[...SPEAK_STARTERS]}
+        guidedScenarios={[...GUIDED_SCENARIOS]}
+        voiceConfigured={Boolean(env.OPENAI_API_KEY)}
+      />
     </PageShell>
   );
 }
-

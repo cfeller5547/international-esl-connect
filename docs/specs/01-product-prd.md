@@ -38,6 +38,15 @@ Data model note:
 - Home persistent "Homework Help now" quick action for urgent use
 - Learn with one assigned fixed curriculum based on `currentLevel`
 - sequential unit unlocks and required unit activities (`lesson`, `practice`, `speaking`, `writing`, `checkpoint`)
+- Learn speaking activity as a structured `Speaking Mission`:
+  - prep
+  - short guided conversation
+  - focused transcript review
+  - optional retry
+- unit speaking missions support:
+  - free tier text-first completion with TTS playback
+  - pro tier live voice input with pronunciation/clarity signals
+- units `3` and `6` in each curriculum act as stronger speaking benchmarks inside Learn without affecting level assignment
 - Teacher-provided lesson content pipeline (lessons, worksheets, videos) as canonical source
 - Placeholder content library for pre-content MVP bootstrap
 - Homework Help inside Tools
@@ -89,7 +98,7 @@ Rule:
 ### 7.2 Daily Learning Loop
 1. Home primary CTA
 2. Urgent path available anytime via `Homework Help now`
-3. Learn unit activity chain (`lesson` -> `practice` -> `speaking` -> `writing` -> `checkpoint`)
+3. Learn unit activity chain (`lesson` -> `practice` -> `speaking mission` -> `writing` -> `checkpoint`)
 4. Inline progress update + celebration moment
 5. Optional Progress deep dive and share card generation
 

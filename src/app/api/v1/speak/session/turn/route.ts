@@ -10,6 +10,9 @@ const schema = z.object({
   studentInput: z.object({
     text: z.string().optional(),
     audioRef: z.string().optional(),
+    audioDataUrl: z.string().optional(),
+    audioMimeType: z.string().optional(),
+    durationSeconds: z.number().min(0).optional(),
   }),
 });
 

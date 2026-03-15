@@ -671,18 +671,28 @@ model SpeakSession {
   id              String             @id @default(uuid()) @db.Uuid
   userId          String             @map("user_id") @db.Uuid
   mode            String
+  surface         String             @default("speak")
+  missionKind     String?            @map("mission_kind")
   interactionMode String    @map("interaction_mode")
   scenarioKey     String?            @map("scenario_key")
+  curriculumUnitId String?           @map("curriculum_unit_id") @db.Uuid
+  curriculumActivityId String?       @map("curriculum_activity_id") @db.Uuid
+  retryOfSessionId String?           @map("retry_of_session_id") @db.Uuid
   durationSeconds Int                @default(0) @map("duration_seconds")
   status          String
   startedAt       DateTime           @default(now()) @map("started_at")
   completedAt     DateTime?          @map("completed_at")
   summaryPayload  Json               @default("{}") @map("summary_payload")
+  evaluationPayload Json             @default("{}") @map("evaluation_payload")
   user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   turns           SpeakTurn[]
   phrases         PhraseBankItem[]
+  retryOfSession  SpeakSession?      @relation("SpeakSessionRetry", fields: [retryOfSessionId], references: [id], onDelete: SetNull)
+  retries         SpeakSession[]     @relation("SpeakSessionRetry")
 
   @@index([userId, status])
+  @@index([userId, surface, status])
+  @@index([userId, curriculumActivityId, status])
   @@map("speak_sessions")
 }
 

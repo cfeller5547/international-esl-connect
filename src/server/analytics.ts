@@ -4,7 +4,7 @@ import { after } from "next/server";
 import { APP_VERSION } from "@/lib/constants";
 import { prisma } from "@/server/prisma";
 
-import { ensureAppSessionId, readAuthPayload } from "./auth";
+import { APP_SESSION_COOKIE, ensureAppSessionId, readAuthPayload } from "./auth";
 
 type TrackEventInput = {
   eventName: string;
@@ -14,6 +14,12 @@ type TrackEventInput = {
   properties?: Record<string, unknown>;
 };
 
+type ResolvedTrackEventInput = TrackEventInput & {
+  guestSessionToken: string | null;
+  userId: string | null;
+  sessionId: string;
+};
+
 function isMissingRequestScopeError(error: unknown) {
   return (
     error instanceof Error &&
@@ -21,35 +27,68 @@ function isMissingRequestScopeError(error: unknown) {
   );
 }
 
-async function writeEvent({
-  eventName,
-  route,
-  guestSessionToken,
-  userId,
-  properties = {},
-}: TrackEventInput) {
-  let cookieStore: Awaited<ReturnType<typeof cookies>> | null = null;
-  let auth: Awaited<ReturnType<typeof readAuthPayload>> = null;
-  let sessionId = `system-${crypto.randomUUID()}`;
+function isCookieMutationDuringRenderError(error: unknown) {
+  return (
+    error instanceof Error &&
+    error.message.includes(
+      "Cookies can only be modified in a Server Action or Route Handler",
+    )
+  );
+}
+
+async function resolveTrackEventInput(
+  input: TrackEventInput,
+): Promise<ResolvedTrackEventInput> {
+  let resolvedUserId = input.userId ?? null;
+  let resolvedGuestSessionToken = input.guestSessionToken ?? null;
+  let resolvedSessionId = `system-${crypto.randomUUID()}`;
 
   try {
-    cookieStore = await cookies();
-    auth = await readAuthPayload();
-    sessionId = await ensureAppSessionId();
+    const cookieStore = await cookies();
+    const auth = await readAuthPayload();
+
+    resolvedUserId ??= auth?.userId ?? null;
+    resolvedGuestSessionToken ??= cookieStore.get("guest_session")?.value ?? null;
+    resolvedSessionId = cookieStore.get(APP_SESSION_COOKIE)?.value ?? resolvedSessionId;
+
+    if (!cookieStore.get(APP_SESSION_COOKIE)?.value) {
+      try {
+        resolvedSessionId = await ensureAppSessionId();
+      } catch (error) {
+        if (!isCookieMutationDuringRenderError(error)) {
+          throw error;
+        }
+      }
+    }
   } catch (error) {
     if (!isMissingRequestScopeError(error)) {
       throw error;
     }
   }
 
+  return {
+    ...input,
+    guestSessionToken: resolvedGuestSessionToken,
+    userId: resolvedUserId,
+    sessionId: resolvedSessionId,
+  };
+}
+
+async function writeEvent({
+  eventName,
+  route,
+  guestSessionToken,
+  userId,
+  sessionId,
+  properties = {},
+}: ResolvedTrackEventInput) {
   await prisma.analyticsEvent.create({
     data: {
       eventId: crypto.randomUUID(),
       eventName,
       route,
-      userId: userId ?? auth?.userId ?? null,
-      guestSessionToken:
-        guestSessionToken ?? cookieStore?.get("guest_session")?.value ?? null,
+      userId,
+      guestSessionToken,
       sessionId,
       appVersion: APP_VERSION,
       properties: properties as never,
@@ -58,9 +97,11 @@ async function writeEvent({
 }
 
 export async function trackEvent(input: TrackEventInput) {
+  const resolvedInput = await resolveTrackEventInput(input);
+
   try {
     after(async () => {
-      await writeEvent(input);
+      await writeEvent(resolvedInput);
     });
     return;
   } catch (error) {
@@ -69,5 +110,5 @@ export async function trackEvent(input: TrackEventInput) {
     }
   }
 
-  await writeEvent(input);
+  await writeEvent(resolvedInput);
 }

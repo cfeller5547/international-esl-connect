@@ -1,0 +1,85 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - link "ESL International Connect home" [ref=e5] [cursor=pointer]:
+          - /url: /app/home
+          - img "ESL International Connect" [ref=e6]
+        - button "Account" [ref=e7]
+    - main [ref=e8]:
+      - main [ref=e9]:
+        - generic [ref=e10]:
+          - generic [ref=e11]:
+            - generic [ref=e12]:
+              - paragraph [ref=e13]: Primary next step
+              - generic [ref=e14]:
+                - generic [ref=e15]:
+                  - generic [ref=e16]: Complete full diagnostic
+                  - paragraph [ref=e17]: Unlock deeper analysis and confirm the curriculum level that should guide Learn.
+                - link "Complete full diagnostic" [ref=e18] [cursor=pointer]:
+                  - /url: /app/assessment/full
+            - generic [ref=e19]:
+              - link "Continue curriculum Open the next required unit activity in your assigned curriculum." [ref=e20] [cursor=pointer]:
+                - /url: /app/assessment/full
+                - paragraph [ref=e21]: Continue curriculum
+                - paragraph [ref=e22]: Open the next required unit activity in your assigned curriculum.
+              - link "Homework Help Upload an assignment and get step-by-step support." [ref=e23] [cursor=pointer]:
+                - /url: /app/tools/homework
+                - paragraph [ref=e24]: Homework Help
+                - paragraph [ref=e25]: Upload an assignment and get step-by-step support.
+              - link "Test Prep Sprint Build a short plan around your next exam date." [ref=e26] [cursor=pointer]:
+                - /url: /app/tools/test-prep
+                - paragraph [ref=e27]: Test Prep Sprint
+                - paragraph [ref=e28]: Build a short plan around your next exam date.
+          - generic [ref=e30]:
+            - generic [ref=e31]:
+              - img [ref=e33]
+              - generic [ref=e35]:
+                - paragraph [ref=e36]: 0-day streak
+                - paragraph [ref=e37]: "Longest streak: 0 days"
+            - generic [ref=e38]: "Next milestone: 3"
+          - generic [ref=e39]:
+            - generic [ref=e40]:
+              - generic [ref=e41]: Add class context
+              - paragraph [ref=e42]: Upload a syllabus later, or add your weekly topics now so Home, Speak, and Tools can stay aligned with class.
+            - generic [ref=e44]:
+              - generic [ref=e45]:
+                - generic [ref=e46]: What are you studying this week?
+                - textbox "What are you studying this week?" [ref=e47]:
+                  - /placeholder: preterite tense, chapter 3 vocabulary, direct object pronouns
+              - generic [ref=e48]:
+                - generic [ref=e49]:
+                  - generic [ref=e50]: Active from
+                  - textbox "Active from" [ref=e51]: 2026-03-08
+                - generic [ref=e52]:
+                  - generic [ref=e53]: Active to
+                  - textbox "Active to" [ref=e54]: 2026-03-22
+              - button "Add weekly topics" [ref=e55]
+          - heading "Skills snapshot and recent progress" [level=3] [ref=e58]:
+            - button "Skills snapshot and recent progress" [ref=e59]:
+              - text: Skills snapshot and recent progress
+              - img
+    - navigation [ref=e60]:
+      - generic [ref=e61]:
+        - link "Home" [ref=e62] [cursor=pointer]:
+          - /url: /app/home
+          - img [ref=e63]
+          - generic [ref=e66]: Home
+        - link "Learn" [ref=e67] [cursor=pointer]:
+          - /url: /app/learn
+          - img [ref=e68]
+          - generic [ref=e70]: Learn
+        - link "Speak" [ref=e71] [cursor=pointer]:
+          - /url: /app/speak
+          - img [ref=e72]
+          - generic [ref=e76]: Speak
+        - link "Tools" [ref=e77] [cursor=pointer]:
+          - /url: /app/tools
+          - img [ref=e78]
+          - generic [ref=e80]: Tools
+        - link "Progress" [ref=e81] [cursor=pointer]:
+          - /url: /app/progress
+          - img [ref=e82]
+          - generic [ref=e86]: Progress
+  - region "Notifications alt+T"
+  - alert [ref=e87]

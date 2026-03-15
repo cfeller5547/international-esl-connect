@@ -1,0 +1,81 @@
+- generic:
+  - generic:
+    - banner:
+      - generic:
+        - link:
+          - /url: /app/home
+          - img
+        - button: Account
+    - main:
+      - main:
+        - generic:
+          - generic:
+            - generic:
+              - generic: Start practice
+            - generic:
+              - generic:
+                - button:
+                  - paragraph: Free speech
+                  - paragraph: Start from a guided prompt instead of a blank state.
+                - button:
+                  - paragraph: Guided scenario
+                  - paragraph: Practice a specific academic speaking situation.
+              - generic:
+                - generic: Interaction mode
+                - combobox [expanded]:
+                  - generic: Text-first
+                  - img
+              - generic:
+                - generic: Starter prompt
+                - generic:
+                  - button:
+                    - paragraph: My school day
+                    - paragraph: Tell me about your classes today.
+                  - button:
+                    - paragraph: Homework talk
+                    - paragraph: Explain one homework question you're unsure about.
+                  - button:
+                    - paragraph: Test prep
+                    - paragraph: Practice a short dialogue using this week's test topics.
+                  - button:
+                    - paragraph: Anything
+                    - paragraph: Choose any topic and start speaking.
+              - button: Start practice
+          - generic:
+            - generic:
+              - generic: What to expect
+            - generic:
+              - paragraph: Free plans default to text-first speaking practice with starter prompts.
+              - paragraph: After each turn, you get one short improvement cue instead of a wall of corrections.
+              - paragraph: Completed sessions unlock transcript review and phrase saving.
+    - navigation:
+      - generic:
+        - link:
+          - /url: /app/home
+          - img
+          - generic: Home
+        - link:
+          - /url: /app/learn
+          - img
+          - generic: Learn
+        - link:
+          - /url: /app/speak
+          - img
+          - generic: Speak
+        - link:
+          - /url: /app/tools
+          - img
+          - generic: Tools
+        - link:
+          - /url: /app/progress
+          - img
+          - generic: Progress
+  - region "Notifications alt+T"
+  - alert
+  - listbox [ref=e76]:
+    - option "Text-first" [active] [selected] [ref=e77]:
+      - generic [ref=e79]:
+        - img
+      - generic [ref=e80]: Text-first
+    - option "Voice (Pro)" [ref=e81]:
+      - generic [ref=e83]: Voice (Pro)

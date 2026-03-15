@@ -1,0 +1,146 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - link "ESL International Connect home" [ref=e5] [cursor=pointer]:
+          - /url: /app/home
+          - img "ESL International Connect" [ref=e6]
+        - navigation [ref=e112]:
+          - link "Home" [ref=e113] [cursor=pointer]:
+            - /url: /app/home
+          - link "Learn" [ref=e114] [cursor=pointer]:
+            - /url: /app/learn
+          - link "Speak" [ref=e115] [cursor=pointer]:
+            - /url: /app/speak
+          - link "Tools" [ref=e116] [cursor=pointer]:
+            - /url: /app/tools
+          - link "Progress" [ref=e117] [cursor=pointer]:
+            - /url: /app/progress
+        - button "Account" [ref=e7]
+    - main [ref=e8]:
+      - generic [ref=e84]:
+        - generic [ref=e85]:
+          - generic [ref=e86]:
+            - generic [ref=e87]:
+              - generic [ref=e88]:
+                - generic [ref=e89]: Speak live
+                - generic [ref=e90]: Open speaking practice
+                - paragraph [ref=e91]: Tell me about your classes today.
+              - generic [ref=e92]:
+                - generic [ref=e93]:
+                  - img
+                  - text: Connection issue
+                - button "Finish session" [ref=e108]:
+                  - img
+                  - text: Finish session
+            - generic [ref=e94]: "Opening prompt: Tell me about your classes today."
+          - generic [ref=e95]:
+            - generic [ref=e102]:
+              - generic [ref=e109]: "Hello and welcome! This is an open speaking practice session, so feel free to express yourself. Let's start: tell me about your classes today. What did you learn or do that stood out to you"
+              - generic [ref=e110]: My classes are going well so far, thank you.
+              - generic [ref=e111]: Glad to hear that! What’s one topic from your class that you found interesting?
+              - generic [ref=e118]: Well, today I learned a little bit about Bobo and Popo.
+              - generic [ref=e119]: Oh, Bobo and Popo—that sounds unique. Can you tell me what they are or what they mean in your class?
+              - generic [ref=e120]: Yeah, I mean, they're not really part of my class. I think they're part of Cocos.
+              - generic [ref=e121]: Got it, so is it something from a group project
+              - generic [ref=e122]: Das bin.
+              - generic [ref=e123]: No worries, take your time. What do you think makes Bobo and Popo important to that group or project?
+              - generic [ref=e124]: Well, I think that mostly they're important to me and Coco, more so than the class.
+              - generic [ref=e125]: I see, so they’re important to you and Coco. Can you share why they matter to you both?
+              - generic [ref=e126]: I'll let you answer that one.
+              - generic [ref=e127]: Sure, no problem. How about telling me a little more about Coco?
+              - generic [ref=e128]: Dude, that's sick. Okay, we can end this conversation now.
+              - generic [ref=e129]: Alright, it was great talking with you. Take care and talk again soon!
+              - generic [ref=e130]: Dude, that's fucking badass.
+              - generic [ref=e131]: Uf!
+              - generic [ref=e132]: I'm here to help keep it positive and respectful. How else can I assist you today?
+            - generic [ref=e103]:
+              - generic [ref=e104]:
+                - paragraph [ref=e105]: Your microphone stays live for the conversation once connected.
+                - paragraph [ref=e106]: "Student turns recorded: 9"
+              - button "Retry connection" [ref=e133]
+            - paragraph [ref=e134]: Unable to sync the live transcript.
+        - generic [ref=e135]:
+          - generic [ref=e136]:
+            - generic [ref=e137]:
+              - generic [ref=e138]: Post-session review
+              - generic [ref=e139]: See what to keep and what to refine
+            - generic [ref=e140]:
+              - generic [ref=e141]:
+                - generic [ref=e142]:
+                  - paragraph [ref=e143]: What worked
+                  - paragraph [ref=e144]: You answered all questions clearly and stayed engaged in the conversation.
+                - generic [ref=e145]:
+                  - paragraph [ref=e146]: Next improvement
+                  - paragraph [ref=e147]: Try to provide more specific details about your classes and avoid off-topic responses to keep the conversation going.
+              - generic [ref=e148]:
+                - generic [ref=e149]:
+                  - paragraph [ref=e150]: ai
+                  - paragraph [ref=e151]: "Hello and welcome! This is an open speaking practice session, so feel free to express yourself. Let's start: tell me about your classes today. What did you learn or do that stood out to you"
+                - generic [ref=e152]:
+                  - paragraph [ref=e153]: student
+                  - paragraph [ref=e154]: My classes are going well so far, thank you.
+                - generic [ref=e155]:
+                  - paragraph [ref=e156]: ai
+                  - paragraph [ref=e157]: Glad to hear that! What’s one topic from your class that you found interesting?
+                - generic [ref=e158]:
+                  - paragraph [ref=e159]: student
+                  - paragraph [ref=e160]: Well, today I learned a little bit about Bobo and Popo.
+                - generic [ref=e161]:
+                  - paragraph [ref=e162]: ai
+                  - paragraph [ref=e163]: Oh, Bobo and Popo—that sounds unique. Can you tell me what they are or what they mean in your class?
+                - generic [ref=e164]:
+                  - paragraph [ref=e165]: student
+                  - paragraph [ref=e166]: Yeah, I mean, they're not really part of my class. I think they're part of Cocos.
+                - generic [ref=e167]:
+                  - paragraph [ref=e168]: ai
+                  - paragraph [ref=e169]: Got it, so is it something from a group project
+                - generic [ref=e170]:
+                  - paragraph [ref=e171]: student
+                  - paragraph [ref=e172]: Das bin.
+                - generic [ref=e173]:
+                  - paragraph [ref=e174]: ai
+                  - paragraph [ref=e175]: No worries, take your time. What do you think makes Bobo and Popo important to that group or project?
+                - generic [ref=e176]:
+                  - paragraph [ref=e177]: student
+                  - paragraph [ref=e178]: Well, I think that mostly they're important to me and Coco, more so than the class.
+                - generic [ref=e179]:
+                  - paragraph [ref=e180]: ai
+                  - paragraph [ref=e181]: I see, so they’re important to you and Coco. Can you share why they matter to you both?
+                - generic [ref=e182]:
+                  - paragraph [ref=e183]: student
+                  - paragraph [ref=e184]: I'll let you answer that one.
+                - generic [ref=e185]:
+                  - paragraph [ref=e186]: ai
+                  - paragraph [ref=e187]: Sure, no problem. How about telling me a little more about Coco?
+                - generic [ref=e188]:
+                  - paragraph [ref=e189]: student
+                  - paragraph [ref=e190]: Dude, that's sick. Okay, we can end this conversation now.
+                - generic [ref=e191]:
+                  - paragraph [ref=e192]: ai
+                  - paragraph [ref=e193]: Alright, it was great talking with you. Take care and talk again soon!
+          - generic [ref=e194]:
+            - generic [ref=e195]:
+              - generic [ref=e196]: Phrase bank
+              - generic [ref=e197]: Save useful language from the session
+            - generic [ref=e198]:
+              - button "project A planned piece of work completed over a period of time, especially by a group. Save" [ref=e199]:
+                - generic [ref=e200]:
+                  - generic [ref=e201]:
+                    - paragraph [ref=e202]: project
+                    - paragraph [ref=e203]: A planned piece of work completed over a period of time, especially by a group.
+                  - generic [ref=e204]: Save
+              - button "engaged Being involved or interested in something. Save" [ref=e205]:
+                - generic [ref=e206]:
+                  - generic [ref=e207]:
+                    - paragraph [ref=e208]: engaged
+                    - paragraph [ref=e209]: Being involved or interested in something.
+                  - generic [ref=e210]: Save
+              - button "confident Feeling or showing certainty about something. Save" [ref=e211]:
+                - generic [ref=e212]:
+                  - generic [ref=e213]:
+                    - paragraph [ref=e214]: confident
+                    - paragraph [ref=e215]: Feeling or showing certainty about something.
+                  - generic [ref=e216]: Save
+  - region "Notifications alt+T"
+  - alert [ref=e75]

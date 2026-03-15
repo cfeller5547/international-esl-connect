@@ -7,8 +7,8 @@ import { prisma } from "@/server/prisma";
 
 import { env } from "./env";
 
-const AUTH_COOKIE = "esl_auth";
-const APP_SESSION_COOKIE = "esl_app_session";
+export const AUTH_COOKIE = "esl_auth";
+export const APP_SESSION_COOKIE = "esl_app_session";
 
 type AuthPayload = {
   userId: string;

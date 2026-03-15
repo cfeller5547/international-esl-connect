@@ -7,16 +7,10 @@ import { trackEvent } from "../analytics";
 
 export const StreakService = {
   async getOrCreate(userId: string) {
-    const streak = await prisma.userStreak.findUnique({
+    return prisma.userStreak.upsert({
       where: { userId },
-    });
-
-    if (streak) {
-      return streak;
-    }
-
-    return prisma.userStreak.create({
-      data: {
+      update: {},
+      create: {
         userId,
       },
     });
@@ -89,4 +83,3 @@ export const StreakService = {
     return updated;
   },
 };
-

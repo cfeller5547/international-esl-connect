@@ -1,0 +1,74 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e51]:
+    - banner [ref=e52]:
+      - generic [ref=e53]:
+        - link "ESL International Connect home" [ref=e54] [cursor=pointer]:
+          - /url: /app/home
+          - img "ESL International Connect" [ref=e55]
+        - navigation [ref=e56]:
+          - link "Home" [ref=e57] [cursor=pointer]:
+            - /url: /app/home
+          - link "Learn" [ref=e58] [cursor=pointer]:
+            - /url: /app/learn
+          - link "Speak" [ref=e59] [cursor=pointer]:
+            - /url: /app/speak
+          - link "Tools" [ref=e60] [cursor=pointer]:
+            - /url: /app/tools
+          - link "Progress" [ref=e61] [cursor=pointer]:
+            - /url: /app/progress
+        - button "Account" [ref=e62]
+    - main [ref=e63]:
+      - main [ref=e64]:
+        - generic [ref=e65]:
+          - generic [ref=e66]:
+            - generic [ref=e67]:
+              - paragraph [ref=e68]: Primary next step
+              - generic [ref=e69]:
+                - generic [ref=e70]:
+                  - generic [ref=e71]: Continue Explain Opinions and Give Reasons
+                  - paragraph [ref=e72]: Speaking Mission is the next required step in your intermediate curriculum.
+                - link "Continue Explain Opinions and Give Reasons" [ref=e73] [cursor=pointer]:
+                  - /url: /app/learn/unit/explain-opinions-and-give-reasons/speaking
+            - generic [ref=e74]:
+              - link "Continue curriculum Open the next required unit activity in your assigned curriculum." [ref=e75] [cursor=pointer]:
+                - /url: /app/learn/unit/explain-opinions-and-give-reasons/speaking
+                - paragraph [ref=e76]: Continue curriculum
+                - paragraph [ref=e77]: Open the next required unit activity in your assigned curriculum.
+              - link "Homework Help Upload an assignment and get step-by-step support." [ref=e78] [cursor=pointer]:
+                - /url: /app/tools/homework
+                - paragraph [ref=e79]: Homework Help
+                - paragraph [ref=e80]: Upload an assignment and get step-by-step support.
+              - link "Test Prep Sprint Build a short plan around your next exam date." [ref=e81] [cursor=pointer]:
+                - /url: /app/tools/test-prep
+                - paragraph [ref=e82]: Test Prep Sprint
+                - paragraph [ref=e83]: Build a short plan around your next exam date.
+          - generic [ref=e85]:
+            - generic [ref=e86]:
+              - img [ref=e88]
+              - generic [ref=e90]:
+                - paragraph [ref=e91]: 1-day streak
+                - paragraph [ref=e92]: "Longest streak: 1 days"
+            - generic [ref=e93]: "Next milestone: 3"
+          - generic [ref=e94]:
+            - generic [ref=e95]:
+              - generic [ref=e96]: Add class context
+              - paragraph [ref=e97]: Upload a syllabus later, or add your weekly topics now so Home, Speak, and Tools can stay aligned with class.
+            - generic [ref=e99]:
+              - generic [ref=e100]:
+                - generic [ref=e101]: What are you studying this week?
+                - textbox "What are you studying this week?" [ref=e102]:
+                  - /placeholder: preterite tense, chapter 3 vocabulary, direct object pronouns
+              - generic [ref=e103]:
+                - generic [ref=e104]:
+                  - generic [ref=e105]: Active from
+                  - textbox "Active from" [ref=e106]: 2026-03-08
+                - generic [ref=e107]:
+                  - generic [ref=e108]: Active to
+                  - textbox "Active to" [ref=e109]: 2026-03-22
+              - button "Add weekly topics" [ref=e110]
+          - heading "Skills snapshot and recent progress" [level=3] [ref=e113]:
+            - button "Skills snapshot and recent progress" [ref=e114]:
+              - text: Skills snapshot and recent progress
+              - img
+  - region "Notifications alt+T"
+  - alert [ref=e50]

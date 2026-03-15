@@ -1,0 +1,48 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e51]:
+    - banner [ref=e52]:
+      - generic [ref=e53]:
+        - link "ESL International Connect home" [ref=e54] [cursor=pointer]:
+          - /url: /app/home
+          - img "ESL International Connect" [ref=e55]
+        - navigation [ref=e56]:
+          - link "Home" [ref=e57] [cursor=pointer]:
+            - /url: /app/home
+          - link "Learn" [ref=e58] [cursor=pointer]:
+            - /url: /app/learn
+          - link "Speak" [ref=e59] [cursor=pointer]:
+            - /url: /app/speak
+          - link "Tools" [ref=e60] [cursor=pointer]:
+            - /url: /app/tools
+          - link "Progress" [ref=e61] [cursor=pointer]:
+            - /url: /app/progress
+        - button "Account" [ref=e62]
+    - main [ref=e63]:
+      - generic [ref=e163]:
+        - generic [ref=e164]:
+          - generic [ref=e165]:
+            - generic [ref=e166]:
+              - generic [ref=e167]: Speak live
+              - generic [ref=e168]: Open speaking practice
+              - paragraph [ref=e169]: Tell me about your classes today.
+            - generic [ref=e170]:
+              - generic [ref=e171]:
+                - img
+                - text: Ready to start
+              - button "Finish session" [disabled]:
+                - img
+                - text: Finish session
+          - generic [ref=e172]: "Opening prompt: Tell me about your classes today."
+        - generic [ref=e173]:
+          - generic [ref=e175]:
+            - generic [ref=e176]:
+              - paragraph [ref=e177]: Start a real back-and-forth voice conversation
+              - paragraph [ref=e178]: The AI will speak back naturally, listen for the end of your turn, and keep the conversation moving without manual send buttons.
+            - button "Start live conversation" [ref=e179]:
+              - img
+              - text: Start live conversation
+          - generic [ref=e182]:
+            - paragraph [ref=e183]: Your microphone stays live for the conversation once connected.
+            - paragraph [ref=e184]: "Student turns recorded: 0"
+  - region "Notifications alt+T"
+  - alert [ref=e50]

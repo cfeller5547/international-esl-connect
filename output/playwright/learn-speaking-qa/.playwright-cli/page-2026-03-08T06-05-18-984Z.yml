@@ -1,0 +1,158 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - link "ESL International Connect home" [ref=e5] [cursor=pointer]:
+          - /url: /app/home
+          - img "ESL International Connect" [ref=e6]
+        - button "Account" [ref=e7]
+    - main [ref=e8]:
+      - main [ref=e9]:
+        - generic [ref=e10]:
+          - generic [ref=e12]:
+            - link "Back to roadmap" [ref=e14] [cursor=pointer]:
+              - /url: /app/learn
+              - img [ref=e15]
+              - text: Back to roadmap
+            - generic [ref=e17]:
+              - generic [ref=e18]:
+                - generic [ref=e19]: Unit 1
+                - generic [ref=e20]: Speaking
+                - generic [ref=e21]: Unit step 3 of 5
+              - paragraph [ref=e22]: Intermediate English
+              - heading "Tell Stories Clearly" [level=1] [ref=e23]
+              - paragraph [ref=e24]: Speaking Mission. Use the unit language in a guided speaking mission.
+              - paragraph [ref=e25]: I can tell a clear story with context, sequence, and detail.
+            - generic [ref=e26]:
+              - generic [ref=e27]:
+                - img [ref=e28]
+                - generic [ref=e31]: Lesson
+              - generic [ref=e32]:
+                - img [ref=e33]
+                - generic [ref=e36]: Practice
+              - generic [ref=e37]:
+                - img [ref=e38]
+                - generic [ref=e41]: Speak
+              - generic [ref=e42]:
+                - img [ref=e43]
+                - generic [ref=e47]: Write
+              - generic [ref=e48]:
+                - img [ref=e49]
+                - generic [ref=e53]: Check
+            - heading "Need context?" [level=3] [ref=e56]:
+              - button "Need context?" [ref=e57]:
+                - text: Need context?
+                - img
+          - generic [ref=e59]:
+            - generic [ref=e198]:
+              - generic [ref=e199]:
+                - generic [ref=e200]: Ready
+                - generic [ref=e201]: Score 78
+              - generic [ref=e202]:
+                - paragraph [ref=e203]: Review
+                - generic [ref=e204]: You are ready to keep moving.
+                - paragraph [ref=e205]: You completed the mission clearly enough to move on.
+                - progressbar [ref=e206]
+            - generic [ref=e208]:
+              - generic [ref=e209]:
+                - generic [ref=e210]:
+                  - paragraph [ref=e211]: Keep doing this
+                  - paragraph [ref=e212]: You told a clear, connected story with a good sequence using target words like 'suddenly' and 'eventually.' Your use of descriptive detail added interest to your experience.
+                - generic [ref=e213]:
+                  - paragraph [ref=e214]: Improve next
+                  - paragraph [ref=e215]: Try to add more reflection about how the experience made you feel or what you learned. Also, connect the events more smoothly to keep the story flowing naturally.
+              - generic [ref=e216]:
+                - generic [ref=e217]:
+                  - paragraph [ref=e218]: Most useful moments
+                  - paragraph [ref=e219]: Only the highest-value fixes are shown.
+                - generic [ref=e220]:
+                  - generic [ref=e221]:
+                    - generic [ref=e222]: Turn 2
+                    - generic [ref=e223]:
+                      - generic [ref=e224]:
+                        - paragraph [ref=e225]: You said
+                        - paragraph [ref=e226]: Last summer I visited Seattle with my cousin, and suddenly it started raining during our ferry ride.
+                      - generic [ref=e227]:
+                        - paragraph [ref=e228]: Try this
+                        - paragraph [ref=e229]: Last summer, I visited Seattle with my cousin. Suddenly, it started raining during our ferry ride.
+                      - generic [ref=e230]:
+                        - paragraph [ref=e231]: Why it helps
+                        - paragraph [ref=e232]: Breaking the sentence into two makes the sequence clearer and easier to follow.
+                  - generic [ref=e233]:
+                    - generic [ref=e234]: Turn 6
+                    - generic [ref=e235]:
+                      - generic [ref=e236]:
+                        - paragraph [ref=e237]: You said
+                        - paragraph [ref=e238]: One detail I remember is the gray water and the city skyline, which made the whole experience feel dramatic.
+                      - generic [ref=e239]:
+                        - paragraph [ref=e240]: Try this
+                        - paragraph [ref=e241]: One detail I remember is the gray water and the city skyline; these made the experience feel dramatic.
+                      - generic [ref=e242]:
+                        - paragraph [ref=e243]: Why it helps
+                        - paragraph [ref=e244]: Connecting the two ideas with a semicolon or conjunction improves flow and clarity.
+              - generic [ref=e245]:
+                - paragraph [ref=e246]: Save useful phrases
+                - generic [ref=e247]:
+                  - button "suddenly Happening quickly and unexpectedly. Save" [ref=e248]:
+                    - generic [ref=e249]:
+                      - generic [ref=e250]:
+                        - paragraph [ref=e251]: suddenly
+                        - paragraph [ref=e252]: Happening quickly and unexpectedly.
+                      - generic [ref=e253]: Save
+                  - button "eventually In the end, after some time. Save" [ref=e254]:
+                    - generic [ref=e255]:
+                      - generic [ref=e256]:
+                        - paragraph [ref=e257]: eventually
+                        - paragraph [ref=e258]: In the end, after some time.
+                      - generic [ref=e259]: Save
+                  - button "detail A small feature or fact about something. Save" [ref=e260]:
+                    - generic [ref=e261]:
+                      - generic [ref=e262]:
+                        - paragraph [ref=e263]: detail
+                        - paragraph [ref=e264]: A small feature or fact about something.
+                      - generic [ref=e265]: Save
+                  - button "experience An event or occurrence that leaves an impression. Save" [ref=e266]:
+                    - generic [ref=e267]:
+                      - generic [ref=e268]:
+                        - paragraph [ref=e269]: experience
+                        - paragraph [ref=e270]: An event or occurrence that leaves an impression.
+                      - generic [ref=e271]: Save
+              - heading "See full transcript" [level=3] [ref=e274]:
+                - button "See full transcript" [ref=e275]:
+                  - text: See full transcript
+                  - img
+              - generic [ref=e276]:
+                - generic [ref=e277]:
+                  - paragraph [ref=e278]: You can keep moving now.
+                  - paragraph [ref=e279]: Save this mission and continue into writing when you are ready.
+                - generic [ref=e280]:
+                  - button "Retry mission" [ref=e281]:
+                    - img
+                    - text: Retry mission
+                  - button "Continue to writing" [ref=e282]:
+                    - text: Continue to writing
+                    - img
+    - navigation [ref=e110]:
+      - generic [ref=e111]:
+        - link "Home" [ref=e112] [cursor=pointer]:
+          - /url: /app/home
+          - img [ref=e113]
+          - generic [ref=e116]: Home
+        - link "Learn" [ref=e117] [cursor=pointer]:
+          - /url: /app/learn
+          - img [ref=e118]
+          - generic [ref=e120]: Learn
+        - link "Speak" [ref=e121] [cursor=pointer]:
+          - /url: /app/speak
+          - img [ref=e122]
+          - generic [ref=e126]: Speak
+        - link "Tools" [ref=e127] [cursor=pointer]:
+          - /url: /app/tools
+          - img [ref=e128]
+          - generic [ref=e130]: Tools
+        - link "Progress" [ref=e131] [cursor=pointer]:
+          - /url: /app/progress
+          - img [ref=e132]
+          - generic [ref=e136]: Progress
+  - region "Notifications alt+T"
+  - alert [ref=e137]

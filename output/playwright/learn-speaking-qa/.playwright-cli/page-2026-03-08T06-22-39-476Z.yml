@@ -1,0 +1,174 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - link "ESL International Connect home" [ref=e5] [cursor=pointer]:
+          - /url: /app/home
+          - img "ESL International Connect" [ref=e6]
+        - button "Account" [ref=e7]
+    - main [ref=e8]:
+      - main [ref=e88]:
+        - generic [ref=e89]:
+          - generic [ref=e91]:
+            - generic [ref=e92]:
+              - generic [ref=e93]:
+                - paragraph [ref=e94]: Your English path
+                - generic [ref=e95]: Intermediate
+              - generic [ref=e96]:
+                - heading "Continue Tell Stories Clearly" [level=1] [ref=e97]
+                - paragraph [ref=e98]: I can tell a clear story with context, sequence, and detail.
+              - generic [ref=e99]:
+                - generic [ref=e100]:
+                  - generic [ref=e101]:
+                    - paragraph [ref=e102]: Speaking Mission
+                    - paragraph [ref=e103]: Use the unit language in a guided speaking mission.
+                  - generic [ref=e104]: Step 3 of 5
+                - progressbar [ref=e105]
+                - generic [ref=e108]:
+                  - img [ref=e109]
+                  - text: "Performance task: Tell a connected story about a meaningful past experience."
+              - generic [ref=e111]:
+                - link "Continue step" [ref=e112] [cursor=pointer]:
+                  - /url: /app/learn/unit/tell-stories-clearly/speaking
+                  - text: Continue step
+                  - img [ref=e113]
+                - link "View unit details" [ref=e115] [cursor=pointer]:
+                  - /url: /app/learn/unit/tell-stories-clearly
+            - generic [ref=e116]:
+              - generic [ref=e117]:
+                - paragraph [ref=e118]: Focus now
+                - paragraph [ref=e119]: Speaking Mission
+                - paragraph [ref=e120]: Use the unit language in a guided speaking mission.
+              - generic [ref=e121]:
+                - paragraph [ref=e122]: Curriculum
+                - paragraph [ref=e123]: Intermediate English
+                - paragraph [ref=e124]: A connected communication curriculum focused on stories, opinions, summaries, and real-world interaction.
+              - generic [ref=e125]:
+                - paragraph [ref=e126]: Roadmap status
+                - paragraph [ref=e127]: 0 of 6 units finished
+                - paragraph [ref=e128]: Units unlock in order, and assessment is the only way to move to the next level.
+          - generic [ref=e129]:
+            - generic [ref=e130]:
+              - paragraph [ref=e131]: Current unit
+              - generic [ref=e132]: Tell Stories Clearly
+              - paragraph [ref=e133]: Build longer narratives with sequence, detail, and reflection.
+            - generic [ref=e134]:
+              - generic [ref=e136]:
+                - generic [ref=e137]:
+                  - generic [ref=e138]:
+                    - generic [ref=e139]: Lesson
+                    - generic [ref=e140]:
+                      - img [ref=e141]
+                      - text: Done
+                  - paragraph [ref=e144]: Discover and Learn
+                  - paragraph [ref=e145]: Core lesson for Tell Stories Clearly.
+                - link "Review" [ref=e146] [cursor=pointer]:
+                  - /url: /app/learn/unit/tell-stories-clearly/lesson
+              - generic [ref=e148]:
+                - generic [ref=e149]:
+                  - generic [ref=e150]:
+                    - generic [ref=e151]: Practice
+                    - generic [ref=e152]:
+                      - img [ref=e153]
+                      - text: Done
+                  - paragraph [ref=e156]: Guided Practice
+                  - paragraph [ref=e157]: Practice tasks for Tell Stories Clearly.
+                - link "Review" [ref=e158] [cursor=pointer]:
+                  - /url: /app/learn/unit/tell-stories-clearly/practice
+              - generic [ref=e160]:
+                - generic [ref=e161]:
+                  - generic [ref=e162]:
+                    - generic [ref=e163]: Speaking
+                    - generic [ref=e164]:
+                      - img [ref=e165]
+                      - text: Up next
+                  - paragraph [ref=e168]: Speaking Mission
+                  - paragraph [ref=e169]: Use the unit language in a guided speaking mission.
+                - link "Continue" [ref=e170] [cursor=pointer]:
+                  - /url: /app/learn/unit/tell-stories-clearly/speaking
+              - generic [ref=e173]:
+                - generic [ref=e174]:
+                  - generic [ref=e175]: Writing
+                  - generic [ref=e176]:
+                    - img [ref=e177]
+                    - text: Later in this unit
+                - paragraph [ref=e186]: Writing Task
+                - paragraph [ref=e187]: Write a short response that proves the unit goal.
+              - generic [ref=e190]:
+                - generic [ref=e191]:
+                  - generic [ref=e192]: Checkpoint
+                  - generic [ref=e193]:
+                    - img [ref=e194]
+                    - text: Later in this unit
+                - paragraph [ref=e203]: Checkpoint
+                - paragraph [ref=e204]: Confirm mastery before the next unit unlocks.
+          - generic [ref=e205]:
+            - generic [ref=e206]:
+              - generic [ref=e207]:
+                - paragraph [ref=e208]: Completed
+                - generic [ref=e209]: What you have already finished
+              - generic [ref=e211]: Completed units will collect here as you move through the curriculum.
+            - generic [ref=e212]:
+              - generic [ref=e213]:
+                - paragraph [ref=e214]: Later
+                - generic [ref=e215]: What unlocks next
+              - generic [ref=e216]:
+                - generic [ref=e218]:
+                  - generic [ref=e219]:
+                    - paragraph [ref=e220]: "Unit 2: Explain Opinions and Give Reasons"
+                    - paragraph [ref=e221]: Move beyond yes-no answers and support your ideas clearly.
+                  - generic [ref=e222]:
+                    - img [ref=e223]
+                    - text: Locked
+                - generic [ref=e228]:
+                  - generic [ref=e229]:
+                    - paragraph [ref=e230]: "Unit 3: Solve Problems and Make Decisions"
+                    - paragraph [ref=e231]: Use modal verbs and collaborative language to discuss options and solutions.
+                  - generic [ref=e232]:
+                    - img [ref=e233]
+                    - text: Locked
+                - generic [ref=e238]:
+                  - generic [ref=e239]:
+                    - paragraph [ref=e240]: "Unit 4: Study, Summarize, and Respond"
+                    - paragraph [ref=e241]: Read for main ideas, summarize, and respond to information with your own words.
+                  - generic [ref=e242]:
+                    - img [ref=e243]
+                    - text: Locked
+                - generic [ref=e248]:
+                  - generic [ref=e249]:
+                    - paragraph [ref=e250]: "Unit 5: Future Plans, Goals, and Possibilities"
+                    - paragraph [ref=e251]: Describe goals, intentions, and possibilities using future forms.
+                  - generic [ref=e252]:
+                    - img [ref=e253]
+                    - text: Locked
+                - generic [ref=e258]:
+                  - generic [ref=e259]:
+                    - paragraph [ref=e260]: "Unit 6: Real-World Interaction, Travel, Interviews, Presentations"
+                    - paragraph [ref=e261]: Handle common real-world situations with confidence and clarity.
+                  - generic [ref=e262]:
+                    - img [ref=e263]
+                    - text: Locked
+    - navigation [ref=e60]:
+      - generic [ref=e61]:
+        - link "Home" [ref=e62] [cursor=pointer]:
+          - /url: /app/home
+          - img [ref=e63]
+          - generic [ref=e66]: Home
+        - link "Learn" [active] [ref=e67] [cursor=pointer]:
+          - /url: /app/learn
+          - img [ref=e68]
+          - generic [ref=e70]: Learn
+        - link "Speak" [ref=e71] [cursor=pointer]:
+          - /url: /app/speak
+          - img [ref=e72]
+          - generic [ref=e76]: Speak
+        - link "Tools" [ref=e77] [cursor=pointer]:
+          - /url: /app/tools
+          - img [ref=e78]
+          - generic [ref=e80]: Tools
+        - link "Progress" [ref=e81] [cursor=pointer]:
+          - /url: /app/progress
+          - img [ref=e82]
+          - generic [ref=e86]: Progress
+  - region "Notifications alt+T"
+  - alert [ref=e87]

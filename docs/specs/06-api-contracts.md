@@ -322,6 +322,159 @@ Request:
 }
 ```
 
+### `POST /api/v1/learn/curriculum/speaking/start`
+Starts or retries the scenario-bound Learn speaking mission for the current unit.
+
+Request:
+```json
+{
+  "unitSlug": "intermediate-tell-stories-clearly",
+  "interactionMode": "text",
+  "retryOfSessionId": null
+}
+```
+
+Response:
+```json
+{
+  "sessionId": "uuid",
+  "deliveryMode": "text_chat",
+  "openingTurn": "What happened?",
+  "resumeState": {
+    "status": "active",
+    "interactionMode": "text",
+    "turns": [
+      {
+        "speaker": "ai",
+        "text": "What happened?"
+      }
+    ]
+  },
+  "canFinish": false
+}
+```
+
+Rules:
+- free users may start only `interactionMode = text`
+- pro users may use `text` or `voice`
+- if voice is requested without availability, return the documented plan/availability error
+
+### `POST /api/v1/learn/curriculum/speaking/turn`
+Submits one learner turn in the active Learn speaking mission.
+
+Request:
+```json
+{
+  "sessionId": "uuid",
+  "studentInput": {
+    "text": "First I missed the bus, so I walked to school.",
+    "audioDataUrl": "optional-data-url",
+    "audioMimeType": "audio/webm",
+    "durationSeconds": 8
+  }
+}
+```
+
+Response:
+```json
+{
+  "aiResponseText": "That makes sense. What happened after that?",
+  "studentTranscriptText": "First I missed the bus, so I walked to school.",
+  "deliveryMode": "text_chat",
+  "canFinish": false
+}
+```
+
+### `POST /api/v1/learn/curriculum/speaking/:sessionId/realtime`
+Creates a short-lived OpenAI Realtime client secret for an active Pro Learn speaking voice session.
+
+Response:
+```json
+{
+  "clientSecret": "string",
+  "expiresAt": 1770000000,
+  "model": "gpt-realtime"
+}
+```
+
+Rules:
+- session must belong to the current user
+- session must be `surface = learn`
+- session must be `interactionMode = voice`
+- session must still be active
+
+### `POST /api/v1/learn/curriculum/speaking/:sessionId/sync`
+Persists the current realtime transcript snapshot while the Learn voice mission is active.
+
+Request:
+```json
+{
+  "turns": [
+    { "speaker": "ai", "text": "What do you think, and why?" },
+    { "speaker": "student", "text": "I think uniforms can help because students feel equal." }
+  ]
+}
+```
+
+Response:
+```json
+{
+  "studentTurnCount": 1,
+  "canFinish": false
+}
+```
+
+### `POST /api/v1/learn/curriculum/speaking/complete`
+Completes the current Learn speaking mission and returns a focused review payload.
+
+Request:
+```json
+{
+  "unitSlug": "intermediate-tell-stories-clearly",
+  "sessionId": "uuid"
+}
+```
+
+Response:
+```json
+{
+  "status": "almost_there",
+  "score": 74,
+  "strength": "You stayed in the scenario and added useful detail.",
+  "improvement": "Use one more sequencing phrase in your next attempt.",
+  "pronunciationNote": null,
+  "highlights": [
+    {
+      "turnIndex": 3,
+      "youSaid": "after I go home",
+      "tryInstead": "after I went home",
+      "why": "Use past tense to match the rest of your story."
+    }
+  ],
+  "turns": [
+    {
+      "turnIndex": 1,
+      "speaker": "student",
+      "text": "string",
+      "inlineCorrections": []
+    }
+  ],
+  "vocabulary": [
+    {
+      "term": "meaningful",
+      "definition": "important and memorable",
+      "translation": "significant"
+    }
+  ]
+}
+```
+
+Rules:
+- mission completion unlocks review, not the next curriculum activity by itself
+- final speaking activity completion still occurs through `/api/v1/learn/curriculum/activity/complete`
+- benchmark missions use the same contract but may require 4 learner turns instead of 3
+- calling `complete` before the hidden participation threshold is met must return a validation error
+
 Behavior:
 - marks the activity complete
 - unlocks the next activity in the unit or the next unit when the unit is finished
@@ -530,6 +683,7 @@ Request:
 
 Behavior:
 - free-tier users may request `voice` but must receive plan-aware downgrade or paywall response.
+- `interactionMode = voice` creates a Speak session that is completed through the realtime browser flow, not through `/api/v1/speak/session/turn`.
 
 Response:
 ```json
@@ -559,7 +713,10 @@ Request:
   "sessionId": "uuid",
   "studentInput": {
     "text": "optional if voice",
-    "audioRef": "optional"
+    "audioRef": "optional",
+    "audioDataUrl": "optional-data-url",
+    "audioMimeType": "audio/webm",
+    "durationSeconds": 7
   }
 }
 ```
@@ -571,7 +728,61 @@ Response:
 }
 ```
 
+Notes:
+- This route is the text-turn path and the non-realtime fallback path.
+- Active Pro voice Speak sessions use `/api/v1/speak/session/:sessionId/realtime` plus transcript sync instead of submitting one uploaded turn at a time.
+- Active Pro Learn voice missions use the parallel Learn-scoped realtime routes under `/api/v1/learn/curriculum/speaking/:sessionId/*`.
+
+### `POST /api/v1/speak/session/:sessionId/realtime`
+Creates a short-lived OpenAI Realtime client secret for an active Pro voice Speak session.
+
+Response:
+```json
+{
+  "clientSecret": "string",
+  "expiresAt": 1770000000,
+  "model": "gpt-realtime"
+}
+```
+
+Rules:
+- session must belong to the current user
+- session must be `surface = speak`
+- session must be `interactionMode = voice`
+- session must still be active
+- free-tier users receive the documented voice upgrade error
+
+### `POST /api/v1/speak/session/:sessionId/sync`
+Persists the current realtime transcript snapshot while the live session is active.
+
+Request:
+```json
+{
+  "turns": [
+    { "speaker": "ai", "text": "Hi there. Tell me about your classes today." },
+    { "speaker": "student", "text": "I had math and English today." }
+  ]
+}
+```
+
+Response:
+```json
+{
+  "turnCount": 2,
+  "studentTurnCount": 1,
+  "newStudentTurns": 1
+}
+```
+
 ### `POST /api/v1/speak/session/complete`
+Request:
+```json
+{
+  "sessionId": "uuid",
+  "durationSeconds": 94
+}
+```
+
 Response:
 ```json
 {

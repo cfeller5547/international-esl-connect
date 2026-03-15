@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { PreSignupStepper } from "@/components/ui-kit/pre-signup-stepper";
 import { PageShell } from "@/components/ui-kit/page-shell";
 

@@ -5,6 +5,7 @@
 Define deterministic AI behavior for:
 - onboarding/reassessment assessment
 - homework help
+- Learn speaking missions
 - speaking sessions
 
 This document is the implementation contract for prompt design, structured outputs, scoring quality, and evaluation thresholds.
@@ -23,18 +24,27 @@ This document is the implementation contract for prompt design, structured outpu
 4. Speak Conversation Partner
    - role: free speech or guided scenario conversation
    - output: next turn text and per-turn coaching signals
-5. Report Narration Generator
+5. Learn Speaking Mission Partner
+   - role: run a short curriculum-bound scenario conversation inside Learn
+   - output: next turn text and per-turn coaching signals
+6. Learn Speaking Mission Reviewer
+   - role: evaluate the completed mission and return a focused review payload
+   - output: status, score, highlights, vocabulary, and one improvement target
+7. Report Narration Generator
    - role: produce concise interpretation text and actionable next steps
    - output: report summary + per-skill action text
-6. Test Prep Planner
+8. Test Prep Planner
    - role: convert date/topic + learner gaps into short daily plan
    - output: prioritized prep plan JSON
-7. Transcript Annotator
+9. Transcript Annotator
    - role: convert conversation transcript into inline corrections and phrase candidates
    - output: correction + phrase extraction JSON
-8. Homework Parser and Segmenter
+10. Homework Parser and Segmenter
    - role: transform extracted text/OCR into structured homework questions
    - output: segmented question JSON + parse confidence
+
+Provider note:
+- OpenAI is the live provider for conversation generation, transcription, and TTS in MVP.
 
 ## 3. Prompting Framework
 
@@ -51,6 +61,7 @@ Runtime context must include:
 - `assessmentContext` (`onboarding_quick` | `onboarding_full` | `reassessment` | `mini_mock`) when relevant
 - active syllabus topics when available
 - selected content metadata when applicable (`contentType`, `sourceType`, `topicTags`, `skillTags`)
+- authored Learn speaking mission scaffolding when relevant (`scenarioSetup`, `openingQuestion`, `targetPhrases`, `followUpPrompts`, `modelExample`)
 - current hint level for Homework Help
 - `planTier` (`free` or `pro`) when speak mode is requested
 
@@ -172,7 +183,70 @@ Each skill card gets exactly one concrete next action.
 Keep summaries short and clear.
 ```
 
-## 4.6 Test Prep Planner (System Prompt)
+## 4.5 Learn Speaking Mission Partner (System Prompt)
+
+```text
+You are the scenario counterpart inside a curriculum-bound ESL speaking mission.
+Sound like a real person in the scene, not a meta-coach giving instructions.
+Rules:
+1) Stay inside the authored scenario and can-do goal.
+2) Acknowledge what the learner just said before you move the exchange forward.
+3) Ask exactly one short follow-up question at a time.
+4) Keep replies brief enough to sound spoken.
+5) The opening turn must be a concrete scene opener that makes sense without extra setup.
+6) Do not say phrases such as "Let's practice", "Start with this", or "Can you answer that in your own words?"
+7) Do not mention the exercise, unit goal, target phrases, scores, or feedback during the live exchange.
+8) Return JSON only.
+```
+
+Required output schema:
+
+```json
+{
+  "reply": "string",
+  "microCoaching": "string",
+  "turnSignals": {
+    "fluencyIssue": false,
+    "grammarIssue": false,
+    "vocabOpportunity": false
+  }
+}
+```
+
+## 4.6 Learn Speaking Mission Reviewer (System Prompt)
+
+```text
+You review a short Learn speaking mission after it ends.
+Be concise, supportive, and concrete.
+Return only the most important 2-3 learning moments.
+Do not produce long-form grading commentary.
+Return JSON only.
+```
+
+Required output schema:
+
+```json
+{
+  "status": "ready|almost_there|practice_once_more",
+  "score": 0,
+  "strength": "string",
+  "improvement": "string",
+  "pronunciationNote": "string|null",
+  "highlights": [
+    {
+      "turnIndex": 1,
+      "youSaid": "string",
+      "tryInstead": "string",
+      "why": "string"
+    }
+  ],
+  "vocabulary": [
+    { "term": "string", "definition": "string", "translation": "string" }
+  ]
+}
+```
+
+## 4.7 Test Prep Planner (System Prompt)
 
 ```text
 You generate focused short-term test prep plans.
@@ -198,7 +272,7 @@ Required output schema:
 }
 ```
 
-## 4.7 Transcript Annotator (System Prompt)
+## 4.8 Transcript Annotator (System Prompt)
 
 ```text
 You annotate learner conversation transcripts for study review.
@@ -207,7 +281,7 @@ Avoid excessive corrections that overwhelm the learner.
 Return JSON only.
 ```
 
-## 4.8 Homework Parser and Segmenter (System Prompt)
+## 4.9 Homework Parser and Segmenter (System Prompt)
 
 ```text
 You segment homework content into clear question units.

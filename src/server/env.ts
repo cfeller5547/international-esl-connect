@@ -4,12 +4,26 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
   SESSION_SECRET: z.string().min(16).default("development-session-secret-123"),
   NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
+  OPENAI_API_KEY: z.string().min(20).optional(),
+  OPENAI_TEXT_MODEL: z.string().min(1).default("gpt-4.1-mini"),
+  OPENAI_REALTIME_MODEL: z.string().min(1).default("gpt-realtime"),
+  OPENAI_TRANSCRIPTION_MODEL: z.string().min(1).default("gpt-4o-mini-transcribe"),
+  OPENAI_TTS_MODEL: z.string().min(1).default("gpt-4o-mini-tts"),
+  OPENAI_TTS_VOICE: z.string().min(1).default("alloy"),
+  OPENAI_REALTIME_VOICE: z.string().min(1).default("marin"),
 });
 
 const parsed = envSchema.safeParse({
   DATABASE_URL: process.env.DATABASE_URL,
   SESSION_SECRET: process.env.SESSION_SECRET,
   NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  OPENAI_TEXT_MODEL: process.env.OPENAI_TEXT_MODEL,
+  OPENAI_REALTIME_MODEL: process.env.OPENAI_REALTIME_MODEL,
+  OPENAI_TRANSCRIPTION_MODEL: process.env.OPENAI_TRANSCRIPTION_MODEL,
+  OPENAI_TTS_MODEL: process.env.OPENAI_TTS_MODEL,
+  OPENAI_TTS_VOICE: process.env.OPENAI_TTS_VOICE,
+  OPENAI_REALTIME_VOICE: process.env.OPENAI_REALTIME_VOICE,
 });
 
 if (!parsed.success) {
@@ -28,4 +42,12 @@ export const env = parsed.success
         process.env.SESSION_SECRET ?? "development-session-secret-123",
       NEXT_PUBLIC_APP_URL:
         process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+      OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+      OPENAI_TEXT_MODEL: process.env.OPENAI_TEXT_MODEL ?? "gpt-4.1-mini",
+      OPENAI_REALTIME_MODEL: process.env.OPENAI_REALTIME_MODEL ?? "gpt-realtime",
+      OPENAI_TRANSCRIPTION_MODEL:
+        process.env.OPENAI_TRANSCRIPTION_MODEL ?? "gpt-4o-mini-transcribe",
+      OPENAI_TTS_MODEL: process.env.OPENAI_TTS_MODEL ?? "gpt-4o-mini-tts",
+      OPENAI_TTS_VOICE: process.env.OPENAI_TTS_VOICE ?? "alloy",
+      OPENAI_REALTIME_VOICE: process.env.OPENAI_REALTIME_VOICE ?? "marin",
     };

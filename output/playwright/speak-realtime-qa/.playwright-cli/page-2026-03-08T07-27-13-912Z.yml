@@ -1,0 +1,55 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - link "ESL International Connect home" [ref=e5] [cursor=pointer]:
+          - /url: /app/home
+          - img "ESL International Connect" [ref=e6]
+        - navigation [ref=e112]:
+          - link "Home" [ref=e113] [cursor=pointer]:
+            - /url: /app/home
+          - link "Learn" [ref=e114] [cursor=pointer]:
+            - /url: /app/learn
+          - link "Speak" [ref=e115] [cursor=pointer]:
+            - /url: /app/speak
+          - link "Tools" [ref=e116] [cursor=pointer]:
+            - /url: /app/tools
+          - link "Progress" [ref=e117] [cursor=pointer]:
+            - /url: /app/progress
+        - button "Account" [ref=e7]
+    - main [ref=e8]:
+      - generic [ref=e85]:
+        - generic [ref=e86]:
+          - generic [ref=e87]:
+            - generic [ref=e88]:
+              - generic [ref=e89]: Speak live
+              - generic [ref=e90]: Open speaking practice
+              - paragraph [ref=e91]: Tell me about your classes today.
+            - generic [ref=e92]:
+              - generic [ref=e93]:
+                - img
+                - text: Live and ready
+              - button "Finish session" [ref=e108]:
+                - img
+                - text: Finish session
+          - generic [ref=e94]: "Opening prompt: Tell me about your classes today."
+        - generic [ref=e95]:
+          - generic [ref=e102]:
+            - generic [ref=e109]: "Hello and welcome! This is an open speaking practice session, so feel free to express yourself. Let's start: tell me about your classes today. What did you learn or do that stood out to you"
+            - generic [ref=e110]: My classes are going well so far, thank you.
+            - generic [ref=e111]: Glad to hear that! What’s one topic from your class that you found interesting?
+            - generic [ref=e118]: Well, today I learned a little bit about Bobo and Popo.
+            - generic [ref=e119]: Oh, Bobo and Popo—that sounds unique. Can you tell me what they are or what they mean in your class?
+            - generic [ref=e120]: Yeah, I mean, they're not really part of my class. I think they're part of Cocos.
+            - generic [ref=e121]: Got it, so is it something from a group project
+            - generic [ref=e122]: Das bin.
+            - generic [ref=e123]: No worries, take your time. What do you think makes Bobo and Popo important to that group or project?
+            - generic [ref=e124]: Well, I think that mostly they're important to me and Coco, more so than the class.
+            - generic [ref=e125]: I see, so they’re important to you and Coco. Can you share why they matter to you both?
+            - generic [ref=e126]: I'll let you answer that one.
+            - generic [ref=e127]: Sure, no problem. How about telling me a little more about Coco?
+          - generic [ref=e104]:
+            - paragraph [ref=e105]: Your microphone stays live for the conversation once connected.
+            - paragraph [ref=e106]: "Student turns recorded: 6"
+  - region "Notifications alt+T"
+  - alert [ref=e75]

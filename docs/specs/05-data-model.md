@@ -153,6 +153,16 @@ Rule:
 - `created_at`
 - `updated_at`
 
+Speaking activity payload contract:
+- `scenario_title`
+- `scenario_setup`
+- `warmup_prompts[]`
+- `target_phrases[]`
+- `follow_up_prompts[]`
+- `success_criteria[]`
+- `model_example`
+- `is_benchmark`
+
 Rule:
 - every unit must have exactly five required activities in this fixed order:
   1. `lesson`
@@ -320,13 +330,24 @@ Rules:
 - `id` (uuid, pk)
 - `user_id` (fk)
 - `mode` (`free_speech` | `guided`)
+- `surface` (`learn` | `speak`)
+- `mission_kind` (`free_speech` | `guided` | `unit_speaking` | `unit_benchmark`)
 - `interaction_mode` (`text` | `voice`)
 - `scenario_key` (nullable)
+- `curriculum_unit_id` (nullable fk curriculum_units.id)
+- `curriculum_activity_id` (nullable fk curriculum_unit_activities.id)
+- `retry_of_session_id` (nullable self-fk speak_sessions.id)
 - `duration_seconds`
 - `status`
 - `started_at`
 - `completed_at`
 - `summary_payload` (jsonb)
+- `evaluation_payload` (jsonb, nullable)
+
+`summary_payload` usage notes:
+- Learn speaking sessions store scenario metadata such as `scenario_title`, `scenario_setup`, `counterpart_role`, and `opening_question`.
+- Learn speaking retries preserve linkage through `retry_of_session_id` while keeping the new session's own transcript and evaluation payload.
+- Learn and Speak realtime voice sessions both use the same `speak_sessions` / `speak_turns` tables; route-level behavior is distinguished by `surface`.
 
 ### `speak_turns`
 - `id` (uuid, pk)
@@ -401,6 +422,9 @@ Rules:
 14. `assessment_attempts.context = mini_mock` must reference `test_prep_plan_id`.
 15. Streak updates are idempotent per user per calendar day.
 16. Parse confidence below threshold must set `homework_uploads.status = needs_review`.
+17. Learn speaking mission retries must link back to the original session via `retry_of_session_id`.
+18. Learn speaking reviews are persisted on `user_unit_activity_progress.response_payload` so completed speaking steps can reopen directly into review state.
+19. Units `3` and `6` in each 6-unit curriculum are authored with `is_benchmark = true` on the speaking activity payload.
 
 ## 4. Retention and Cleanup
 

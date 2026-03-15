@@ -1,0 +1,72 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - link "ESL International Connect home" [ref=e5] [cursor=pointer]:
+          - /url: /app/home
+          - img "ESL International Connect" [ref=e6]
+        - button "Account" [ref=e7]
+    - main [ref=e8]:
+      - main [ref=e9]:
+        - generic [ref=e10]:
+          - generic [ref=e11]:
+            - generic [ref=e13]: Start practice
+            - generic [ref=e14]:
+              - generic [ref=e15]:
+                - button "Free speech Start from a guided prompt instead of a blank state." [ref=e16]:
+                  - paragraph [ref=e17]: Free speech
+                  - paragraph [ref=e18]: Start from a guided prompt instead of a blank state.
+                - button "Guided scenario Practice a specific academic speaking situation." [ref=e19]:
+                  - paragraph [ref=e20]: Guided scenario
+                  - paragraph [ref=e21]: Practice a specific academic speaking situation.
+              - generic [ref=e22]:
+                - generic [ref=e23]: Interaction mode
+                - combobox [active] [ref=e24]:
+                  - generic: Voice (Pro)
+                  - img
+              - generic [ref=e25]:
+                - generic [ref=e26]: Starter prompt
+                - generic [ref=e27]:
+                  - button "My school day Tell me about your classes today." [ref=e28]:
+                    - paragraph [ref=e29]: My school day
+                    - paragraph [ref=e30]: Tell me about your classes today.
+                  - button "Homework talk Explain one homework question you're unsure about." [ref=e31]:
+                    - paragraph [ref=e32]: Homework talk
+                    - paragraph [ref=e33]: Explain one homework question you're unsure about.
+                  - button "Test prep Practice a short dialogue using this week's test topics." [ref=e34]:
+                    - paragraph [ref=e35]: Test prep
+                    - paragraph [ref=e36]: Practice a short dialogue using this week's test topics.
+                  - button "Anything Choose any topic and start speaking." [ref=e37]:
+                    - paragraph [ref=e38]: Anything
+                    - paragraph [ref=e39]: Choose any topic and start speaking.
+              - button "Start practice" [ref=e40]
+          - generic [ref=e41]:
+            - generic [ref=e43]: What to expect
+            - generic [ref=e44]:
+              - paragraph [ref=e45]: Free plans default to text-first speaking practice with starter prompts.
+              - paragraph [ref=e46]: After each turn, you get one short improvement cue instead of a wall of corrections.
+              - paragraph [ref=e47]: Completed sessions unlock transcript review and phrase saving.
+    - navigation [ref=e48]:
+      - generic [ref=e49]:
+        - link "Home" [ref=e50] [cursor=pointer]:
+          - /url: /app/home
+          - img [ref=e51]
+          - generic [ref=e54]: Home
+        - link "Learn" [ref=e55] [cursor=pointer]:
+          - /url: /app/learn
+          - img [ref=e56]
+          - generic [ref=e58]: Learn
+        - link "Speak" [ref=e59] [cursor=pointer]:
+          - /url: /app/speak
+          - img [ref=e60]
+          - generic [ref=e64]: Speak
+        - link "Tools" [ref=e65] [cursor=pointer]:
+          - /url: /app/tools
+          - img [ref=e66]
+          - generic [ref=e68]: Tools
+        - link "Progress" [ref=e69] [cursor=pointer]:
+          - /url: /app/progress
+          - img [ref=e70]
+          - generic [ref=e74]: Progress
+  - region "Notifications alt+T"
+  - alert [ref=e75]

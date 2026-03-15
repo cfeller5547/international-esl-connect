@@ -409,11 +409,22 @@ async function upsertCurricula() {
         {
           type: "speaking",
           title: "Speaking Mission",
-          description: `Use the unit language in a guided speaking response.`,
+          description: unit.speakingMission.isBenchmark
+            ? `Use the unit language in a benchmark speaking mission.`
+            : `Use the unit language in a guided speaking mission.`,
           contentItemId: null,
           payload: {
-            prompts: unit.speakingPrompts,
             scenario: unit.scenario,
+            scenarioTitle: unit.speakingMission.scenarioTitle,
+            scenarioSetup: unit.speakingMission.scenarioSetup,
+            counterpartRole: unit.speakingMission.counterpartRole,
+            openingQuestion: unit.speakingMission.openingQuestion,
+            warmupPrompts: unit.speakingMission.warmupPrompts,
+            targetPhrases: unit.speakingMission.targetPhrases,
+            followUpPrompts: unit.speakingMission.followUpPrompts,
+            successCriteria: unit.speakingMission.successCriteria,
+            modelExample: unit.speakingMission.modelExample,
+            isBenchmark: unit.speakingMission.isBenchmark,
           },
         },
         {

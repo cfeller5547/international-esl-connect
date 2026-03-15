@@ -113,10 +113,25 @@ Implementation note:
 12. `curriculum_level_promoted`
    - trigger: qualifying assessment promotes the learner into a higher curriculum
    - properties: `previous_level`, `new_level`
-13. `recommendation_content_source_selected`
+13. `learn_speaking_mission_started`
+   - trigger: user starts a Learn speaking mission
+   - properties: `unit_slug`, `interaction_mode`, `delivery_mode`, `is_benchmark`
+14. `learn_speaking_mission_completed`
+   - trigger: Learn speaking mission review is generated
+   - properties: `unit_slug`, `interaction_mode`, `delivery_mode`, `is_benchmark`, `score`
+15. `learn_speaking_feedback_viewed`
+   - trigger: Learn speaking review state rendered
+   - properties: `unit_slug`, `status`
+16. `learn_speaking_retry_started`
+   - trigger: user starts a retry of the same Learn speaking mission
+   - properties: `unit_slug`, `interaction_mode`, `delivery_mode`, `is_benchmark`
+17. `learn_speaking_phrase_saved`
+   - trigger: user saves a phrase from Learn speaking review
+   - properties: `session_id`
+18. `recommendation_content_source_selected`
    - trigger: recommendation payload finalized
    - properties: `content_id`, `source_type`, `content_type`
-14. `recommendation_rule_applied`
+19. `recommendation_rule_applied`
    - trigger: deterministic recommendation rule selected
    - properties: `reason_code`
 
@@ -171,6 +186,10 @@ Implementation note:
 7. `transcript_phrase_saved`
    - trigger: phrase saved from transcript review
    - properties: `session_id`
+
+Implementation note:
+- the current Pro voice path uses OpenAI Realtime in-browser, but it does not emit separate realtime-only analytics events yet.
+- live voice continues to roll up into the existing `speak_session_started`, `speak_turn_submitted`, and `speak_session_completed` contract.
 
 ## 4.5 Progress and Reporting
 
