@@ -2,6 +2,7 @@ import { AppError } from "@/server/errors";
 import { prisma } from "@/server/prisma";
 import { env } from "@/server/env";
 import { Prisma } from "@/generated/prisma/client";
+import { serializeRealtimeClientSecret } from "@/server/realtime-client-secret";
 
 import {
   createOpeningPrompt,
@@ -358,13 +359,7 @@ export const ConversationService = {
       },
     });
 
-    return {
-      clientSecret: realtimeSession.value,
-      expiresAt: realtimeSession.expires_at,
-      model:
-        ("model" in realtimeSession.session && realtimeSession.session.model) ||
-        env.OPENAI_REALTIME_MODEL,
-    };
+    return serializeRealtimeClientSecret(realtimeSession, env.OPENAI_REALTIME_MODEL);
   },
 
   async syncRealtimeTranscript({

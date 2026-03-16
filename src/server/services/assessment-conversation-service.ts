@@ -4,6 +4,7 @@ import { AppError } from "@/server/errors";
 import { env } from "@/server/env";
 import { openai } from "@/server/openai";
 import { prisma } from "@/server/prisma";
+import { serializeRealtimeClientSecret } from "@/server/realtime-client-secret";
 
 import {
   createOpeningPrompt,
@@ -231,13 +232,7 @@ export const AssessmentConversationService = {
       },
     });
 
-    return {
-      clientSecret: realtimeSession.value,
-      expiresAt: realtimeSession.expires_at,
-      model:
-        ("model" in realtimeSession.session && realtimeSession.session.model) ||
-        env.OPENAI_REALTIME_MODEL,
-    };
+    return serializeRealtimeClientSecret(realtimeSession, env.OPENAI_REALTIME_MODEL);
   },
 
   async submitTurn({
