@@ -76,21 +76,22 @@ Current Speak UX shape:
 ## 3. Read First
 
 Read in this order before changing behavior:
-1. `docs/specs/README.md`
-2. `docs/specs/01-product-prd.md`
-3. `docs/specs/02-ux-architecture-and-flow.md`
-4. `docs/specs/12-screen-contracts.md`
-5. `docs/specs/03-visual-and-interaction-guidelines.md`
-6. `docs/specs/11-theme-tokens-and-implementation.md`
-7. `docs/specs/04-technical-architecture.md`
-8. `docs/specs/05-data-model.md`
-9. `docs/specs/06-api-contracts.md`
-10. `docs/specs/07-ai-assessment-and-reporting-spec.md`
-11. `docs/specs/13-ai-prompts-and-evals.md`
-12. `docs/specs/14-analytics-events.md`
-13. `docs/specs/08-non-functional-security-compliance.md`
-14. `docs/specs/09-agent-implementation-runbook.md`
-15. `docs/specs/10-qa-acceptance-test-plan.md`
+1. `docs/specs/15-agent-handoff-guide.md`
+2. `docs/specs/README.md`
+3. `docs/specs/01-product-prd.md`
+4. `docs/specs/02-ux-architecture-and-flow.md`
+5. `docs/specs/12-screen-contracts.md`
+6. `docs/specs/03-visual-and-interaction-guidelines.md`
+7. `docs/specs/11-theme-tokens-and-implementation.md`
+8. `docs/specs/04-technical-architecture.md`
+9. `docs/specs/05-data-model.md`
+10. `docs/specs/06-api-contracts.md`
+11. `docs/specs/07-ai-assessment-and-reporting-spec.md`
+12. `docs/specs/13-ai-prompts-and-evals.md`
+13. `docs/specs/14-analytics-events.md`
+14. `docs/specs/08-non-functional-security-compliance.md`
+15. `docs/specs/09-agent-implementation-runbook.md`
+16. `docs/specs/10-qa-acceptance-test-plan.md`
 
 Rule:
 - `docs/specs/*` is the source of truth
@@ -117,9 +118,17 @@ Do not casually change these:
 - `src/components/ui-kit/account-menu.tsx`
 - `src/lib/constants.ts`
 
+### Home and recommendations
+- `src/app/app/home/page.tsx`
+- `src/server/services/recommendation-service.ts`
+- `src/server/services/context-service.ts`
+
 ### Onboarding and assessment
+- `src/app/api/v1/onboarding/session/route.ts`
 - `src/app/onboarding/*`
 - `src/app/app/assessment/full/*`
+- `src/app/api/v1/onboarding/session/assessment/conversation/realtime/route.ts`
+- `src/app/api/v1/assessment/full/conversation/realtime/route.ts`
 - `src/features/assessment/assessment-form.tsx`
 - `src/features/assessment/use-assessment-live-voice.ts`
 - `src/server/services/onboarding-service.ts`
@@ -161,9 +170,11 @@ Do not casually change these:
 - `src/server/openai.ts`
 - `src/server/ai/openai-conversation.ts`
 - `src/server/env.ts`
+- `src/server/realtime-client-secret.ts`
 
 ### Progress and reports
 - `src/app/app/progress/*`
+- `src/app/app/progress/reassessment/page.tsx`
 - `src/components/ui-kit/progress-insights-panel.tsx`
 - `src/components/ui-kit/report-radar-chart.tsx`
 - `src/server/services/report-service.ts`
@@ -173,6 +184,8 @@ Do not casually change these:
 - `prisma/schema.prisma`
 - `prisma/seed.ts`
 - `prisma/seed-demo-report-history.ts`
+- `src/server/bootstrap-data.ts`
+- `src/server/services/content-service.ts`
 
 ### Analytics
 - `src/server/analytics.ts`
@@ -234,6 +247,7 @@ Environment notes:
   - `OPENAI_TTS_MODEL`
   - `OPENAI_TTS_VOICE`
   - `OPENAI_REALTIME_VOICE`
+- server env loading trims surrounding whitespace from env values, which protects production voice flows from newline-tainted model or voice strings
 
 ## 7. Verification Standard
 
@@ -272,16 +286,32 @@ Do not:
 
 - the repo entrypoint file is `AGENTS.md`
 - this guide exists because fresh agents need a single reliable starting point
+- the root `README.md` is still generic Next.js boilerplate and should not be treated as product documentation
 - the curriculum and Tools restructure is already implemented
 - progress history with trend visualization is already implemented
 - auth uses a contextual public/auth shell
 - Learn has recently gone through multiple UX simplification passes
+- content and curriculum availability are not driven only by one-time seeding:
+  - `src/server/bootstrap-data.ts`
+  - `src/server/services/content-service.ts`
+- Learn and Speak share the same conversation session infrastructure:
+  - `speak_sessions`
+  - `speak_turns`
+  - `src/server/services/conversation-service.ts`
+- onboarding diagnostic live voice now depends on the OpenAI Realtime client-secret routes plus `src/server/realtime-client-secret.ts`
+- if realtime voice suddenly fails in production, inspect `src/server/env.ts` and the deployed OpenAI env values before assuming the conversation logic is broken
+- assessment and Learn UX are currently being pushed toward one dominant action with minimal repeated status chrome
 - current Learn goal is clarity through a single anchor:
   - `Unit`
   - `current activity`
   - `current question or response`
 
 When touching Learn, preserve that direction.
+
+Known current gaps / drift:
+- `src/app/api/v1/onboarding/session/route.ts` still always creates a fresh guest session instead of resuming an existing in-progress onboarding guest
+- `src/app/app/progress/reassessment/page.tsx` still uses the older text-prompt reassessment flow rather than the voice-first full diagnostic path used by onboarding/full placement
+- `src/app/app/home/page.tsx` still hardcodes a `Continue curriculum` quick action even when the current recommendation points to a non-curriculum destination
 
 ## 10. Common Failure Modes
 
@@ -292,7 +322,7 @@ Avoid these:
 4. Breaking `currentLevel` promotion rules
 5. Letting `mini_mock` affect curriculum assignment
 6. Changing APIs or analytics without updating specs
-7. Using UI language that creates competing progress models on the same screen
+7. Using UI language or duplicated status chrome that creates competing progress models on the same screen
 8. Re-expanding Learn activity surfaces into dashboards
 
 ## 11. Multi-Agent Coordination Rules
