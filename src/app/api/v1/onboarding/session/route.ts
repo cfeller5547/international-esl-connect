@@ -30,11 +30,14 @@ export async function POST() {
       expiresAt: session.expiresAt.toISOString(),
     });
   } catch (error) {
+    const debugMessage = error instanceof Error ? error.message : String(error);
+
     return toErrorResponse(error, {
       code: "ONBOARDING_SESSION_CREATE_FAILED",
       message: "We could not create your onboarding session.",
       details: {
         stage: "guest_session_bootstrap",
+        debugMessage,
       },
     });
   }

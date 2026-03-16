@@ -13,6 +13,7 @@ type BootstrapErrorState = {
   message: string;
   requestId: string | null;
   stage: string | null;
+  debugMessage: string | null;
 };
 
 function readErrorState(payload: unknown): BootstrapErrorState {
@@ -46,6 +47,11 @@ function readErrorState(payload: unknown): BootstrapErrorState {
         typeof errorPayload.details?.stage === "string"
           ? errorPayload.details.stage
           : null,
+      debugMessage:
+        typeof (errorPayload.details as { debugMessage?: unknown } | null)?.debugMessage ===
+        "string"
+          ? (errorPayload.details as { debugMessage: string }).debugMessage
+          : null,
     };
   }
 
@@ -54,6 +60,7 @@ function readErrorState(payload: unknown): BootstrapErrorState {
     message: "We could not start onboarding.",
     requestId: null,
     stage: null,
+    debugMessage: null,
   };
 }
 
@@ -89,6 +96,7 @@ export function GetStartedBootstrap() {
         message: "We could not start onboarding.",
         requestId: null,
         stage: null,
+        debugMessage: null,
       });
       setPending(false);
     }
@@ -158,6 +166,10 @@ export function GetStartedBootstrap() {
             <p>
               <span className="font-medium text-foreground">Stage:</span>{" "}
               {error?.stage ?? "Unknown"}
+            </p>
+            <p>
+              <span className="font-medium text-foreground">Debug:</span>{" "}
+              {error?.debugMessage ?? "Not provided"}
             </p>
           </div>
         </div>
