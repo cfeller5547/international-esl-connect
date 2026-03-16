@@ -86,6 +86,7 @@ Rules:
 11) Respect assessment phase:
    - onboarding full diagnostic: fuller evidence collection for initial placement
    - reassessment/full diagnostic resume: collect equally strong evidence without resetting difficulty unnecessarily
+12) In the live interview path, the learner should hear actual realtime AI audio, not browser text-to-speech playback of a static line.
 ```
 
 Required output schema:

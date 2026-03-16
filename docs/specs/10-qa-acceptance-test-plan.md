@@ -28,13 +28,15 @@ Critical domains:
 8. Confirm Home does not require another first-time full diagnostic after signup.
 9. Validate overall score equals rounded mean of six skill scores.
 10. In the diagnostic conversation, verify one tap starts the live voice interview, the AI introduces itself first, and the user does not need to press record between turns.
-11. Ask for clarification with a short reply such as `why?` and verify the AI rephrases without increasing the captured-reply count.
+11. Verify the AI opening audio is the actual live AI voice and not browser text-to-speech playback.
+12. Ask for clarification with a short reply such as `why?` and verify the AI rephrases without increasing the captured-reply count.
 
 Pass condition:
 - no repeated data entry
 - report stays hidden until authenticated
 - first authenticated experience shows real value immediately
 - diagnostic voice interview feels continuous rather than turn-by-turn recorded
+- diagnostic voice interview sounds like a real AI conversation rather than local robot playback
 
 ## 3.2 Home and Learn Flow
 

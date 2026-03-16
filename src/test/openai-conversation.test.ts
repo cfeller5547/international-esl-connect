@@ -14,8 +14,8 @@ describe("openai conversation helpers", () => {
       scenarioSetup: "You are talking with a placement coach about your classes.",
       counterpartRole: "placement_coach",
       introductionText:
-        "Hi, I'm Maya. I'll talk with you for a couple of minutes so I can understand how you use English in class.",
-      openingQuestion: "To start, tell me your name and one class you are taking right now?",
+        "Hi, I'm Maya. I want to get a feel for how you use English in class.",
+      openingQuestion: "What's your name, and what class are you taking right now?",
       canDoStatement: "I can answer simple questions about my classes and goals.",
       performanceTask: "Have a short placement conversation.",
       targetPhrases: ["I'm taking", "I want to improve"],
@@ -26,7 +26,7 @@ describe("openai conversation helpers", () => {
     });
 
     expect(opening).toBe(
-      "Hi, I'm Maya. I'll talk with you for a couple of minutes so I can understand how you use English in class. To start, tell me your name and one class you are taking right now?"
+      "Hi, I'm Maya. I want to get a feel for how you use English in class. What's your name, and what class are you taking right now?"
     );
     expect(opening).not.toMatch(/let's begin/i);
   });

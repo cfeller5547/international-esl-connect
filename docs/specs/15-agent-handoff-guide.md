@@ -31,7 +31,7 @@ Current core model:
   - `reassessment`
 - `mini_mock` never changes level
 - curriculum MVP is English-only
-- onboarding and full-diagnostic placement interviews are voice-required and use a one-tap continuous mic flow rather than per-turn recording
+- onboarding and full-diagnostic placement interviews are voice-required and use OpenAI Realtime live audio with a one-tap continuous mic flow rather than browser TTS or per-turn recording
 
 Current fixed curriculum system:
 - 4 levels:

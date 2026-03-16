@@ -41,7 +41,7 @@ export default async function FullDiagnosticPage() {
       introNote={introNote}
       conversationExperience={{
         ...FULL_DIAGNOSTIC_CONVERSATION,
-        turnEndpoint: "/api/v1/assessment/full/conversation/turn",
+        realtimeEndpoint: "/api/v1/assessment/full/conversation/realtime",
       }}
     />
   );

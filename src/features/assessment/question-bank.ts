@@ -131,10 +131,10 @@ export const FULL_DIAGNOSTIC_CONVERSATION = {
     "You are having a short conversation with a placement coach about your classes, routines, and learning goals.",
   counterpartRole: "placement_coach",
   introductionText:
-    "Hi, I'm Maya. I'll talk with you for a couple of minutes so I can understand how you use English in class.",
-  openingQuestion: "To start, tell me your name and one class you are taking right now?",
+    "Hi, I'm Maya. I want to get a feel for how you use English in class.",
+  openingQuestion: "What's your name, and what class are you taking right now?",
   openingTurn:
-    "Hi, I'm Maya. I'll talk with you for a couple of minutes so I can understand how you use English in class. To start, tell me your name and one class you are taking right now?",
+    "Hi, I'm Maya. I want to get a feel for how you use English in class. What's your name, and what class are you taking right now?",
   helpfulPhrases: [
     "I'm taking...",
     "In that class, we usually...",

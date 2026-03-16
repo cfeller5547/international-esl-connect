@@ -60,7 +60,7 @@ This document translates product and UX principles into concrete, testable scree
   - pre-signup stepper header
   - guided assessment shell with one primary task at a time
   - expanded objective questions
-  - one transcript-first AI conversation stage with replay, a one-tap continuous live voice loop, and hidden helper content
+  - one transcript-first AI conversation stage with a one-tap continuous live voice loop, actual AI audio, and hidden helper content
   - writing sample prompt
   - section status summary
   - overall progress bar
@@ -69,6 +69,7 @@ This document translates product and UX principles into concrete, testable scree
   - the AI must respond like a real person in a short placement interview, not like a scripted worksheet
   - the main conversation surface should show a growing transcript and one dominant live-voice control, not a per-turn record button
   - once started, the mic loop should continue through the interview without requiring another tap for every answer
+  - the live interview must use realtime AI audio, not browser text-to-speech replay
   - typing is disabled for this diagnostic conversation
   - clarification turns must rephrase the last question and must not increment captured-reply progress
 - Loading/empty/error: autosave progress; recover session if refreshed.

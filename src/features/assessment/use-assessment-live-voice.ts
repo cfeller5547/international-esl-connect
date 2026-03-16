@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
+import { isClarificationRequest } from "@/lib/conversation-utils";
 
 export type AssessmentVoiceState =
   | "idle"
@@ -10,371 +18,366 @@ export type AssessmentVoiceState =
   | "speaking"
   | "error";
 
-type SpeechRecognitionResultAlternative = {
-  transcript?: string;
+type AssessmentConversationTurn = {
+  speaker: "ai" | "student";
+  text: string;
+  countsTowardProgress?: boolean;
 };
 
-type SpeechRecognitionResultLike = ArrayLike<SpeechRecognitionResultAlternative>;
-
-type SpeechRecognitionEventLike = {
-  results?: ArrayLike<SpeechRecognitionResultLike>;
-  timeStamp?: number;
-};
-
-type SpeechRecognitionErrorEventLike = {
-  error?: string;
-};
-
-type BrowserSpeechRecognition = {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  onstart: ((event?: { timeStamp?: number }) => void) | null;
-  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
-  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
-  onend: (() => void) | null;
-  start: () => void;
-  stop: () => void;
-  abort: () => void;
-};
-
-type BrowserSpeechRecognitionConstructor = new () => BrowserSpeechRecognition;
-
-function getSpeechRecognitionConstructor(): BrowserSpeechRecognitionConstructor | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  const browserWindow = window as Window & {
-    SpeechRecognition?: BrowserSpeechRecognitionConstructor;
-    webkitSpeechRecognition?: BrowserSpeechRecognitionConstructor;
-  };
-
-  return browserWindow.SpeechRecognition ?? browserWindow.webkitSpeechRecognition ?? null;
-}
-
-function supportsContinuousVoice() {
-  return getSpeechRecognitionConstructor() !== null;
-}
-
-function getTranscriptFromRecognitionEvent(event: SpeechRecognitionEventLike) {
-  const transcripts =
-    Array.from(event.results ?? []).flatMap((result) =>
-      Array.from(result ?? []).map((alternative) => alternative.transcript ?? "")
-    ) ?? [];
-
-  return transcripts.join(" ").trim();
-}
+type RealtimeCredentialPayload =
+  | {
+      clientSecret?: string;
+      model?: string;
+      error?: { message?: string };
+    }
+  | undefined;
 
 type UseAssessmentLiveVoiceArgs = {
+  assessmentAttemptId: string;
+  realtimeEndpoint: string;
   openingTurn: string;
+  transcript: AssessmentConversationTurn[];
+  setTranscript: Dispatch<SetStateAction<AssessmentConversationTurn[]>>;
+  setConversationDurationSeconds: Dispatch<SetStateAction<number>>;
   setError: (message: string | null) => void;
-  onVoiceTurn: (args: {
-    transcriptText: string;
-    durationSeconds: number;
-  }) => Promise<{
-    aiReplyText: string;
-    continueConversation: boolean;
-  } | null>;
 };
 
+function supportsLiveVoice() {
+  return (
+    typeof window !== "undefined" &&
+    typeof navigator !== "undefined" &&
+    Boolean(navigator.mediaDevices?.getUserMedia) &&
+    typeof RTCPeerConnection !== "undefined"
+  );
+}
+
+function toRoundedSeconds(milliseconds: number) {
+  return Math.max(0, Math.round(milliseconds / 1000));
+}
+
 export function useAssessmentLiveVoice({
+  assessmentAttemptId,
+  realtimeEndpoint,
   openingTurn,
+  transcript,
+  setTranscript,
+  setConversationDurationSeconds,
   setError,
-  onVoiceTurn,
 }: UseAssessmentLiveVoiceArgs) {
   const [voiceState, setVoiceState] = useState<AssessmentVoiceState>("idle");
   const [liveActive, setLiveActive] = useState(false);
 
-  const recognitionRef = useRef<BrowserSpeechRecognition | null>(null);
-  const liveActiveRef = useRef(false);
-  const awaitingReplyRef = useRef(false);
-  const speakingRef = useRef(false);
-  const stoppingRef = useRef(false);
-  const heardResultRef = useRef(false);
-  const listeningStartedAtRef = useRef<number | null>(null);
+  const transcriptRef = useRef(transcript);
+  const voiceStateRef = useRef(voiceState);
+  const connectionRef = useRef<RTCPeerConnection | null>(null);
+  const dataChannelRef = useRef<RTCDataChannel | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
+  const connectionStartedAtRef = useRef<number | null>(null);
+  const accumulatedMillisecondsRef = useRef(0);
+  const closingConnectionRef = useRef(false);
 
-  function clearRecognition() {
-    const recognition = recognitionRef.current;
-    if (!recognition) {
-      return;
+  useEffect(() => {
+    transcriptRef.current = transcript;
+  }, [transcript]);
+
+  useEffect(() => {
+    voiceStateRef.current = voiceState;
+  }, [voiceState]);
+
+  useEffect(() => {
+    return () => {
+      accumulatedMillisecondsRef.current += consumeActiveMilliseconds();
+      teardownConnection();
+    };
+  }, []);
+
+  function consumeActiveMilliseconds() {
+    if (!connectionStartedAtRef.current) {
+      return 0;
     }
 
-    recognition.onstart = null;
-    recognition.onresult = null;
-    recognition.onerror = null;
-    recognition.onend = null;
-    recognitionRef.current = null;
+    const elapsed = Date.now() - connectionStartedAtRef.current;
+    connectionStartedAtRef.current = null;
+    return Math.max(0, elapsed);
   }
 
-  function cancelAiSpeech() {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-      return;
-    }
+  function updateDurationSnapshot() {
+    const activeMilliseconds = connectionStartedAtRef.current
+      ? Math.max(0, Date.now() - connectionStartedAtRef.current)
+      : 0;
 
-    window.speechSynthesis.cancel();
+    setConversationDurationSeconds(
+      toRoundedSeconds(accumulatedMillisecondsRef.current + activeMilliseconds)
+    );
   }
 
-  function stopRecognition() {
-    const recognition = recognitionRef.current;
-    if (!recognition) {
-      return;
+  function teardownConnection() {
+    connectionRef.current?.close();
+    dataChannelRef.current?.close();
+    localStreamRef.current?.getTracks().forEach((track) => track.stop());
+
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.srcObject = null;
     }
 
-    try {
-      stoppingRef.current = true;
-      recognition.stop();
-    } catch {
-      try {
-        recognition.abort();
-      } catch {
-        // Ignore shutdown failures from the browser speech API.
-      }
-    }
-  }
-
-  function pauseLiveConversation() {
-    liveActiveRef.current = false;
+    connectionRef.current = null;
+    dataChannelRef.current = null;
+    localStreamRef.current = null;
+    remoteAudioRef.current = null;
     setLiveActive(false);
-    awaitingReplyRef.current = false;
-    speakingRef.current = false;
-    stopRecognition();
-    cancelAiSpeech();
+  }
+
+  function appendTurn(turn: AssessmentConversationTurn) {
+    const text = turn.text.trim();
+    if (!text) {
+      return;
+    }
+
+    setTranscript((current) => {
+      const next = [...current, { ...turn, text }];
+      transcriptRef.current = next;
+      return next;
+    });
+  }
+
+  function sendRealtimeEvent(event: Record<string, unknown>) {
+    const channel = dataChannelRef.current;
+    if (!channel || channel.readyState !== "open") {
+      return;
+    }
+
+    channel.send(JSON.stringify(event));
+  }
+
+  function replayHistory() {
+    for (const turn of transcriptRef.current) {
+      sendRealtimeEvent({
+        type: "conversation.item.create",
+        item: {
+          type: "message",
+          role: turn.speaker === "student" ? "user" : "assistant",
+          content: [
+            {
+              type: turn.speaker === "student" ? "input_text" : "output_text",
+              text: turn.text,
+            },
+          ],
+        },
+      });
+    }
+  }
+
+  function requestOpeningTurn() {
+    sendRealtimeEvent({
+      type: "response.create",
+      response: {
+        instructions: `Greet the learner naturally as Maya and open the interview with this exact introduction and first question: ${openingTurn}`,
+      },
+    });
+  }
+
+  function requestContinuationTurn() {
+    sendRealtimeEvent({
+      type: "response.create",
+      response: {
+        instructions:
+          "Continue the placement interview naturally with one short spoken response and one short follow-up question.",
+      },
+    });
+  }
+
+  function handleRealtimeMessage(rawEvent: MessageEvent<string>) {
+    const event = JSON.parse(rawEvent.data) as {
+      type: string;
+      transcript?: string;
+      error?: { message?: string };
+      response?: { status?: string; status_details?: { error?: { message?: string } } };
+    };
+
+    switch (event.type) {
+      case "input_audio_buffer.speech_started":
+        setVoiceState("listening");
+        updateDurationSnapshot();
+        return;
+      case "input_audio_buffer.speech_stopped":
+        setVoiceState("thinking");
+        updateDurationSnapshot();
+        return;
+      case "response.created":
+        setVoiceState("thinking");
+        updateDurationSnapshot();
+        return;
+      case "response.output_audio.delta":
+        setVoiceState("speaking");
+        return;
+      case "response.output_audio_transcript.done":
+        if (event.transcript?.trim()) {
+          appendTurn({ speaker: "ai", text: event.transcript });
+        }
+        setVoiceState("idle");
+        updateDurationSnapshot();
+        return;
+      case "conversation.item.input_audio_transcription.completed":
+        if (event.transcript?.trim()) {
+          appendTurn({
+            speaker: "student",
+            text: event.transcript,
+            countsTowardProgress: !isClarificationRequest(event.transcript),
+          });
+        }
+        setVoiceState("thinking");
+        updateDurationSnapshot();
+        return;
+      case "response.done":
+        if (event.response?.status === "failed") {
+          setVoiceState("error");
+          setError(
+            event.response.status_details?.error?.message ??
+              "The live voice interview failed unexpectedly."
+          );
+          return;
+        }
+        if (voiceStateRef.current !== "error") {
+          setVoiceState("idle");
+        }
+        updateDurationSnapshot();
+        return;
+      case "error":
+        setVoiceState("error");
+        setError(event.error?.message ?? "The live voice interview reported an error.");
+        return;
+      default:
+        return;
+    }
+  }
+
+  async function pauseLiveConversation() {
+    accumulatedMillisecondsRef.current += consumeActiveMilliseconds();
+    updateDurationSnapshot();
+    closingConnectionRef.current = true;
+    sendRealtimeEvent({ type: "response.cancel" });
+    teardownConnection();
     setVoiceState("idle");
   }
 
-  async function speakAiReply(text: string, continueConversation: boolean) {
-    if (!text.trim()) {
-      if (continueConversation && liveActiveRef.current) {
-        beginListening();
-      } else {
-        liveActiveRef.current = false;
-        setLiveActive(false);
-        setVoiceState("idle");
-      }
+  async function startLiveConversation() {
+    if (!assessmentAttemptId) {
       return;
     }
 
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-      if (continueConversation && liveActiveRef.current) {
-        beginListening();
-      } else {
-        liveActiveRef.current = false;
-        setLiveActive(false);
-        setVoiceState("idle");
-      }
-      return;
-    }
-
-    speakingRef.current = true;
-    setVoiceState("speaking");
-    window.speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.onend = () => {
-      speakingRef.current = false;
-
-      if (continueConversation && liveActiveRef.current) {
-        beginListening();
-        return;
-      }
-
-      liveActiveRef.current = false;
-      setLiveActive(false);
-      setVoiceState("idle");
-    };
-    utterance.onerror = () => {
-      speakingRef.current = false;
-
-      if (continueConversation && liveActiveRef.current) {
-        beginListening();
-        return;
-      }
-
-      liveActiveRef.current = false;
-      setLiveActive(false);
-      setVoiceState("idle");
-    };
-
-    window.speechSynthesis.speak(utterance);
-  }
-
-  function handleRecognitionError(event: SpeechRecognitionErrorEventLike) {
-    clearRecognition();
-
-    if (!liveActiveRef.current) {
-      return;
-    }
-
-    const code = event.error ?? "unknown";
-    if (code === "aborted") {
-      return;
-    }
-
-    if (code === "no-speech") {
-      window.setTimeout(() => {
-        if (liveActiveRef.current && !awaitingReplyRef.current && !speakingRef.current) {
-          beginListening();
-        }
-      }, 250);
-      return;
-    }
-
-    const message =
-      code === "not-allowed" || code === "service-not-allowed"
-        ? "Microphone access was blocked. Voice is required for this diagnostic conversation."
-        : "We couldn't keep the microphone live. Try starting the conversation again.";
-
-    liveActiveRef.current = false;
-    setLiveActive(false);
-    setVoiceState("error");
-    setError(message);
-  }
-
-async function handleRecognitionResult(event: SpeechRecognitionEventLike) {
-    const transcriptText = getTranscriptFromRecognitionEvent(event);
-    heardResultRef.current = transcriptText.length > 0;
-    clearRecognition();
-
-    if (!transcriptText) {
-      if (liveActiveRef.current) {
-        beginListening();
-      }
-      return;
-    }
-
-    awaitingReplyRef.current = true;
-    setVoiceState("thinking");
-
-    try {
-      const startedAt = listeningStartedAtRef.current ?? event.timeStamp ?? 0;
-      const endedAt = event.timeStamp ?? startedAt;
-      const durationSeconds = Math.max(
-        1,
-        Math.round((endedAt - startedAt) / 1000)
-      );
-      const result = await onVoiceTurn({
-        transcriptText,
-        durationSeconds,
-      });
-
-      awaitingReplyRef.current = false;
-
-      if (!result) {
-        liveActiveRef.current = false;
-        setLiveActive(false);
-        setVoiceState("error");
-        return;
-      }
-
-      await speakAiReply(result.aiReplyText, result.continueConversation);
-    } catch {
-      awaitingReplyRef.current = false;
-      liveActiveRef.current = false;
-      setLiveActive(false);
+    if (!supportsLiveVoice()) {
       setVoiceState("error");
-      setError("We couldn't continue the voice conversation. Try again.");
-    }
-  }
-
-  function beginListening() {
-    const Recognition = getSpeechRecognitionConstructor();
-    if (!Recognition) {
-      liveActiveRef.current = false;
-      setLiveActive(false);
-      setVoiceState("error");
-      setError("This browser can't run the live voice diagnostic.");
-      return;
-    }
-
-    clearRecognition();
-    heardResultRef.current = false;
-    stoppingRef.current = false;
-    listeningStartedAtRef.current = 0;
-
-    const recognition = new Recognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = "en-US";
-    recognition.onstart = (event?: { timeStamp?: number }) => {
-      listeningStartedAtRef.current = event?.timeStamp ?? 0;
-      setVoiceState("listening");
-    };
-    recognition.onresult = (event) => {
-      void handleRecognitionResult(event);
-    };
-    recognition.onerror = (event) => {
-      handleRecognitionError(event);
-    };
-    recognition.onend = () => {
-      clearRecognition();
-
-      if (stoppingRef.current) {
-        stoppingRef.current = false;
-        return;
-      }
-
-      if (!liveActiveRef.current || awaitingReplyRef.current || speakingRef.current) {
-        return;
-      }
-
-      if (!heardResultRef.current) {
-        window.setTimeout(() => {
-          if (liveActiveRef.current && !awaitingReplyRef.current && !speakingRef.current) {
-            beginListening();
-          }
-        }, 250);
-      }
-    };
-
-    recognitionRef.current = recognition;
-
-    try {
-      recognition.start();
-    } catch {
-      clearRecognition();
-      liveActiveRef.current = false;
-      setLiveActive(false);
-      setVoiceState("error");
-      setError("We couldn't start the microphone. Try again.");
-    }
-  }
-
-  async function startLiveConversation(options?: {
-    speakOpeningTurn?: boolean;
-  }) {
-    if (!supportsContinuousVoice()) {
-      setVoiceState("error");
-      setError("This browser can't run the live voice diagnostic.");
+      setError("This browser can't run the live AI voice interview.");
       return;
     }
 
     setError(null);
-    liveActiveRef.current = true;
-    setLiveActive(true);
     setVoiceState("starting");
 
-    if (options?.speakOpeningTurn) {
-      await speakAiReply(openingTurn, true);
-      return;
-    }
+    try {
+      const credentialResponse = await fetch(realtimeEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assessmentAttemptId }),
+      });
+      const credentialPayload = (await credentialResponse.json()) as RealtimeCredentialPayload;
 
-    beginListening();
+      if (
+        !credentialResponse.ok ||
+        !credentialPayload?.clientSecret ||
+        !credentialPayload?.model
+      ) {
+        throw new Error(
+          credentialPayload?.error?.message ??
+            "Unable to start the live AI voice interview."
+        );
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+
+      const connection = new RTCPeerConnection();
+      const channel = connection.createDataChannel("oai-events");
+      const remoteAudio = new Audio();
+      remoteAudio.autoplay = true;
+      remoteAudioRef.current = remoteAudio;
+
+      connection.ontrack = (event) => {
+        remoteAudio.srcObject = event.streams[0] ?? null;
+        void remoteAudio.play().catch(() => undefined);
+      };
+
+      channel.addEventListener("open", () => {
+        replayHistory();
+
+        if (transcriptRef.current.length === 0) {
+          requestOpeningTurn();
+        } else if (transcriptRef.current.at(-1)?.speaker === "student") {
+          requestContinuationTurn();
+        }
+
+        setVoiceState("idle");
+      });
+
+      channel.addEventListener("message", handleRealtimeMessage);
+      channel.addEventListener("close", () => {
+        if (!closingConnectionRef.current && voiceStateRef.current !== "error") {
+          accumulatedMillisecondsRef.current += consumeActiveMilliseconds();
+          updateDurationSnapshot();
+          setVoiceState("idle");
+          setLiveActive(false);
+        }
+      });
+
+      stream.getTracks().forEach((track) => connection.addTrack(track, stream));
+
+      const offer = await connection.createOffer();
+      await connection.setLocalDescription(offer);
+
+      const answerResponse = await fetch("https://api.openai.com/v1/realtime/calls", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${credentialPayload.clientSecret}`,
+          "Content-Type": "application/sdp",
+        },
+        body: offer.sdp,
+      });
+
+      if (!answerResponse.ok) {
+        throw new Error("OpenAI rejected the live voice interview.");
+      }
+
+      const answerSdp = await answerResponse.text();
+      await connection.setRemoteDescription({ type: "answer", sdp: answerSdp });
+
+      connectionRef.current = connection;
+      dataChannelRef.current = channel;
+      localStreamRef.current = stream;
+      closingConnectionRef.current = false;
+      connectionStartedAtRef.current = Date.now();
+      setLiveActive(true);
+      setVoiceState("idle");
+      updateDurationSnapshot();
+    } catch (startError) {
+      accumulatedMillisecondsRef.current += consumeActiveMilliseconds();
+      teardownConnection();
+      setVoiceState("error");
+      setError(
+        startError instanceof Error
+          ? startError.message
+          : "Unable to open the live AI voice interview."
+      );
+    }
   }
 
-  useEffect(() => {
-    return () => {
-      liveActiveRef.current = false;
-      awaitingReplyRef.current = false;
-      speakingRef.current = false;
-      stopRecognition();
-      cancelAiSpeech();
-      clearRecognition();
-    };
-  }, []);
-
   return {
-    isSupported: supportsContinuousVoice(),
+    isSupported: supportsLiveVoice(),
     liveActive,
     voiceState,
     startLiveConversation,

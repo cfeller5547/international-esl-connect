@@ -1,5 +1,8 @@
 import { FULL_DIAGNOSTIC_CONVERSATION } from "@/features/assessment/question-bank";
+import { isClarificationRequest } from "@/lib/conversation-utils";
 import { AppError } from "@/server/errors";
+import { env } from "@/server/env";
+import { openai } from "@/server/openai";
 import { prisma } from "@/server/prisma";
 
 import {
@@ -79,25 +82,6 @@ function buildClosingReply(studentTranscriptText: string) {
   };
 }
 
-function isClarificationRequest(text: string) {
-  const normalized = text.trim().toLowerCase().replace(/[?!.,]+$/g, "");
-
-  return [
-    "why",
-    "what",
-    "what do you mean",
-    "what do you mean by that",
-    "can you repeat that",
-    "say that again",
-    "i dont understand",
-    "i don't understand",
-    "which one",
-    "sorry",
-    "pardon",
-    "huh",
-  ].includes(normalized);
-}
-
 function buildClarificationReply(lastAiTurn: string) {
   const source = lastAiTurn.toLowerCase();
 
@@ -158,11 +142,102 @@ async function getAuthorizedAttempt({
   return attempt;
 }
 
+function createAssessmentRealtimeInstructions() {
+  const context = buildContext("voice");
+
+  return [
+    "You are Maya, a warm placement coach having a short live English conversation with a learner.",
+    "Sound like a real person speaking naturally, not a robot, test engine, scripted narrator, or worksheet.",
+    "Keep every spoken reply short and natural for audio, usually one or two sentences plus one follow-up question.",
+    "Stay inside the placement interview and help the learner keep talking about classes, routines, and goals.",
+    "Acknowledge what the learner just said before you ask the next question.",
+    "If the learner asks for clarification with something like 'why?', 'what do you mean?', or 'can you repeat that?', rephrase your last question in simpler English and invite a real answer.",
+    "Do not mention scoring, pronunciation analysis, evaluation, rubrics, or that you are grading the learner.",
+    "Do not correct the learner during the live exchange.",
+    `Scenario title: ${context.scenarioTitle}.`,
+    `Scenario setup: ${context.scenarioSetup}.`,
+    `Introduction style: ${context.introductionText}.`,
+    `Opening question: ${context.openingQuestion}.`,
+    `Can-do goal: ${context.canDoStatement}.`,
+    `Performance task: ${context.performanceTask}.`,
+    `Follow-up style: ${context.followUpPrompts.join(" | ")}.`,
+  ].join(" ");
+}
+
 export const AssessmentConversationService = {
   responseTarget: FULL_DIAGNOSTIC_CONVERSATION.responseTarget,
 
   createOpeningTurn() {
     return createOpeningPrompt(buildContext("text"));
+  },
+
+  async createRealtimeClientSecret({
+    assessmentAttemptId,
+    userId,
+    guestSessionToken,
+  }: {
+    assessmentAttemptId: string;
+    userId?: string;
+    guestSessionToken?: string;
+  }) {
+    if (!openai) {
+      throw new AppError(
+        "AI_SERVICE_UNAVAILABLE",
+        "Realtime voice is not configured on this environment.",
+        503
+      );
+    }
+
+    await getAuthorizedAttempt({
+      assessmentAttemptId,
+      userId,
+      guestSessionToken,
+    });
+
+    const realtimeSession = await openai.realtime.clientSecrets.create({
+      expires_after: {
+        anchor: "created_at",
+        seconds: 60,
+      },
+      session: {
+        type: "realtime",
+        model: env.OPENAI_REALTIME_MODEL,
+        instructions: createAssessmentRealtimeInstructions(),
+        output_modalities: ["audio"],
+        max_output_tokens: 220,
+        audio: {
+          input: {
+            noise_reduction: {
+              type: "near_field",
+            },
+            transcription: {
+              model: env.OPENAI_TRANSCRIPTION_MODEL,
+              language: "en",
+            },
+            turn_detection: {
+              type: "server_vad",
+              create_response: true,
+              interrupt_response: true,
+              idle_timeout_ms: 6000,
+              prefix_padding_ms: 300,
+              silence_duration_ms: 450,
+            },
+          },
+          output: {
+            voice: env.OPENAI_REALTIME_VOICE,
+            speed: 1,
+          },
+        },
+      },
+    });
+
+    return {
+      clientSecret: realtimeSession.value,
+      expiresAt: realtimeSession.expires_at,
+      model:
+        ("model" in realtimeSession.session && realtimeSession.session.model) ||
+        env.OPENAI_REALTIME_MODEL,
+    };
   },
 
   async submitTurn({

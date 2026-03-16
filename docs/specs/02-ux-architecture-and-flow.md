@@ -163,11 +163,12 @@ Rules:
 - The diagnostic should feel guided, not split into competing equal-weight columns.
 - Within the assessment route, present one primary task at a time:
   - objective question
-  - one transcript-first AI conversation stage with a human introduction, natural follow-up questions, and a required continuous live voice reply
+  - one transcript-first AI conversation stage with a human introduction, natural follow-up questions, and a required continuous OpenAI Realtime live voice reply
   - writing sample
   - final submit state
 - The assessment conversation must feel like a short interview with a real person, not a worksheet:
   - first AI turn introduces the speaker before asking the opening question
+  - the AI voice must come from the live Realtime session itself, not browser text-to-speech playback of scripted text
   - follow-up turns acknowledge the learner's answer and ask one short next question
   - learner starts the conversation once and then keeps talking; the UI must not require a new `Record answer` press for every turn
   - typing is not a fallback path for the onboarding or full-diagnostic placement interview

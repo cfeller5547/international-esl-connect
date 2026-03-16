@@ -43,7 +43,7 @@ export default async function OnboardingAssessmentPage() {
       backHref="/onboarding/profile"
       conversationExperience={{
         ...FULL_DIAGNOSTIC_CONVERSATION,
-        turnEndpoint: "/api/v1/onboarding/session/assessment/conversation/turn",
+        realtimeEndpoint: "/api/v1/onboarding/session/assessment/conversation/realtime",
       }}
     />
   );

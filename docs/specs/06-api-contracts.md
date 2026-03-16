@@ -140,6 +140,10 @@ Response:
 ```
 
 ### `POST /api/v1/onboarding/session/assessment/conversation/turn`
+Behavior:
+- legacy non-realtime mirror of the assessment conversation contract
+- not the primary UI path for the shipped onboarding diagnostic, which uses the realtime client-secret endpoint below
+
 Request:
 ```json
 {
@@ -158,7 +162,7 @@ Response:
 ```json
 {
   "attemptId": "uuid",
-  "openingTurn": "Hi, I'm Maya. I'll talk with you for a couple of minutes so I can understand how you use English in class. To start, tell me your name and one class you are taking right now?",
+  "openingTurn": "Hi, I'm Maya. I want to get a feel for how you use English in class. What's your name, and what class are you taking right now?",
   "studentTranscriptText": "I'm Ana, and I'm taking biology.",
   "aiResponseText": "Nice to meet you, Ana. What do you usually do in your biology class?",
   "replyCount": 1,
@@ -169,8 +173,32 @@ Response:
 }
 ```
 Behavior note:
-- the onboarding and full-diagnostic UI use this endpoint from a continuous live-mic loop; `voiceCaptured: true` means the learner spoke through the browser mic even when no raw audio blob is uploaded
+- this route remains available for non-realtime or service-side continuation logic; `voiceCaptured: true` means the learner spoke through the browser mic even when no raw audio blob is uploaded
 - if the learner sends a clarification turn such as `why?` or `what do you mean?`, the API returns a rephrased coach question and `countsTowardProgress: false`
+
+### `POST /api/v1/onboarding/session/assessment/conversation/realtime`
+Creates a short-lived OpenAI Realtime client secret for the active guest full-diagnostic interview.
+
+Request:
+```json
+{
+  "assessmentAttemptId": "uuid"
+}
+```
+
+Response:
+```json
+{
+  "clientSecret": "string",
+  "expiresAt": 1770000000,
+  "model": "gpt-realtime"
+}
+```
+
+Rules:
+- attempt must belong to the current guest session
+- attempt must be `context = onboarding_full`
+- attempt must still be active
 
 ### `GET /api/v1/onboarding/session/results`
 Query:
@@ -234,6 +262,29 @@ Response:
 Behavior:
 - authenticated mirror of the onboarding assessment conversation turn endpoint
 - uses the same placement-coach conversation contract, voice-captured request shape, and reply payload
+
+### `POST /api/v1/assessment/full/conversation/realtime`
+Creates a short-lived OpenAI Realtime client secret for the authenticated full-diagnostic interview.
+
+Request:
+```json
+{
+  "assessmentAttemptId": "uuid"
+}
+```
+
+Response:
+```json
+{
+  "clientSecret": "string",
+  "expiresAt": 1770000000,
+  "model": "gpt-realtime"
+}
+```
+
+Rules:
+- attempt must belong to the current user
+- attempt must still be active
 
 ## 3. Learn and Recommendations
 

@@ -7,7 +7,6 @@ import {
   Check,
   Loader2,
   Mic,
-  Volume2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -47,7 +46,7 @@ type AssessmentConversationExperience = {
   helpfulPhrases: readonly string[];
   modelExample: string;
   responseTarget: number;
-  turnEndpoint: string;
+  realtimeEndpoint: string;
   requireVoice?: boolean;
 };
 
@@ -350,15 +349,6 @@ function countWords(value: string) {
   return normalized.split(/\s+/).length;
 }
 
-function speakText(text: string) {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-    return;
-  }
-
-  window.speechSynthesis.cancel();
-  window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
-}
-
 function conversationStatusCopy(replyCount: number, replyTarget: number) {
   if (replyCount >= replyTarget) {
     return "Conversation complete. Continue when you're ready.";
@@ -405,7 +395,11 @@ function withOpeningTurn(
   state: StoredAssessmentState,
   conversationExperience?: AssessmentConversationExperience
 ): StoredAssessmentState {
-  if (!conversationExperience || state.conversationTranscript.length > 0) {
+  if (
+    !conversationExperience ||
+    conversationExperience.requireVoice ||
+    state.conversationTranscript.length > 0
+  ) {
     return state;
   }
 
@@ -438,7 +432,6 @@ export function AssessmentForm({
 }: AssessmentFormProps) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
-  const [conversationPending, setConversationPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasRestoredClientState, setHasRestoredClientState] = useState(false);
   const seededState = withOpeningTurn(
@@ -463,7 +456,6 @@ export function AssessmentForm({
   const [answers, setAnswers] = useState<Record<string, string>>(seededState.answers);
   const [conversation, setConversation] = useState<Record<string, string>>(seededState.conversation);
   const [writingSample, setWritingSample] = useState(seededState.writingSample);
-  const [conversationInput, setConversationInput] = useState("");
   const [conversationTranscript, setConversationTranscript] = useState<AssessmentConversationTurn[]>(
     seededState.conversationTranscript
   );
@@ -500,6 +492,7 @@ export function AssessmentForm({
     )
   );
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const restoredState = withOpeningTurn(
       getInitialState(storageKey, seededInitialState),
@@ -536,6 +529,7 @@ export function AssessmentForm({
     steps,
     storageKey,
   ]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (!hasRestoredClientState) {
@@ -627,9 +621,6 @@ export function AssessmentForm({
       ? `Continue to ${sectionMeta[steps[currentStepIndex + 1].section].navLabel}`
       : "Continue"
     : submitLabel;
-  const lastAiTurn =
-    [...conversationTranscript].reverse().find((turn) => turn.speaker === "ai")?.text ?? "";
-
   const {
     isSupported: liveVoiceSupported,
     liveActive: liveVoiceActive,
@@ -637,120 +628,14 @@ export function AssessmentForm({
     startLiveConversation,
     pauseLiveConversation,
   } = useAssessmentLiveVoice({
+    assessmentAttemptId,
+    realtimeEndpoint: conversationExperience?.realtimeEndpoint ?? "",
     openingTurn: conversationExperience?.openingTurn ?? "",
+    transcript: conversationTranscript,
+    setTranscript: setConversationTranscript,
+    setConversationDurationSeconds,
     setError,
-    onVoiceTurn: async ({ transcriptText, durationSeconds }) => {
-      const result = await submitConversationTurn({
-        text: transcriptText,
-        durationSeconds,
-        voiceCaptured: true,
-      });
-
-      if (!result) {
-        return null;
-      }
-
-      return {
-        aiReplyText: result.aiResponseText,
-        continueConversation: !result.canAdvance,
-      };
-    },
   });
-
-  async function submitConversationTurn(studentInput?: {
-    text?: string;
-    audioDataUrl?: string;
-    audioMimeType?: string;
-    durationSeconds?: number;
-    voiceCaptured?: boolean;
-  }) {
-    if (!conversationExperience) {
-      return null;
-    }
-
-    const text = studentInput?.text?.trim() ?? conversationInput.trim();
-    if (
-      diagnosticRequiresVoice &&
-      !studentInput?.audioDataUrl &&
-      !studentInput?.voiceCaptured
-    ) {
-      setError("Use the microphone to answer this part of the diagnostic.");
-      return null;
-    }
-
-    if (!text && !studentInput?.audioDataUrl) {
-      return null;
-    }
-
-    setConversationPending(true);
-    setError(null);
-
-    try {
-      const response = await fetch(conversationExperience.turnEndpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          assessmentAttemptId,
-          transcript: conversationTranscript,
-          studentInput: {
-            text: text || undefined,
-            audioDataUrl: studentInput?.audioDataUrl,
-            audioMimeType: studentInput?.audioMimeType,
-            durationSeconds: studentInput?.durationSeconds,
-            voiceCaptured: studentInput?.voiceCaptured,
-          },
-        }),
-      });
-
-      const payload = (await response.json().catch(() => ({}))) as {
-        error?: { message?: string };
-        studentTranscriptText?: string;
-        aiResponseText?: string;
-        durationSeconds?: number;
-        countsTowardProgress?: boolean;
-        canAdvance?: boolean;
-      };
-
-      if (!response.ok || !payload.studentTranscriptText || !payload.aiResponseText) {
-        setError(payload.error?.message ?? "We couldn't continue the conversation. Please try again.");
-        setConversationPending(false);
-        return null;
-      }
-
-      const studentTranscriptText = payload.studentTranscriptText.trim();
-      const aiResponseText = payload.aiResponseText.trim();
-      const studentTurn: AssessmentConversationTurn = {
-        speaker: "student",
-        text: studentTranscriptText,
-        countsTowardProgress: payload.countsTowardProgress !== false,
-      };
-      const aiTurn: AssessmentConversationTurn = {
-        speaker: "ai",
-        text: aiResponseText,
-      };
-
-      setConversationTranscript((current) => [
-        ...current,
-        studentTurn,
-        aiTurn,
-      ]);
-      setConversationDurationSeconds(
-        (current) => current + (payload.durationSeconds ?? studentInput?.durationSeconds ?? 0)
-      );
-      setConversationInput("");
-      return {
-        aiResponseText,
-        canAdvance: Boolean(payload.canAdvance),
-      };
-    } catch {
-      setError("We couldn't continue the conversation. Please try again.");
-      return null;
-    } finally {
-      setConversationPending(false);
-    }
-  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1091,6 +976,11 @@ export function AssessmentForm({
 
               <div className="rounded-3xl border border-border/70 bg-muted/20 p-4 sm:p-5">
                 <div className="space-y-3">
+                  {conversationTranscript.length === 0 ? (
+                    <div className="rounded-3xl border border-dashed border-border/70 bg-background/85 px-4 py-4 text-sm text-muted-foreground">
+                      Maya will greet you first once the live interview starts.
+                    </div>
+                  ) : null}
                   {conversationTranscript.map((turn, index) => {
                     const isAi = turn.speaker === "ai";
 
@@ -1107,21 +997,9 @@ export function AssessmentForm({
                               : "border-primary/20 bg-primary/8 text-foreground"
                           )}
                         >
-                          <div className="flex items-center justify-between gap-4">
-                            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-secondary">
-                              {isAi ? counterpartLabel(conversationExperience.counterpartRole) : "You"}
-                            </p>
-                            {isAi ? (
-                              <button
-                                type="button"
-                                className="inline-flex items-center gap-1 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground transition hover:text-foreground"
-                                onClick={() => speakText(turn.text)}
-                              >
-                                <Volume2 className="size-3.5" />
-                                Replay
-                              </button>
-                            ) : null}
-                          </div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-secondary">
+                            {isAi ? counterpartLabel(conversationExperience.counterpartRole) : "You"}
+                          </p>
                           <p className="mt-3 text-base leading-relaxed text-foreground">{turn.text}</p>
                         </div>
                       </div>
@@ -1135,9 +1013,7 @@ export function AssessmentForm({
                   <div>
                     <p className="text-sm font-semibold text-foreground">Your reply</p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {diagnosticRequiresVoice
-                        ? `${conversationStatusCopy(conversationReplyCount, conversationReplyTarget)} Start once, then keep talking out loud as the AI responds.`
-                        : conversationStatusCopy(conversationReplyCount, conversationReplyTarget)}
+                      {`${conversationStatusCopy(conversationReplyCount, conversationReplyTarget)} Start once, then keep talking out loud as the AI responds.`}
                     </p>
                   </div>
                   {diagnosticRequiresVoice ? (
@@ -1150,7 +1026,7 @@ export function AssessmentForm({
                               size="lg"
                               variant="outline"
                               onClick={() => pauseLiveConversation()}
-                              disabled={conversationPending || pending}
+                              disabled={pending}
                             >
                               <Mic className="size-4" />
                               Pause voice
@@ -1159,12 +1035,8 @@ export function AssessmentForm({
                             <Button
                               type="button"
                               size="lg"
-                              onClick={() =>
-                                void startLiveConversation({
-                                  speakOpeningTurn: conversationReplyCount === 0,
-                                })
-                              }
-                              disabled={conversationPending || pending || !liveVoiceSupported}
+                              onClick={() => void startLiveConversation()}
+                              disabled={pending || !liveVoiceSupported}
                             >
                               {voiceState === "starting" ? (
                                 <>
@@ -1194,41 +1066,6 @@ export function AssessmentForm({
                         Typing is disabled here. This diagnostic uses voice so we can hear how the learner responds in spoken English.
                       </div>
                     </div>
-                  ) : (
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="flex flex-wrap gap-3">
-                        <Button
-                          type="button"
-                          size="lg"
-                          onClick={() => void submitConversationTurn()}
-                          disabled={conversationPending || pending || !conversationInput.trim()}
-                        >
-                          {conversationPending ? (
-                            <>
-                              <Loader2 className="size-4 animate-spin" />
-                              Sending
-                            </>
-                          ) : (
-                            "Send reply"
-                          )}
-                        </Button>
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {countWords(conversationInput)} words
-                      </div>
-                    </div>
-                  )}
-                  {!diagnosticRequiresVoice ? (
-                    <Textarea
-                      value={conversationInput}
-                      onChange={(event) => {
-                        setError(null);
-                        setConversationInput(event.target.value);
-                      }}
-                      placeholder="Type your reply here. Simple English is fine."
-                      className="min-h-32 resize-y rounded-3xl border-border/70 bg-background/80 px-4 py-3"
-                      disabled={conversationPending || pending}
-                    />
                   ) : null}
                 </div>
               </div>
@@ -1251,19 +1088,6 @@ export function AssessmentForm({
                     </div>
                   </div>
                 </details>
-              </div>
-
-              <div className="rounded-2xl border border-secondary/15 bg-secondary/5 px-4 py-3 text-sm text-foreground">
-                {lastAiTurn ? (
-                  <button
-                    type="button"
-                    className="inline-flex items-center gap-2 font-medium text-foreground transition hover:text-primary"
-                    onClick={() => speakText(lastAiTurn)}
-                  >
-                    <Volume2 className="size-4" />
-                    Replay the latest AI reply
-                  </button>
-                ) : null}
               </div>
             </div>
           ) : (
@@ -1319,7 +1143,7 @@ export function AssessmentForm({
             size="lg"
             variant="outline"
             onClick={handleBack}
-            disabled={pending || conversationPending}
+            disabled={pending}
           >
             <ArrowLeft className="size-4" />
             Back
@@ -1331,7 +1155,7 @@ export function AssessmentForm({
                 type="button"
                 size="lg"
                 onClick={handleContinue}
-                disabled={!currentStepComplete || pending || conversationPending}
+                disabled={!currentStepComplete || pending}
                 className="w-full sm:w-auto"
               >
                 {nextButtonLabel}
@@ -1341,7 +1165,7 @@ export function AssessmentForm({
               <Button
                 type="submit"
                 size="lg"
-                disabled={!allRequiredComplete || pending || conversationPending}
+                disabled={!allRequiredComplete || pending}
                 className="w-full sm:w-auto"
               >
                 {pending ? "Submitting..." : submitLabel}

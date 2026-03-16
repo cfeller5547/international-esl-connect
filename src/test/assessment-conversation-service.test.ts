@@ -26,7 +26,9 @@ describe("assessment conversation service", () => {
       },
     });
 
-    expect(AssessmentConversationService.createOpeningTurn()).toMatch(/^Hi, I'm Maya\./);
+    expect(AssessmentConversationService.createOpeningTurn()).toBe(
+      "Hi, I'm Maya. I want to get a feel for how you use English in class. What's your name, and what class are you taking right now?"
+    );
 
     const reply = await AssessmentConversationService.submitTurn({
       assessmentAttemptId: attempt.id,

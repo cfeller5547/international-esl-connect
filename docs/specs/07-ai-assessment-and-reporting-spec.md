@@ -21,6 +21,7 @@ Conversation must be:
 - neutral in topic for onboarding
 - measurable in speaking and listening evidence
 - voice-required in the UI, with one-tap start and continuous turn-taking rather than manual record/stop cycles
+- delivered as actual AI audio through the live Realtime session, not browser text-to-speech playback of static text
 
 Required measured signals:
 - pronunciation quality

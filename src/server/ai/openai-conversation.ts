@@ -365,9 +365,9 @@ export function createOpeningPrompt(context: ConversationContext) {
   if (context.surface === "assessment") {
     const introduction =
       context.introductionText?.trim() ||
-      "Hi, I'm Maya. I'll talk with you for a couple of minutes so I can understand how you use English in class.";
+      "Hi, I'm Maya. I want to get a feel for how you use English in class.";
     const question = normalizeQuestion(
-      context.openingQuestion?.trim() || "To start, tell me your name and one class you are taking right now."
+      context.openingQuestion?.trim() || "What's your name, and what class are you taking right now?"
     );
 
     return `${introduction} ${question}`.trim();

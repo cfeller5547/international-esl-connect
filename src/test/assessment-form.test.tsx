@@ -46,13 +46,13 @@ const conversationExperience = {
   scenarioSetup: "You are talking with a placement coach about your classes.",
   counterpartRole: "placement_coach",
   introductionText: "Hi, I'm Maya.",
-  openingQuestion: "Tell me your name and one class you are taking right now?",
+  openingQuestion: "What's your name, and what class are you taking right now?",
   openingTurn:
-    "Hi, I'm Maya. I'll talk with you for a couple of minutes so I can understand how you use English in class. To start, tell me your name and one class you are taking right now?",
+    "Hi, I'm Maya. I want to get a feel for how you use English in class. What's your name, and what class are you taking right now?",
   helpfulPhrases: ["I'm taking...", "In that class, we usually..."],
   modelExample: "I'm Ana, and I'm taking biology.",
   responseTarget: 2,
-  turnEndpoint: "/api/v1/onboarding/session/assessment/conversation/turn",
+  realtimeEndpoint: "/api/v1/onboarding/session/assessment/conversation/realtime",
   requireVoice: true,
 } as const;
 
@@ -84,9 +84,9 @@ function renderAssessmentFormWithInitialState() {
       title="Full diagnostic"
       description="Expand the baseline with more objective items."
       submitLabel="Complete full diagnostic"
-      initialState={{
-        answers: {
-          q1: "1",
+        initialState={{
+          answers: {
+            q1: "1",
         },
         conversation: {},
         writingSample: "",
@@ -94,7 +94,7 @@ function renderAssessmentFormWithInitialState() {
       introNote="We carried over your completed baseline questions."
       conversationExperience={{
         ...conversationExperience,
-        turnEndpoint: "/api/v1/assessment/full/conversation/turn",
+        realtimeEndpoint: "/api/v1/assessment/full/conversation/realtime",
       }}
     />
   );
@@ -131,15 +131,14 @@ describe("AssessmentForm", () => {
 
     expect(screen.getByText("Diagnostic conversation")).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "Hi, I'm Maya. I'll talk with you for a couple of minutes so I can understand how you use English in class. To start, tell me your name and one class you are taking right now?"
-      )
+      screen.getByText("Maya will greet you first once the live interview starts.")
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /start live conversation/i })
     ).toBeInTheDocument();
     expect(screen.queryByPlaceholderText(/type your reply here/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^send$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /replay/i })).not.toBeInTheDocument();
   });
 
   it("submits paired conversation turns after the live AI interview is completed", async () => {
@@ -172,7 +171,7 @@ describe("AssessmentForm", () => {
           conversationTranscript: [
             {
               speaker: "ai",
-              text: conversationExperience.openingTurn,
+              text: "Hi, I'm Maya. I want to get a feel for how you use English in class. What's your name, and what class are you taking right now?",
             },
             {
               speaker: "student",
@@ -220,7 +219,7 @@ describe("AssessmentForm", () => {
         conversationTurns: [
           {
             prompt:
-              "Hi, I'm Maya. I'll talk with you for a couple of minutes so I can understand how you use English in class. To start, tell me your name and one class you are taking right now?",
+              "Hi, I'm Maya. I want to get a feel for how you use English in class. What's your name, and what class are you taking right now?",
             answer: "Hi, I'm Ana, and I'm taking biology.",
           },
           {
@@ -265,7 +264,8 @@ describe("AssessmentForm", () => {
           conversationTranscript: [
             {
               speaker: "ai",
-              text: conversationExperience.openingTurn,
+              text:
+                "Hi, I'm Maya. I want to get a feel for how you use English in class. What's your name, and what class are you taking right now?",
             },
             {
               speaker: "student",
