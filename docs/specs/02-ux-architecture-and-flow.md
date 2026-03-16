@@ -158,6 +158,7 @@ Rules:
 - No repeated data entry after signup
 - Persist state in temporary guest session
 - Cold-start public signup entry must begin at step 1, not step 4. Public `Get started` entry should create or resume the guest session and route to the correct in-progress onboarding step.
+- The `Get started` bootstrap should never fail as a blank server error. If session creation/resume fails, show a recovery screen with retry plus a traceable error code and request ID.
 - `/signup` is reserved for guests who have completed the onboarding diagnostic. If a guest reaches `/signup` early, redirect them back to the correct onboarding step.
 - The diagnostic should feel guided, not split into competing equal-weight columns.
 - Within the assessment route, present one primary task at a time:

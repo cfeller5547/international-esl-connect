@@ -38,7 +38,9 @@ This document translates product and UX principles into concrete, testable scree
 - Required behavior:
   - if no valid guest session exists, create one and route to `/onboarding/profile`
   - if a valid guest session exists, resume the correct onboarding step without skipping ahead
-- Loading/empty/error: on guest-session failure, redirect safely to `/`.
+- Loading/empty/error:
+  - show a short loading state while the guest session is being created or resumed
+  - on guest-session failure, render a visible failure state on `/get-started` with retry, safe exit, error code, stage, and request ID instead of a blank 500
 - Exit transition: route to `/onboarding/profile`, `/onboarding/assessment`, or `/signup` depending on guest progress.
 
 ### `/onboarding/profile`

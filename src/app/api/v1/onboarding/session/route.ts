@@ -30,6 +30,12 @@ export async function POST() {
       expiresAt: session.expiresAt.toISOString(),
     });
   } catch (error) {
-    return toErrorResponse(error);
+    return toErrorResponse(error, {
+      code: "ONBOARDING_SESSION_CREATE_FAILED",
+      message: "We could not create your onboarding session.",
+      details: {
+        stage: "guest_session_bootstrap",
+      },
+    });
   }
 }

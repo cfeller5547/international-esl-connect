@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 
+type ErrorResponseOverrides = {
+  code?: string;
+  message?: string;
+  details?: Record<string, unknown>;
+};
+
 export class AppError extends Error {
   readonly code: string;
   readonly status: number;
@@ -18,28 +24,39 @@ export class AppError extends Error {
   }
 }
 
-export function toErrorResponse(error: unknown) {
+export function toErrorResponse(error: unknown, overrides: ErrorResponseOverrides = {}) {
+  const requestId = crypto.randomUUID();
+
   if (error instanceof AppError) {
+    console.error(`[${requestId}]`, error);
+
     return NextResponse.json(
       {
         error: {
-          code: error.code,
-          message: error.message,
-          details: error.details,
+          code: overrides.code ?? error.code,
+          message: overrides.message ?? error.message,
+          details: {
+            ...error.details,
+            ...overrides.details,
+            requestId,
+          },
         },
       },
       { status: error.status }
     );
   }
 
-  console.error(error);
+  console.error(`[${requestId}]`, error);
 
   return NextResponse.json(
     {
       error: {
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Something went wrong.",
-        details: {},
+        code: overrides.code ?? "INTERNAL_SERVER_ERROR",
+        message: overrides.message ?? "Something went wrong.",
+        details: {
+          ...overrides.details,
+          requestId,
+        },
       },
     },
     { status: 500 }
@@ -57,4 +74,3 @@ export function invariant(
     throw new AppError(code, message, status, details);
   }
 }
-

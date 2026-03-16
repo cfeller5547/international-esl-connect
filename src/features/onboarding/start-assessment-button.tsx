@@ -11,18 +11,7 @@ export function StartAssessmentButton() {
 
   async function handleStart() {
     setPending(true);
-
-    const response = await fetch("/api/v1/onboarding/session", {
-      method: "POST",
-    });
-
-    if (!response.ok) {
-      setPending(false);
-      return;
-    }
-
-    router.push("/onboarding/profile");
-    router.refresh();
+    router.push("/get-started");
   }
 
   return (
@@ -31,4 +20,3 @@ export function StartAssessmentButton() {
     </Button>
   );
 }
-
