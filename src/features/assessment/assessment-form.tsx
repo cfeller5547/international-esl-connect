@@ -349,20 +349,30 @@ function countWords(value: string) {
   return normalized.split(/\s+/).length;
 }
 
-function conversationStatusCopy(replyCount: number, replyTarget: number) {
+function conversationActionCopy({
+  replyCount,
+  replyTarget,
+  liveVoiceActive,
+  liveVoiceSupported,
+}: {
+  replyCount: number;
+  replyTarget: number;
+  liveVoiceActive: boolean;
+  liveVoiceSupported: boolean;
+}) {
   if (replyCount >= replyTarget) {
-    return "Conversation complete. Continue when you're ready.";
+    return "You have enough responses. Continue when you are ready.";
   }
 
-  if (replyCount === 0) {
-    return "Answer naturally. One or two clear sentences are enough.";
+  if (liveVoiceActive) {
+    return "Keep answering out loud. The AI will keep the conversation moving.";
   }
 
-  if (replyCount === replyTarget - 1) {
-    return "One more strong reply and then you'll move on.";
+  if (!liveVoiceSupported) {
+    return "This browser cannot run the live interview.";
   }
 
-  return "Keep the conversation going in your own words.";
+  return "Start once, then keep talking naturally while the AI responds.";
 }
 
 function voiceStateCopy(state: AssessmentVoiceState) {
@@ -744,53 +754,21 @@ export function AssessmentForm({
   return (
     <form className="space-y-6" onSubmit={handleSubmit}>
       <Card className="border-border/70 bg-card/95 shadow-lg shadow-primary/5">
-        <CardHeader className="space-y-5">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div className="space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-secondary">
-                Guided assessment
-              </p>
-              <div className="space-y-2">
-                <CardTitle className="text-2xl sm:text-[2rem]">{title}</CardTitle>
-                <CardDescription className="max-w-3xl text-sm sm:text-base">
-                  {description}
-                </CardDescription>
-                {introNote ? (
-                  <div className="max-w-3xl rounded-2xl border border-secondary/20 bg-secondary/5 px-4 py-3 text-sm text-foreground">
-                    {introNote}
-                  </div>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-2xl border border-border/70 bg-background/70 px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                  Skills check
-                </p>
-                <p className="mt-2 text-lg font-semibold text-foreground">{questions.length}</p>
-                <p className="text-sm text-muted-foreground">
-                  {pluralize(questions.length, "focused question")}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-border/70 bg-background/70 px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                  Conversation
-                </p>
-                <p className="mt-2 text-lg font-semibold text-foreground">{conversationReplyTarget}</p>
-                <p className="text-sm text-muted-foreground">
-                  {pluralize(conversationReplyTarget, "captured reply", "captured replies")}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-border/70 bg-background/70 px-4 py-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                  Progress saved
-                </p>
-                <p className="mt-2 text-lg font-semibold text-foreground">Auto</p>
-                <p className="text-sm text-muted-foreground">
-                  Refreshing keeps your place on this device.
-                </p>
-              </div>
+        <CardHeader className="space-y-4">
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-secondary">
+              Guided assessment
+            </p>
+            <div className="space-y-2">
+              <CardTitle className="text-2xl sm:text-[2rem]">{title}</CardTitle>
+              <CardDescription className="max-w-3xl text-sm sm:text-base">
+                {description}
+              </CardDescription>
+              {introNote ? (
+                <div className="max-w-3xl rounded-2xl border border-secondary/20 bg-secondary/5 px-4 py-3 text-sm text-foreground">
+                  {introNote}
+                </div>
+              ) : null}
             </div>
           </div>
 
@@ -802,6 +780,9 @@ export function AssessmentForm({
               <span>{completionPct}% complete</span>
             </div>
             <Progress value={completionPct} className="h-2.5" />
+            <p className="text-sm text-muted-foreground">
+              Progress saves automatically on this device.
+            </p>
           </div>
         </CardHeader>
       </Card>
@@ -823,67 +804,63 @@ export function AssessmentForm({
                     : "border-border/70 bg-card/80"
               )}
             >
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-secondary">
-                  {section.label}
-                </p>
-                <p className="text-sm font-medium text-muted-foreground">
-                  {section.completed}/{section.total}
-                </p>
+              <div className="flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-secondary">
+                    {section.label}
+                  </p>
+                  <p className="text-lg font-semibold text-foreground">
+                    {isComplete ? "Complete" : isCurrent ? "In progress" : "Up next"}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {section.completed}/{section.total}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">{section.description}</p>
+                </div>
               </div>
-              <p className="mt-3 text-base font-semibold text-foreground">
-                {isComplete ? "Complete" : isCurrent ? "In progress" : "Up next"}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">{section.description}</p>
             </div>
           );
         })}
       </div>
 
       <Card className="border-border/70 bg-card/95 shadow-xl shadow-slate-950/5">
-        <CardHeader className="space-y-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-secondary">
-                {currentStep.kind === "conversation_ai"
-                  ? currentSectionMeta.eyebrow
-                  : `${currentSectionMeta.eyebrow} - ${currentStep.sectionIndex + 1} of ${currentStep.sectionTotal}`}
-              </p>
-              <div className="space-y-2">
-                <CardTitle className="text-2xl leading-tight sm:text-[2rem]">
-                  {currentStep.kind === "objective"
-                    ? currentStep.question.prompt
-                    : currentStep.kind === "conversation"
-                      ? currentStep.prompt
-                      : currentStep.kind === "conversation_ai"
-                        ? conversationExperience?.scenarioTitle
-                        : "Write 3-5 sentences about what you learned this week."}
-                </CardTitle>
-                <CardDescription className="max-w-2xl text-sm sm:text-base">
-                  {currentStep.kind === "objective"
-                    ? `${currentSectionMeta.description} This question focuses on ${toTitleCase(currentStep.question.skill)}.`
-                    : currentStep.kind === "conversation"
-                      ? currentSectionMeta.description
-                      : currentStep.kind === "conversation_ai"
-                        ? conversationExperience?.scenarioSetup
-                        : `${currentSectionMeta.description} Aim for 3-5 full sentences.`}
-                </CardDescription>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-border/70 bg-muted/30 px-4 py-3 lg:max-w-xs">
-              <p className="text-sm font-semibold text-foreground">{currentSectionMeta.title}</p>
-              <p className="mt-1 text-sm text-muted-foreground">
+        <CardHeader className="space-y-3">
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-secondary">
+              {currentStep.kind === "conversation_ai"
+                ? currentSectionMeta.eyebrow
+                : `${currentSectionMeta.eyebrow} - ${currentStep.sectionIndex + 1} of ${currentStep.sectionTotal}`}
+            </p>
+            <div className="space-y-2">
+              <CardTitle className="text-2xl leading-tight sm:text-[2rem]">
                 {currentStep.kind === "objective"
-                  ? "Select one answer before continuing."
+                  ? currentStep.question.prompt
                   : currentStep.kind === "conversation"
-                    ? "Short responses are enough. Focus on clarity, not perfect grammar."
+                    ? currentStep.prompt
                     : currentStep.kind === "conversation_ai"
-                      ? diagnosticRequiresVoice
-                        ? "The AI introduces the scene first, then the mic stays live so the conversation feels natural."
-                        : "Talk like you would to a real person and keep the conversation moving."
-                      : "A short paragraph is enough. Clear ideas matter more than length."}
-              </p>
+                      ? conversationExperience?.scenarioTitle
+                      : "Write 3-5 sentences about what you learned this week."}
+              </CardTitle>
+              <CardDescription className="max-w-2xl text-sm sm:text-base">
+                {currentStep.kind === "objective"
+                  ? `${currentSectionMeta.description} This question focuses on ${toTitleCase(currentStep.question.skill)}.`
+                  : currentStep.kind === "conversation"
+                    ? currentSectionMeta.description
+                    : currentStep.kind === "conversation_ai"
+                      ? conversationExperience?.scenarioSetup
+                      : `${currentSectionMeta.description} Aim for 3-5 full sentences.`}
+              </CardDescription>
+              {currentStep.kind === "conversation_ai" && diagnosticRequiresVoice ? (
+                <p className="text-sm text-muted-foreground">
+                  One tap starts the live interview. After that, keep talking naturally while the AI responds.
+                </p>
+              ) : currentStep.kind === "writing" ? (
+                <p className="text-sm text-muted-foreground">
+                  Keep it concise. Clear ideas matter more than length.
+                </p>
+              ) : null}
             </div>
           </div>
         </CardHeader>
@@ -944,32 +921,19 @@ export function AssessmentForm({
                 <span className="rounded-full border border-border/70 bg-background/80 px-3 py-1">
                   {conversationReplyCount}/{conversationReplyTarget} captured
                 </span>
-                <span className="rounded-full border border-border/70 bg-background/80 px-3 py-1">
-                  {diagnosticRequiresVoice ? "Voice required" : "Voice or text"}
-                </span>
+                {diagnosticRequiresVoice ? (
+                  <span className="rounded-full border border-border/70 bg-background/80 px-3 py-1">
+                    Live voice
+                  </span>
+                ) : null}
                 {diagnosticRequiresVoice ? (
                   <span className="rounded-full border border-border/70 bg-background/80 px-3 py-1">
                     {voiceStateCopy(voiceState)}
                   </span>
                 ) : null}
-                {liveVoiceActive ? (
-                  <span className="rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-foreground">
-                    Mic live
-                  </span>
-                ) : null}
                 {!liveVoiceSupported && diagnosticRequiresVoice ? (
                   <span className="rounded-full border border-destructive/30 bg-destructive/5 px-3 py-1 text-destructive">
                     Browser unsupported
-                  </span>
-                ) : null}
-                {diagnosticRequiresVoice ? (
-                  <span className="rounded-full border border-border/70 bg-background/80 px-3 py-1">
-                    No repeat recording taps
-                  </span>
-                ) : null}
-                {diagnosticRequiresVoice && conversationReplyCount >= conversationReplyTarget ? (
-                  <span className="rounded-full border border-secondary/20 bg-secondary/5 px-3 py-1 text-foreground">
-                    Ready to continue
                   </span>
                 ) : null}
               </div>
@@ -1011,13 +975,18 @@ export function AssessmentForm({
               <div className="rounded-3xl border border-border/70 bg-background/80 p-5">
                 <div className="space-y-3">
                   <div>
-                    <p className="text-sm font-semibold text-foreground">Your reply</p>
+                    <p className="text-sm font-semibold text-foreground">Your turn</p>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {`${conversationStatusCopy(conversationReplyCount, conversationReplyTarget)} Start once, then keep talking out loud as the AI responds.`}
+                      {conversationActionCopy({
+                        replyCount: conversationReplyCount,
+                        replyTarget: conversationReplyTarget,
+                        liveVoiceActive,
+                        liveVoiceSupported,
+                      })}
                     </p>
                   </div>
                   {diagnosticRequiresVoice ? (
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex flex-wrap gap-3">
                           {liveVoiceActive ? (
@@ -1056,14 +1025,11 @@ export function AssessmentForm({
                         </div>
                         <div className="text-sm text-muted-foreground">
                           {liveVoiceActive
-                            ? "The mic stays live while the conversation moves turn by turn."
+                            ? "The mic stays live until you pause."
                             : liveVoiceSupported
-                              ? "One tap starts the AI introduction and the live voice loop."
+                              ? "Voice only for this part of the diagnostic."
                               : "This browser can't run the live voice diagnostic."}
                         </div>
-                      </div>
-                      <div className="rounded-2xl border border-secondary/15 bg-secondary/5 px-4 py-3 text-sm text-foreground">
-                        Typing is disabled here. This diagnostic uses voice so we can hear how the learner responds in spoken English.
                       </div>
                     </div>
                   ) : null}
@@ -1079,7 +1045,7 @@ export function AssessmentForm({
                     <div>
                       <p className="font-semibold text-foreground">Helpful phrases</p>
                       <p className="mt-1">
-                        {conversationExperience.helpfulPhrases.join(" · ")}
+                        {conversationExperience.helpfulPhrases.join(" | ")}
                       </p>
                     </div>
                     <div>
