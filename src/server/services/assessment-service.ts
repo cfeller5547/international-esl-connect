@@ -21,17 +21,53 @@ type AssessmentPayload = {
   durationSeconds?: number;
 };
 
+export type AssessmentFormState = {
+  answers: Record<string, string>;
+  conversation: Record<string, string>;
+  writingSample: string;
+};
+
+function emptyAssessmentFormState(): AssessmentFormState {
+  return {
+    answers: {},
+    conversation: {},
+    writingSample: "",
+  };
+}
+
+function buildAssessmentFormStateFromPayload(payload: AssessmentPayload | null | undefined) {
+  if (!payload) {
+    return emptyAssessmentFormState();
+  }
+
+  return {
+    answers: Object.fromEntries(
+      payload.objectiveAnswers
+        .filter((answer) => answer.value !== "")
+        .map((answer) => [answer.questionId, answer.value])
+    ),
+    conversation: Object.fromEntries(
+      payload.conversationTurns
+        .map((turn, index) => [String(index), turn.answer] as const)
+        .filter(([, answer]) => answer.trim() !== "")
+    ),
+    writingSample: payload.writingSample ?? "",
+  };
+}
+
 export const AssessmentService = {
   async startAssessment({
     userId,
     guestSessionId,
     context,
     testPrepPlanId,
+    initialResponsesPayload,
   }: {
     userId?: string | null;
     guestSessionId?: string | null;
     context: "onboarding_quick" | "onboarding_full" | "reassessment" | "mini_mock";
     testPrepPlanId?: string | null;
+    initialResponsesPayload?: AssessmentPayload;
   }) {
     const existing = await prisma.assessmentAttempt.findFirst({
       where: {
@@ -54,8 +90,68 @@ export const AssessmentService = {
         context,
         status: "in_progress",
         testPrepPlanId,
+        responsesPayload: initialResponsesPayload,
       },
     });
+  },
+
+  async getFullDiagnosticBootstrap({
+    userId,
+    reusableQuestionIds,
+  }: {
+    userId: string;
+    reusableQuestionIds: readonly string[];
+  }) {
+    const latestQuickBaselineAttempt = await prisma.assessmentAttempt.findFirst({
+      where: {
+        userId,
+        context: "onboarding_quick",
+        status: "completed",
+      },
+      orderBy: { completedAt: "desc" },
+    });
+
+    const latestQuickBaselinePayload =
+      (latestQuickBaselineAttempt?.responsesPayload as AssessmentPayload | null | undefined) ?? null;
+    const reusableQuestionIdSet = new Set(reusableQuestionIds);
+    const carriedObjectiveAnswers = latestQuickBaselinePayload?.objectiveAnswers.filter((answer) =>
+      reusableQuestionIdSet.has(answer.questionId)
+    ) ?? [];
+
+    const carryForwardState: AssessmentFormState = {
+      answers: Object.fromEntries(
+        carriedObjectiveAnswers
+          .filter((answer) => answer.value !== "")
+          .map((answer) => [answer.questionId, answer.value])
+      ),
+      conversation: {},
+      writingSample: "",
+    };
+
+    const attempt = await this.startAssessment({
+      userId,
+      context: "onboarding_full",
+      initialResponsesPayload:
+        carriedObjectiveAnswers.length > 0
+          ? {
+              objectiveAnswers: carriedObjectiveAnswers,
+              conversationTurns: [],
+            }
+          : undefined,
+    });
+
+    const attemptPayload = (attempt.responsesPayload as AssessmentPayload | null | undefined) ?? null;
+    const attemptState = buildAssessmentFormStateFromPayload(attemptPayload);
+    const hasAttemptState =
+      Object.keys(attemptState.answers).length > 0 ||
+      Object.keys(attemptState.conversation).length > 0 ||
+      attemptState.writingSample.trim().length > 0;
+
+    return {
+      attempt,
+      initialState: hasAttemptState ? attemptState : carryForwardState,
+      importedObjectiveCount: Object.keys(carryForwardState.answers).length,
+    };
   },
 
   async getAttempt(assessmentAttemptId: string) {
@@ -81,7 +177,7 @@ export const AssessmentService = {
     userId?: string | null;
     guestSessionId?: string | null;
   }) {
-    await prisma.assessmentAttempt.findUniqueOrThrow({
+    const attempt = await prisma.assessmentAttempt.findUniqueOrThrow({
       where: { id: assessmentAttemptId },
       include: { report: true },
     });
@@ -163,7 +259,9 @@ export const AssessmentService = {
             : "assessment_completed",
       route:
         reportType === "baseline_full"
-          ? "/app/assessment/full"
+          ? attempt.context === "onboarding_full"
+            ? "/onboarding/assessment"
+            : "/app/assessment/full"
           : reportType === "reassessment"
             ? "/app/progress/reassessment"
             : "/onboarding/assessment",

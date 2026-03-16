@@ -6,18 +6,13 @@ Define how assessment is run, scored, and transformed into high-value progress r
 
 ## 2. Assessment Composition
 
-Assessment has two phases:
+Assessment has one required onboarding phase for first-time users:
 
-1. Quick baseline (pre-signup, required)
+1. Full diagnostic (pre-signup, required)
    - adaptive objective items
-   - required short AI conversation (short form)
-   - target completion: 4-6 minutes
-
-2. Full diagnostic (post-signup, strongly prompted)
-   - adaptive objective items (expanded)
    - short writing prompt
-   - required short AI conversation (full form, 2-3 minutes, 4-6 turns)
-   - upgrades baseline confidence and report depth
+   - required live AI voice conversation
+   - determines initial level placement and assigned curriculum before app entry
 
 ## 3. AI Conversation Assessment Rules
 
@@ -25,6 +20,7 @@ Conversation must be:
 - level-safe and non-intimidating
 - neutral in topic for onboarding
 - measurable in speaking and listening evidence
+- voice-required in the UI, with one-tap start and continuous turn-taking rather than manual record/stop cycles
 
 Required measured signals:
 - pronunciation quality
@@ -33,7 +29,8 @@ Required measured signals:
 - listening response relevance
 
 Phase rule:
-- quick baseline may use fewer turns than full diagnostic, but must still collect valid speaking/listening evidence.
+- the onboarding full diagnostic must collect enough conversation and writing evidence to support confident initial placement.
+- clarification turns may keep the interview moving, but they do not count toward the captured evidence target.
 
 ## 4. Skill Scoring Model
 
@@ -72,7 +69,7 @@ Level mapping:
 - `76-100` advanced
 
 Curriculum level rules:
-- qualifying assessments are `baseline_quick`, `baseline_full`, and `reassessment`
+- qualifying assessments are `baseline_full` and `reassessment`
 - qualifying assessments may initialize or promote the user's canonical `currentLevel`
 - reassessment may never demote `currentLevel`
 - `mini_mock` can create a report but must never change `currentLevel`
@@ -91,8 +88,7 @@ Report includes:
 - comparison against prior report (if exists)
 
 Report depth levels:
-- Baseline preview report (generated pre-signup, persist on signup)
-- Full diagnostic report (post-signup, richer evidence and confidence)
+- Full diagnostic report (generated before signup, first shown after signup inside the authenticated app)
 
 ## 6. Skill Card Contract (Per Skill)
 
@@ -163,7 +159,7 @@ Track:
 - AI conversation failure rate
 - score distribution anomalies
 - report generation failure rate
-- quick baseline to full diagnostic completion conversion
+- onboarding diagnostic to signup conversion
 - share-card generation rate
 
 Alert if:

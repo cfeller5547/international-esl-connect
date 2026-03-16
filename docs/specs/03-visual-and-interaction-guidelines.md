@@ -103,8 +103,7 @@ Navigation hierarchy:
 - Use distinct current vs completed styling
 - Pre-signup stepper should show the full persisted path:
   - Profile
-  - Quick baseline
-  - Results
+  - Full diagnostic
   - Signup
 
 ## 5. Progress Visualization Standards
@@ -174,8 +173,8 @@ Do not use decorative motion that competes with content.
 ## 10. Positive Reinforcement Standards
 
 Required celebration triggers:
-1. quick baseline completed
-2. full diagnostic completed
+1. full diagnostic completed
+2. report unlocked after signup
 3. first conversation completed
 4. streak milestones
 5. level-up and meaningful score improvements

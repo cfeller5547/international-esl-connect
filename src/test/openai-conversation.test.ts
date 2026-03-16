@@ -5,6 +5,32 @@ import { describe, expect, it } from "vitest";
 import { createOpeningPrompt } from "@/server/ai/openai-conversation";
 
 describe("openai conversation helpers", () => {
+  it("creates a human introduction for assessment conversations", () => {
+    const opening = createOpeningPrompt({
+      surface: "assessment",
+      missionKind: "guided",
+      interactionMode: "text",
+      scenarioTitle: "Diagnostic conversation",
+      scenarioSetup: "You are talking with a placement coach about your classes.",
+      counterpartRole: "placement_coach",
+      introductionText:
+        "Hi, I'm Maya. I'll talk with you for a couple of minutes so I can understand how you use English in class.",
+      openingQuestion: "To start, tell me your name and one class you are taking right now?",
+      canDoStatement: "I can answer simple questions about my classes and goals.",
+      performanceTask: "Have a short placement conversation.",
+      targetPhrases: ["I'm taking", "I want to improve"],
+      followUpPrompts: ["What do you usually do in that class?"],
+      successCriteria: ["Answer naturally with clear details."],
+      modelExample: "I'm Ana, and I'm taking biology.",
+      isBenchmark: false,
+    });
+
+    expect(opening).toBe(
+      "Hi, I'm Maya. I'll talk with you for a couple of minutes so I can understand how you use English in class. To start, tell me your name and one class you are taking right now?"
+    );
+    expect(opening).not.toMatch(/let's begin/i);
+  });
+
   it("creates a concrete scenario opener for introductions units", () => {
     const opening = createOpeningPrompt({
       surface: "learn",

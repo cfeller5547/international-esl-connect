@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Mic, Volume2 } from "lucide-react";
+import { Volume2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { useVoiceRecorder } from "@/features/speak/use-voice-recorder";
 
 type Turn = {
   speaker: "ai" | "student";
@@ -16,17 +15,19 @@ type Turn = {
 type SpeakSessionPanelProps = {
   sessionId: string;
   interactionMode: "text" | "voice";
+  status: "active" | "completed" | "abandoned";
   initialTurns: Turn[];
 };
 
 export function SpeakSessionPanel({
   sessionId,
   interactionMode,
+  status,
   initialTurns,
 }: SpeakSessionPanelProps) {
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
-  const [completed, setCompleted] = useState(false);
+  const [completed, setCompleted] = useState(status !== "active");
   const [feedback, setFeedback] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<Turn[]>(initialTurns);
   const [review, setReview] = useState<null | {
@@ -38,8 +39,6 @@ export function SpeakSessionPanel({
     }>;
     vocabulary: Array<{ term: string; definition: string; translation: string }>;
   }>(null);
-  const recorder = useVoiceRecorder();
-
   const aiTurns = useMemo(
     () => transcript.filter((turn) => turn.speaker === "ai"),
     [transcript]
@@ -82,54 +81,6 @@ export function SpeakSessionPanel({
       ]);
       setFeedback(payload.microCoaching ?? null);
       setInput("");
-    } finally {
-      setPending(false);
-    }
-  }
-
-  async function handleVoiceTurn() {
-    try {
-      recorder.resetError();
-      if (!recorder.recording) {
-        await recorder.startRecording();
-        return;
-      }
-
-      const audio = await recorder.stopRecording();
-      if (!audio) {
-        return;
-      }
-
-      setPending(true);
-      const response = await fetch("/api/v1/speak/session/turn", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          sessionId,
-          studentInput: {
-            audioDataUrl: audio.audioDataUrl,
-            audioMimeType: audio.audioMimeType,
-            durationSeconds: audio.durationSeconds,
-          },
-        }),
-      });
-      const payload = (await response.json()) as {
-        aiResponseText: string;
-        microCoaching?: string;
-        studentTranscriptText?: string | null;
-      };
-
-      setTranscript((current) => [
-        ...current,
-        {
-          speaker: "student",
-          text: payload.studentTranscriptText?.trim() || "Voice response recorded.",
-        },
-        { speaker: "ai", text: payload.aiResponseText },
-      ]);
-      setFeedback(payload.microCoaching ?? null);
     } finally {
       setPending(false);
     }
@@ -200,7 +151,7 @@ export function SpeakSessionPanel({
               </div>
             ))}
           </div>
-          {completed ? null : (
+          {completed ? null : interactionMode === "text" ? (
             <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
               <Input
                 value={input}
@@ -210,24 +161,16 @@ export function SpeakSessionPanel({
               <Button onClick={handleSend} disabled={pending || input.trim().length < 2}>
                 Send
               </Button>
-              {interactionMode === "voice" ? (
-                <Button
-                  variant={recorder.recording ? "accent" : "outline"}
-                  onClick={handleVoiceTurn}
-                  disabled={pending}
-                >
-                  <Mic className="size-4" />
-                  {recorder.recording ? "Stop" : "Record"}
-                </Button>
-              ) : null}
               <Button variant="secondary" onClick={handleFinish} disabled={pending}>
                 Finish session
               </Button>
             </div>
+          ) : (
+            <div className="rounded-2xl border border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+              Voice sessions stay live on the dedicated voice screen. This fallback view is
+              read-only so the app never drops back to turn-by-turn recording.
+            </div>
           )}
-          {recorder.error ? (
-            <p className="text-sm text-destructive">{recorder.error}</p>
-          ) : null}
           {feedback ? (
             <div className="rounded-2xl border border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
               {feedback}

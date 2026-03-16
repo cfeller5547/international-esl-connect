@@ -21,18 +21,13 @@ const steps = [
   },
   {
     href: "/onboarding/assessment",
-    label: "Quick baseline",
-    description: "Short skills check",
-  },
-  {
-    href: "/onboarding/results",
-    label: "Results",
-    description: "Preview your report",
+    label: "Full diagnostic",
+    description: "Complete your skills test",
   },
   {
     href: "/signup",
     label: "Create account",
-    description: "Save your progress",
+    description: "Unlock your report",
   },
 ] as const;
 
@@ -45,12 +40,8 @@ function getCurrentStepIndex(pathname: string) {
     return 1;
   }
 
-  if (pathname.startsWith("/onboarding/results")) {
-    return 2;
-  }
-
   if (pathname.startsWith("/signup")) {
-    return 3;
+    return 2;
   }
 
   return 0;
@@ -70,13 +61,11 @@ export function PreSignupStepper({
           <Link href="/" aria-label="ESL International Connect home">
             <Logo className="w-[190px] sm:w-[228px]" priority />
           </Link>
-          <p className="text-sm text-muted-foreground">
-            Four short steps to get your learning plan started.
-          </p>
+          <p className="text-sm text-muted-foreground">Three steps to start with the right plan.</p>
         </div>
       ) : null}
 
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-3">
         {steps.map((step, index) => {
           const isCompleted = index < currentStepIndex;
           const isCurrent = index === currentStepIndex;

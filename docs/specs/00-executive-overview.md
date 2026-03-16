@@ -28,8 +28,8 @@ Students do not have a reliable daily system that:
 ## Core Solution
 
 The app combines:
-- quick baseline pre-signup assessment with a short AI conversation
-- full diagnostic assessment post-signup for deeper report quality
+- full diagnostic assessment pre-signup with objective items, writing, and AI conversation
+- account creation after the diagnostic to unlock the saved report inside the app
 - assessment-based level assignment and promotion (`very_basic`, `basic`, `intermediate`, `advanced`)
 - fixed English curricula with sequential units and required activity completion
 - personalized curriculum continuation flow in Learn

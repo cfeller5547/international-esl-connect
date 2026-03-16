@@ -7,6 +7,11 @@ import { trackEvent } from "../analytics";
 import { AssessmentService } from "./assessment-service";
 import { CurriculumService } from "./curriculum-service";
 
+export type GuestOnboardingStepHref =
+  | "/onboarding/profile"
+  | "/onboarding/assessment"
+  | "/signup";
+
 export const OnboardingService = {
   async createGuestSession() {
     const session = await prisma.guestOnboardingSession.create({
@@ -23,6 +28,43 @@ export const OnboardingService = {
     return prisma.guestOnboardingSession.findUnique({
       where: { sessionToken: guestSessionToken },
     });
+  },
+
+  async getGuestOnboardingState(guestSessionToken: string) {
+    const guestSession = await prisma.guestOnboardingSession.findUnique({
+      where: { sessionToken: guestSessionToken },
+      include: {
+        reports: {
+          where: {
+            reportType: {
+              in: ["baseline_quick", "baseline_full", "reassessment"],
+            },
+          },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
+      },
+    });
+
+    if (!guestSession || guestSession.expiresAt < new Date()) {
+      return null;
+    }
+
+    const hasProfile = guestSession.profilePayload !== null;
+    const hasReport = guestSession.reports.length > 0;
+    const nextStepHref: GuestOnboardingStepHref = hasReport
+      ? "/signup"
+      : hasProfile
+        ? "/onboarding/assessment"
+        : "/onboarding/profile";
+
+    return {
+      guestSession,
+      hasProfile,
+      hasReport,
+      canAccessSignup: hasReport,
+      nextStepHref,
+    };
   },
 
   async saveProfile(
@@ -70,6 +112,19 @@ export const OnboardingService = {
     });
   },
 
+  async startFullDiagnostic(guestSessionToken: string) {
+    const guestSession = await this.getGuestSessionByToken(guestSessionToken);
+
+    if (!guestSession) {
+      throw new Error("Guest session not found.");
+    }
+
+    return AssessmentService.startAssessment({
+      guestSessionId: guestSession.id,
+      context: "onboarding_full",
+    });
+  },
+
   async completeQuickBaseline({
     guestSessionToken,
     assessmentAttemptId,
@@ -89,6 +144,29 @@ export const OnboardingService = {
       assessmentAttemptId,
       payload,
       reportType: "baseline_quick",
+      guestSessionId: guestSession.id,
+    });
+  },
+
+  async completeFullDiagnostic({
+    guestSessionToken,
+    assessmentAttemptId,
+    payload,
+  }: {
+    guestSessionToken: string;
+    assessmentAttemptId: string;
+    payload: Parameters<typeof AssessmentService.completeAssessment>[0]["payload"];
+  }) {
+    const guestSession = await this.getGuestSessionByToken(guestSessionToken);
+
+    if (!guestSession) {
+      throw new Error("Guest session not found.");
+    }
+
+    return AssessmentService.completeAssessment({
+      assessmentAttemptId,
+      payload,
+      reportType: "baseline_full",
       guestSessionId: guestSession.id,
     });
   },
@@ -121,7 +199,7 @@ export const OnboardingService = {
     const guestSession = await this.getGuestSessionByToken(guestSessionToken);
 
     if (!guestSession) {
-      return;
+      return null;
     }
 
     const profile = (guestSession.profilePayload ?? {}) as Record<string, unknown>;
@@ -151,6 +229,8 @@ export const OnboardingService = {
           currentLevel: latestGuestReport?.levelLabel === "foundation"
             ? "very_basic"
             : latestGuestReport?.levelLabel ?? undefined,
+          fullDiagnosticCompletedAt:
+            latestGuestReport?.reportType === "baseline_full" ? new Date() : undefined,
         },
       }),
     ]);
@@ -172,5 +252,7 @@ export const OnboardingService = {
         guest_session_token: guestSessionToken,
       },
     });
+
+    return latestGuestReport;
   },
 };

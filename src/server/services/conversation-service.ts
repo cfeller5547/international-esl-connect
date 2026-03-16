@@ -131,6 +131,8 @@ function readContextFromSummaryPayload(
       typeof payload.performanceTask === "string" ? payload.performanceTask : null,
     counterpartRole:
       typeof payload.counterpartRole === "string" ? payload.counterpartRole : null,
+    introductionText:
+      typeof payload.introductionText === "string" ? payload.introductionText : null,
     openingQuestion:
       typeof payload.openingQuestion === "string" ? payload.openingQuestion : null,
     targetPhrases: Array.isArray(payload.targetPhrases)

@@ -31,8 +31,8 @@ Data model note:
 ## 4. In-Scope (MVP)
 
 - Pre-signup onboarding stepper
-- Quick baseline assessment pre-signup (4-6 min) including required short AI conversation
-- Full diagnostic assessment post-signup as first Home CTA
+- Full diagnostic assessment pre-signup including objective items, writing, and required live AI voice conversation
+- Signup after the diagnostic to unlock the saved report inside the authenticated app
 - Formal report generation and persistence over time
 - Home with one dynamic primary CTA
 - Home persistent "Homework Help now" quick action for urgent use
@@ -89,11 +89,11 @@ Rule:
 
 ### 7.1 New User Activation
 1. Landing
-2. Onboarding stepper (profile -> quick baseline assessment -> results preview)
-3. Signup and save baseline report
-4. Enter Home with `Complete full diagnostic` as primary CTA
+2. Onboarding stepper (profile -> full diagnostic assessment)
+3. Signup and save diagnostic report
+4. Enter authenticated report view with level placement and next-step plan
 5. Capture class context (syllabus or weekly topics)
-6. Enter the assigned curriculum in Learn after level-setting assessment
+6. Continue into the assigned curriculum in Learn
 
 ### 7.2 Daily Learning Loop
 1. Home primary CTA
@@ -113,7 +113,7 @@ Content sourcing rule:
 4. Weakness tags update recommendations
 
 ### 7.3.1 Curriculum Level Rules
-1. Quick baseline, full diagnostic, and reassessment can set or promote `currentLevel`.
+1. Full diagnostic and reassessment can set or promote `currentLevel`.
 2. `mini_mock` creates a report but never changes `currentLevel`.
 3. A learner can stay at the same level or be promoted; reassessment never demotes.
 4. The assigned level determines which fixed curriculum appears in Learn.
@@ -126,12 +126,11 @@ Content sourcing rule:
 5. Optional shareable improvement artifact
 
 ### 7.5 Recommendation Priority (MVP)
-1. Incomplete full diagnostic -> `Complete full diagnostic`
-2. Active homework session -> `Resume homework help`
-3. Recent unfinished homework upload -> `Start homework help`
-4. Active near-term test prep plan -> `Continue test prep`
-5. Next required curriculum activity -> `Continue curriculum`
-6. Fallback -> first unlocked curriculum activity
+1. Active homework session -> `Resume homework help`
+2. Recent unfinished homework upload -> `Start homework help`
+3. Active near-term test prep plan -> `Continue test prep`
+4. Next required curriculum activity -> `Continue curriculum`
+5. Fallback -> first unlocked curriculum activity
 
 ## 8. Value Drivers (What users feel)
 

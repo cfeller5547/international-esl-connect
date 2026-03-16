@@ -124,3 +124,38 @@ export const FULL_DIAGNOSTIC_QUESTIONS = [
     correctValue: "0",
   },
 ] as const;
+
+export const FULL_DIAGNOSTIC_CONVERSATION = {
+  scenarioTitle: "Diagnostic conversation",
+  scenarioSetup:
+    "You are having a short conversation with a placement coach about your classes, routines, and learning goals.",
+  counterpartRole: "placement_coach",
+  introductionText:
+    "Hi, I'm Maya. I'll talk with you for a couple of minutes so I can understand how you use English in class.",
+  openingQuestion: "To start, tell me your name and one class you are taking right now?",
+  openingTurn:
+    "Hi, I'm Maya. I'll talk with you for a couple of minutes so I can understand how you use English in class. To start, tell me your name and one class you are taking right now?",
+  helpfulPhrases: [
+    "I'm taking...",
+    "In that class, we usually...",
+    "I feel comfortable with...",
+    "I still need help with...",
+  ],
+  followUpPrompts: [
+    "What do you usually do in that class?",
+    "What part of English feels easiest for you right now, and what still feels hard?",
+    "If you need help in class, how do you usually ask for it?",
+    "What is one thing you want to improve in English this semester?",
+  ],
+  successCriteria: [
+    "Answer naturally with clear details.",
+    "Stay in the conversation without one-word replies.",
+    "Explain one challenge and one goal in simple English.",
+  ],
+  modelExample:
+    "Hi, I'm Ana, and I'm taking biology right now. In that class, we read short articles and discuss them together.",
+  responseTarget: 4,
+  requireVoice: true,
+} as const;
+
+export const FULL_DIAGNOSTIC_PROMPTS = FULL_DIAGNOSTIC_CONVERSATION.followUpPrompts;

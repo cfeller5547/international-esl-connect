@@ -56,13 +56,12 @@ Definition of done:
 Deliver:
 - pre-signup onboarding stepper
 - guest session persistence
-- quick baseline assessment flow with required short AI conversation
-- onboarding quick results report preview
-- signup migration from guest session to user baseline report
-- post-signup full diagnostic flow and full report upgrade
+- pre-signup full diagnostic flow with objective items, writing, and required AI conversation
+- signup migration from guest session to user diagnostic report
+- authenticated report unlock immediately after signup
 
 Definition of done:
-- user can complete onboarding end-to-end, sign up, and complete full diagnostic from Home
+- user can complete onboarding end-to-end, sign up, and see the report only after entering the authenticated app
 
 ## Milestone 3: Curriculum Learn and Tools
 
@@ -143,8 +142,8 @@ Constraints:
 - Keep Home/Learn/Speak/Tools/Progress pillar model.
 - Keep Learn curriculum-only and Tools utility-only.
 - Preserve seamless curriculum activity chaining.
-- Preserve onboarding pre-signup quick baseline with required short AI conversation.
-- Implement post-signup full diagnostic flow.
+- Preserve onboarding pre-signup full diagnostic with writing and required AI conversation.
+- Show the report only after signup inside the authenticated app.
 - Enforce locked Option 1 palette through semantic tokens only.
 - Follow screen-level CTA/state contracts.
 - Emit analytics events exactly as specified.

@@ -20,17 +20,21 @@ Critical domains:
 
 1. Start onboarding without account.
 2. Complete profile step.
-3. Complete quick baseline assessment in the guided one-task-at-a-time flow.
+3. Complete the full diagnostic assessment in the guided one-task-at-a-time flow.
 4. Refresh or navigate away mid-assessment and confirm autosave restores progress.
-5. View quick report preview with six skill visuals.
-6. Signup and confirm baseline report persisted in Progress.
-7. Confirm Home primary CTA is `Complete full diagnostic` until finished.
-8. Complete full diagnostic and confirm upgraded full report creation.
+5. Confirm onboarding completion routes directly to signup rather than a public report preview.
+6. Signup and confirm the first authenticated screen is the saved report view in the app.
+7. Confirm the report persisted in Progress with the assigned level.
+8. Confirm Home does not require another first-time full diagnostic after signup.
 9. Validate overall score equals rounded mean of six skill scores.
+10. In the diagnostic conversation, verify one tap starts the live voice interview, the AI introduces itself first, and the user does not need to press record between turns.
+11. Ask for clarification with a short reply such as `why?` and verify the AI rephrases without increasing the captured-reply count.
 
 Pass condition:
 - no repeated data entry
-- direct landing to Home with personalized next action
+- report stays hidden until authenticated
+- first authenticated experience shows real value immediately
+- diagnostic voice interview feels continuous rather than turn-by-turn recorded
 
 ## 3.2 Home and Learn Flow
 
@@ -58,13 +62,11 @@ Pass condition:
 
 ## 3.2.2 Recommendation Rule Determinism
 
-1. Set up user with incomplete full diagnostic.
-2. Request Home primary action and verify `complete_full_diagnostic`.
-3. Mark full diagnostic complete; create active homework session.
-4. Request Home primary action and verify `resume_homework_help`.
-5. Close homework session; create active test-prep plan due in <= 7 days.
-6. Request Home primary action and verify `continue_test_prep`.
-7. Clear tool interruptions and verify the primary learning recommendation resolves to `continue_curriculum`.
+1. Set up user with active homework session.
+2. Request Home primary action and verify `resume_homework_help`.
+3. Close homework session; create active test-prep plan due in <= 7 days.
+4. Request Home primary action and verify `continue_test_prep`.
+5. Clear tool interruptions and verify the primary learning recommendation resolves to `continue_curriculum`.
 
 Pass condition:
 - reason codes follow documented priority order without ambiguity

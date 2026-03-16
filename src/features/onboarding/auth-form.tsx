@@ -49,7 +49,9 @@ export function AuthForm({ mode }: AuthFormProps) {
       return;
     }
 
-    router.push((payload as { redirectTo?: string }).redirectTo ?? "/app/home");
+    router.push(
+      (payload as { redirectTo?: string }).redirectTo ?? "/app/home"
+    );
     router.refresh();
   }
 
@@ -62,7 +64,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         <CardTitle className="text-2xl">{isSignup ? "Create account" : "Log in"}</CardTitle>
         <p className="text-sm text-muted-foreground">
           {isSignup
-            ? "Save your baseline report and unlock the full diagnostic."
+            ? "Save your diagnostic report and unlock your learning plan."
             : "Pick up where you left off."}
         </p>
       </CardHeader>
@@ -97,16 +99,16 @@ export function AuthForm({ mode }: AuthFormProps) {
                 ? "Creating account..."
                 : "Logging in..."
               : isSignup
-                ? "Create account"
+                ? "Create account and unlock report"
                 : "Log in"}
           </Button>
           <p className="text-sm text-muted-foreground">
             {isSignup ? "Already have an account? " : "Need an account? "}
             <Link
-              href={isSignup ? "/login" : "/signup"}
+              href={isSignup ? "/login" : "/get-started"}
               className="font-semibold text-foreground underline decoration-border underline-offset-4"
             >
-              {isSignup ? "Log in" : "Create one"}
+              {isSignup ? "Log in" : "Get started"}
             </Link>
             .
           </p>

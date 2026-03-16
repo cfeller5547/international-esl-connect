@@ -62,6 +62,7 @@ export default async function SpeakSessionPage({
     <SpeakSessionPanel
       sessionId={session.id}
       interactionMode={session.interactionMode as "text" | "voice"}
+      status={session.status as "active" | "completed" | "abandoned"}
       initialTurns={turns}
     />
   );

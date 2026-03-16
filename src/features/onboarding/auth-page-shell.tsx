@@ -21,13 +21,13 @@ const authPageCopy = {
   },
   signup: {
     eyebrow: "Save your progress",
-    title: "Create your account and keep your baseline moving forward.",
+    title: "Create your account and unlock your diagnostic report.",
     body:
-      "Your baseline report carries into the full diagnostic so you can keep momentum instead of repeating setup.",
+      "Your completed diagnostic is ready. Create your account to save the report, level placement, and first study plan in one place.",
     bullets: [
-      "Save your baseline report and recommendations",
-      "Unlock the full diagnostic and next-step plan",
-      "Continue from one connected learning flow after signup",
+      "Save your diagnostic report and level placement",
+      "Unlock your assigned curriculum from the start",
+      "Enter the app with one connected learning history",
     ],
   },
 } as const;

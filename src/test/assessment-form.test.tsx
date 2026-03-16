@@ -14,6 +14,23 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
+const startLiveConversationMock = vi.fn();
+const pauseLiveConversationMock = vi.fn();
+let liveVoiceSupported = true;
+let liveVoiceActive = false;
+let liveVoiceState: "idle" | "starting" | "listening" | "thinking" | "speaking" | "error" =
+  "idle";
+
+vi.mock("@/features/assessment/use-assessment-live-voice", () => ({
+  useAssessmentLiveVoice: () => ({
+    isSupported: liveVoiceSupported,
+    liveActive: liveVoiceActive,
+    voiceState: liveVoiceState,
+    startLiveConversation: startLiveConversationMock,
+    pauseLiveConversation: pauseLiveConversationMock,
+  }),
+}));
+
 const questions = [
   {
     id: "q1",
@@ -24,7 +41,20 @@ const questions = [
   },
 ];
 
-const prompts = ["Tell me one thing you studied this week."];
+const conversationExperience = {
+  scenarioTitle: "Diagnostic conversation",
+  scenarioSetup: "You are talking with a placement coach about your classes.",
+  counterpartRole: "placement_coach",
+  introductionText: "Hi, I'm Maya.",
+  openingQuestion: "Tell me your name and one class you are taking right now?",
+  openingTurn:
+    "Hi, I'm Maya. I'll talk with you for a couple of minutes so I can understand how you use English in class. To start, tell me your name and one class you are taking right now?",
+  helpfulPhrases: ["I'm taking...", "In that class, we usually..."],
+  modelExample: "I'm Ana, and I'm taking biology.",
+  responseTarget: 2,
+  turnEndpoint: "/api/v1/onboarding/session/assessment/conversation/turn",
+  requireVoice: true,
+} as const;
 
 function renderAssessmentForm() {
   return render(
@@ -33,11 +63,39 @@ function renderAssessmentForm() {
       assessmentAttemptId="attempt-1"
       endpoint="/api/v1/onboarding/session/assessment/complete"
       questions={questions}
-      prompts={prompts}
-      title="Quick baseline assessment"
-      description="Complete the short baseline before signup."
-      submitLabel="Finish quick baseline"
+      prompts={[]}
+      title="Full diagnostic assessment"
+      description="Complete the full diagnostic before signup."
+      submitLabel="Continue to signup"
       backHref="/onboarding/profile"
+      conversationExperience={conversationExperience}
+    />
+  );
+}
+
+function renderAssessmentFormWithInitialState() {
+  return render(
+    <AssessmentForm
+      storageKey="assessment-form-prefill-test"
+      assessmentAttemptId="attempt-2"
+      endpoint="/api/v1/assessment/full/complete"
+      questions={questions}
+      prompts={[]}
+      title="Full diagnostic"
+      description="Expand the baseline with more objective items."
+      submitLabel="Complete full diagnostic"
+      initialState={{
+        answers: {
+          q1: "1",
+        },
+        conversation: {},
+        writingSample: "",
+      }}
+      introNote="We carried over your completed baseline questions."
+      conversationExperience={{
+        ...conversationExperience,
+        turnEndpoint: "/api/v1/assessment/full/conversation/turn",
+      }}
     />
   );
 }
@@ -46,62 +104,110 @@ describe("AssessmentForm", () => {
   beforeEach(() => {
     pushMock.mockReset();
     backMock.mockReset();
+    startLiveConversationMock.mockReset();
+    pauseLiveConversationMock.mockReset();
+    liveVoiceSupported = true;
+    liveVoiceActive = false;
+    liveVoiceState = "idle";
     window.localStorage.clear();
     vi.stubGlobal("fetch", vi.fn());
   });
 
-  it("shows one step at a time and only reveals the conversation step after the objective answer", async () => {
+  it("shows one step at a time and reveals the AI conversation after the objective answer", async () => {
     const user = userEvent.setup();
 
     renderAssessmentForm();
 
     expect(screen.getAllByText("Choose the sentence with correct past tense.")).toHaveLength(2);
-    expect(screen.queryByText("Tell me one thing you studied this week.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Diagnostic conversation")).not.toBeInTheDocument();
 
     const continueButton = screen.getByRole("button", { name: /continue to conversation/i });
     expect(continueButton).toBeDisabled();
 
     await user.click(screen.getByText("She went to class."));
-
     expect(continueButton).toBeEnabled();
 
     await user.click(continueButton);
 
-    expect(screen.getByText("Tell me one thing you studied this week.")).toBeInTheDocument();
-    expect(screen.queryAllByText("Choose the sentence with correct past tense.")).toHaveLength(0);
+    expect(screen.getByText("Diagnostic conversation")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Hi, I'm Maya. I'll talk with you for a couple of minutes so I can understand how you use English in class. To start, tell me your name and one class you are taking right now?"
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /start live conversation/i })
+    ).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/type your reply here/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^send$/i })).not.toBeInTheDocument();
   });
 
-  it("submits the expected payload after the guided steps are completed", async () => {
+  it("submits paired conversation turns after the live AI interview is completed", async () => {
     const user = userEvent.setup();
     const fetchMock = vi.mocked(fetch);
 
-    fetchMock.mockResolvedValue({
+    fetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        redirectTo: "/onboarding/results",
+        redirectTo: "/signup",
       }),
     } as Response);
 
-    renderAssessmentForm();
-
-    await user.click(screen.getByText("She went to class."));
-    await user.click(screen.getByRole("button", { name: /continue to conversation/i }));
-    await user.type(
-      screen.getByLabelText("Your response"),
-      "I studied past tense and practiced with homework."
+    render(
+      <AssessmentForm
+        storageKey="assessment-form-submit-test"
+        assessmentAttemptId="attempt-submit"
+        endpoint="/api/v1/onboarding/session/assessment/complete"
+        questions={questions}
+        prompts={[]}
+        title="Full diagnostic assessment"
+        description="Complete the full diagnostic before signup."
+        submitLabel="Continue to signup"
+        conversationExperience={conversationExperience}
+        initialState={{
+          answers: { q1: "1" },
+          conversation: {},
+          writingSample: "",
+          conversationDurationSeconds: 18,
+          conversationTranscript: [
+            {
+              speaker: "ai",
+              text: conversationExperience.openingTurn,
+            },
+            {
+              speaker: "student",
+              text: "Hi, I'm Ana, and I'm taking biology.",
+              countsTowardProgress: true,
+            },
+            {
+              speaker: "ai",
+              text: "Nice to meet you, Ana. What do you usually do in that class?",
+            },
+            {
+              speaker: "student",
+              text: "We read short texts and talk about them in groups.",
+              countsTowardProgress: true,
+            },
+            {
+              speaker: "ai",
+              text: "Thanks. That gives me a clear picture of how you use English right now.",
+            },
+          ],
+        }}
+      />
     );
 
-    await user.click(screen.getByRole("button", { name: "Finish quick baseline" }));
+    await user.click(screen.getByRole("button", { name: /continue to signup/i }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
-    const [, init] = fetchMock.mock.calls[0];
-    const body = JSON.parse(String(init?.body));
+    const [, submitInit] = fetchMock.mock.calls[0];
+    const body = JSON.parse(String(submitInit?.body));
 
     expect(body).toMatchObject({
-      assessmentAttemptId: "attempt-1",
+      assessmentAttemptId: "attempt-submit",
       payload: {
         objectiveAnswers: [
           {
@@ -113,15 +219,75 @@ describe("AssessmentForm", () => {
         ],
         conversationTurns: [
           {
-            prompt: "Tell me one thing you studied this week.",
-            answer: "I studied past tense and practiced with homework.",
+            prompt:
+              "Hi, I'm Maya. I'll talk with you for a couple of minutes so I can understand how you use English in class. To start, tell me your name and one class you are taking right now?",
+            answer: "Hi, I'm Ana, and I'm taking biology.",
+          },
+          {
+            prompt: "Nice to meet you, Ana. What do you usually do in that class?",
+            answer: "We read short texts and talk about them in groups.",
           },
         ],
       },
     });
 
     await waitFor(() => {
-      expect(pushMock).toHaveBeenCalledWith("/onboarding/results");
+      expect(pushMock).toHaveBeenCalledWith("/signup");
     });
+  }, 10000);
+
+  it("starts from seeded progress instead of repeating imported answers", () => {
+    renderAssessmentFormWithInitialState();
+
+    expect(screen.getByText("We carried over your completed baseline questions.")).toBeInTheDocument();
+    expect(screen.getByText("1/1")).toBeInTheDocument();
+    expect(screen.getByText("Complete")).toBeInTheDocument();
+    expect(screen.getByText("Diagnostic conversation")).toBeInTheDocument();
+    expect(screen.queryAllByText("Choose the sentence with correct past tense.")).toHaveLength(0);
+  });
+
+  it("does not advance the captured reply count when the learner only asks for clarification", async () => {
+    render(
+      <AssessmentForm
+        storageKey="assessment-form-clarification-test"
+        assessmentAttemptId="attempt-clarification"
+        endpoint="/api/v1/onboarding/session/assessment/complete"
+        questions={[]}
+        prompts={[]}
+        title="Full diagnostic assessment"
+        description="Complete the full diagnostic before signup."
+        submitLabel="Continue to signup"
+        conversationExperience={conversationExperience}
+        initialState={{
+          answers: {},
+          conversation: {},
+          writingSample: "",
+          conversationTranscript: [
+            {
+              speaker: "ai",
+              text: conversationExperience.openingTurn,
+            },
+            {
+              speaker: "student",
+              text: "why",
+              countsTowardProgress: false,
+            },
+            {
+              speaker: "ai",
+              text:
+                "I mean, which part of class do you like best, for example labs, reading, or discussion?",
+            },
+          ],
+        }}
+      />
+    );
+
+    expect(
+      screen.getByText(
+      "I mean, which part of class do you like best, for example labs, reading, or discussion?"
+      )
+    ).toBeInTheDocument();
+    expect(screen.getByText("0/2 captured")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /continue to signup/i })).toBeDisabled();
   });
 });

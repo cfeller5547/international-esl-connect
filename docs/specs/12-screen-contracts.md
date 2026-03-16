@@ -25,11 +25,21 @@ This document translates product and UX principles into concrete, testable scree
 ### `/`
 - Goal: explain value and start activation.
 - Primary CTA: `Start assessment`.
-- Secondary actions: `Log in`, `See how it works`.
+- Secondary actions: `Log in`, `Get started`, `See how it works`.
 - Required components: value proposition, three-step flow preview, trust/support cues.
 - Loading/empty/error: if session bootstrap fails, show retry CTA.
 - Exit transition: create guest onboarding session and route to `/onboarding/profile`.
 - Instrumentation: `landing_viewed`, `landing_primary_cta_clicked`.
+
+### `/get-started`
+- Goal: create or resume the guest onboarding flow from the correct step.
+- Primary CTA: none; this route immediately redirects.
+- Secondary actions: none.
+- Required behavior:
+  - if no valid guest session exists, create one and route to `/onboarding/profile`
+  - if a valid guest session exists, resume the correct onboarding step without skipping ahead
+- Loading/empty/error: on guest-session failure, redirect safely to `/`.
+- Exit transition: route to `/onboarding/profile`, `/onboarding/assessment`, or `/signup` depending on guest progress.
 
 ### `/onboarding/profile`
 - Goal: collect minimal profile context for personalization.
@@ -41,50 +51,58 @@ This document translates product and UX principles into concrete, testable scree
 - Instrumentation: `onboarding_started`, `onboarding_profile_saved`.
 
 ### `/onboarding/assessment`
-- Goal: complete baseline assessment before signup.
-- Primary CTA: `Complete quick baseline` (becomes active only when required parts complete).
-- Secondary actions: `Back`, text fallback for voice inputs.
+- Goal: complete the full diagnostic before signup.
+- Primary CTA: `Continue to signup` (becomes active only when required parts complete).
+- Secondary actions: `Back`.
 - Required components:
   - pre-signup stepper header
   - guided assessment shell with one primary task at a time
-  - objective questions
-  - required short AI conversation responses
+  - expanded objective questions
+  - one transcript-first AI conversation stage with replay, a one-tap continuous live voice loop, and hidden helper content
+  - writing sample prompt
   - section status summary
   - overall progress bar
+- Conversation rules:
+  - the first AI turn must introduce the placement coach before asking the first question
+  - the AI must respond like a real person in a short placement interview, not like a scripted worksheet
+  - the main conversation surface should show a growing transcript and one dominant live-voice control, not a per-turn record button
+  - once started, the mic loop should continue through the interview without requiring another tap for every answer
+  - typing is disabled for this diagnostic conversation
+  - clarification turns must rephrase the last question and must not increment captured-reply progress
 - Loading/empty/error: autosave progress; recover session if refreshed.
-- Exit transition: submit assessment and route to `/onboarding/results`.
-- Instrumentation: `assessment_started`, `assessment_completed`.
+- Exit transition: submit assessment and route to `/signup`.
+- Instrumentation: `assessment_started`, `full_diagnostic_completed`.
 
 ### `/onboarding/results`
-- Goal: show high-value report preview and convert to signup.
-- Primary CTA: `Create account to save report`.
-- Secondary actions: none required beyond inline review of chart and skill cards.
-- Required components: quick baseline report header, radar chart, six skill cards, clear statement that full diagnostic unlocks deeper analysis.
-- Loading/empty/error: if report generation is delayed, show progress state with polling.
-- Exit transition: route to signup flow and migrate guest report after success.
-- Instrumentation: `onboarding_results_viewed`, `signup_completed`, `baseline_report_persisted`.
+- Goal: legacy compatibility only.
+- Required behavior: if a guest diagnostic report exists, redirect to `/signup`; otherwise redirect back to `/onboarding/assessment`.
 
 ### `/signup` and `/login`
 - Goal: complete auth with minimal friction.
 - Primary CTA: `Create account` or `Log in`.
 - Secondary actions: switch auth mode.
 - Required components: auth form, validation feedback, mode switch, contextual support panel.
-- Additional rule: `/signup` should preserve pre-signup continuity with the same four-step language used in onboarding.
+- Additional rules:
+  - `/signup` should preserve pre-signup continuity with the same three-step language used in onboarding.
+  - Cold-start public signup entry must route through `/get-started`; brand-new users should never land directly on the account-creation step.
+  - If a guest reaches `/signup` before results exist, redirect them back to the correct onboarding step.
 - Loading/empty/error: explicit errors for existing account, invalid credentials, rate-limit.
-- Exit transition: return to intended target (`/app/home` or interrupted task).
+- Exit transition: onboarding signup should route directly to the authenticated report view; login and other auth interruptions should return to the intended task.
 - Instrumentation: `signup_completed`, `login_completed`.
 
 ### `/app/assessment/full`
-- Goal: complete full diagnostic soon after signup.
+- Goal: legacy recovery path for unfinished or older full-diagnostic flows.
 - Primary CTA: `Complete full diagnostic`.
 - Secondary actions: `Back`; resume later is handled by autosave.
 - Required components:
   - guided assessment shell
   - expanded objective items
-  - full AI conversation segment
+  - the same transcript-first continuous live-voice interview pattern used in onboarding
   - writing prompt stage
   - section status summary
   - overall progress indicator
+- Additional rules:
+  - this route should only appear when a full diagnostic is genuinely unfinished
 - Loading/empty/error: autosave and resume support required.
 - Exit transition: generate `baseline_full` report and route to `/app/progress/reports/:reportId`.
 - Instrumentation: `full_diagnostic_started`, `full_diagnostic_completed`, `celebration_milestone_viewed`.

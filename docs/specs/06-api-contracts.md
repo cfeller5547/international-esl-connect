@@ -25,7 +25,7 @@ Response:
 ```json
 {
   "userId": "uuid",
-  "redirectTo": "/app/home"
+  "redirectTo": "/app/progress/reports/:reportId"
 }
 ```
 
@@ -106,14 +106,14 @@ Request:
 ```json
 {
   "guestSessionToken": "string",
-  "phase": "quick_baseline"
+  "phase": "full_diagnostic"
 }
 ```
 Response:
 ```json
 {
   "assessmentAttemptId": "uuid",
-  "phase": "quick_baseline"
+  "phase": "full_diagnostic"
 }
 ```
 
@@ -122,22 +122,55 @@ Request:
 ```json
 {
   "guestSessionToken": "string",
-  "assessmentAttemptId": "uuid",
-  "phase": "quick_baseline"
+  "assessmentAttemptId": "uuid"
 }
 ```
 Behavior:
 - computes six skill scores
-- creates guest report preview
+- creates guest `baseline_full` report and level placement before signup
 
 Response:
 ```json
 {
   "reportPreviewId": "uuid",
   "overallScore": 64,
-  "levelLabel": "intermediate"
+  "levelLabel": "intermediate",
+  "redirectTo": "/signup"
 }
 ```
+
+### `POST /api/v1/onboarding/session/assessment/conversation/turn`
+Request:
+```json
+{
+  "assessmentAttemptId": "uuid",
+  "transcript": [
+    { "speaker": "ai", "text": "Hi, I'm Maya..." }
+  ],
+  "studentInput": {
+    "text": "I'm Ana, and I'm taking biology.",
+    "voiceCaptured": true,
+    "durationSeconds": 3
+  }
+}
+```
+Response:
+```json
+{
+  "attemptId": "uuid",
+  "openingTurn": "Hi, I'm Maya. I'll talk with you for a couple of minutes so I can understand how you use English in class. To start, tell me your name and one class you are taking right now?",
+  "studentTranscriptText": "I'm Ana, and I'm taking biology.",
+  "aiResponseText": "Nice to meet you, Ana. What do you usually do in your biology class?",
+  "replyCount": 1,
+  "responseTarget": 4,
+  "canAdvance": false,
+  "countsTowardProgress": true,
+  "durationSeconds": 0
+}
+```
+Behavior note:
+- the onboarding and full-diagnostic UI use this endpoint from a continuous live-mic loop; `voiceCaptured: true` means the learner spoke through the browser mic even when no raw audio blob is uploaded
+- if the learner sends a clarification turn such as `why?` or `what do you mean?`, the API returns a rephrased coach question and `countsTowardProgress: false`
 
 ### `GET /api/v1/onboarding/session/results`
 Query:
@@ -147,6 +180,7 @@ Response:
 ```json
 {
   "reportId": "uuid",
+  "reportType": "baseline_full",
   "overallScore": 64,
   "levelLabel": "intermediate",
   "skills": [
@@ -160,7 +194,10 @@ Response:
 }
 ```
 
-## 2.1 Post-signup Full Diagnostic
+Behavior note:
+- public onboarding does not render the report preview; successful diagnostic completion routes to signup, and the report is first shown inside the authenticated app after signup.
+
+## 2.1 Post-signup Full Diagnostic / Legacy Resume
 
 ### `POST /api/v1/assessment/full/start`
 Request:
@@ -192,6 +229,11 @@ Response:
   "levelLabel": "intermediate"
 }
 ```
+
+### `POST /api/v1/assessment/full/conversation/turn`
+Behavior:
+- authenticated mirror of the onboarding assessment conversation turn endpoint
+- uses the same placement-coach conversation contract, voice-captured request shape, and reply payload
 
 ## 3. Learn and Recommendations
 

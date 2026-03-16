@@ -60,16 +60,15 @@ Rules:
    - trigger: full assessment completion
    - properties: `attempt_id`, `duration_seconds`
 7. `full_diagnostic_started`
-   - trigger: post-signup full diagnostic started
+   - trigger: full diagnostic started from onboarding or legacy authenticated resume
 8. `full_diagnostic_completed`
-   - trigger: post-signup full diagnostic completed
+   - trigger: full diagnostic completed from onboarding or legacy authenticated resume
    - properties: `attempt_id`, `report_id`, `duration_seconds`
 9. `onboarding_results_viewed`
-   - trigger: results page rendered
-   - properties: `report_preview_id`, `overall_score`, `level_label`
+   - legacy only; no longer emitted in the current onboarding flow
 10. `signup_completed`
    - trigger: account created successfully
-   - properties: `conversion_source` (expected `onboarding_results`)
+   - properties: `conversion_source` (expected `onboarding_assessment`)
 11. `baseline_report_persisted`
    - trigger: guest report successfully attached to new user
 12. `login_completed`

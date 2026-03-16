@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Check } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Loader2,
+  Mic,
+  Volume2,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -16,6 +23,10 @@ import {
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  type AssessmentVoiceState,
+  useAssessmentLiveVoice,
+} from "@/features/assessment/use-assessment-live-voice";
 import { cn, toTitleCase } from "@/lib/utils";
 
 type AssessmentQuestion = {
@@ -24,6 +35,26 @@ type AssessmentQuestion = {
   prompt: string;
   options: readonly string[];
   correctValue: string;
+};
+
+type AssessmentConversationExperience = {
+  scenarioTitle: string;
+  scenarioSetup: string;
+  counterpartRole: string;
+  introductionText: string;
+  openingQuestion: string;
+  openingTurn: string;
+  helpfulPhrases: readonly string[];
+  modelExample: string;
+  responseTarget: number;
+  turnEndpoint: string;
+  requireVoice?: boolean;
+};
+
+type AssessmentConversationTurn = {
+  speaker: "ai" | "student";
+  text: string;
+  countsTowardProgress?: boolean;
 };
 
 type AssessmentStep =
@@ -45,6 +76,13 @@ type AssessmentStep =
       promptIndex: number;
     }
   | {
+      id: "conversation-ai";
+      kind: "conversation_ai";
+      section: "conversation";
+      sectionIndex: 0;
+      sectionTotal: 1;
+    }
+  | {
       id: string;
       kind: "writing";
       section: "writing";
@@ -64,12 +102,31 @@ type AssessmentFormProps = {
   includesWritingPrompt?: boolean;
   extraPayload?: Record<string, unknown>;
   backHref?: string;
+  initialState?: {
+    answers: Record<string, string>;
+    conversation: Record<string, string>;
+    writingSample: string;
+    conversationTranscript?: AssessmentConversationTurn[];
+    conversationDurationSeconds?: number;
+  };
+  introNote?: string;
+  conversationExperience?: AssessmentConversationExperience;
 };
 
-const emptyAssessmentState = {
-  answers: {} as Record<string, string>,
-  conversation: {} as Record<string, string>,
+type StoredAssessmentState = {
+  answers: Record<string, string>;
+  conversation: Record<string, string>;
+  writingSample: string;
+  conversationTranscript: AssessmentConversationTurn[];
+  conversationDurationSeconds: number;
+};
+
+const emptyAssessmentState: StoredAssessmentState = {
+  answers: {},
+  conversation: {},
   writingSample: "",
+  conversationTranscript: [],
+  conversationDurationSeconds: 0,
 };
 
 const sectionMeta = {
@@ -82,8 +139,8 @@ const sectionMeta = {
   conversation: {
     navLabel: "conversation",
     eyebrow: "AI conversation",
-    title: "Respond in your own words",
-    description: "Typing works the same way if voice input is unavailable.",
+    title: "Talk naturally and keep the conversation moving",
+    description: "Answer naturally and keep the conversation moving in your own words.",
   },
   writing: {
     navLabel: "writing sample",
@@ -97,6 +154,7 @@ function buildAssessmentSteps(
   questions: readonly AssessmentQuestion[],
   prompts: string[],
   includesWritingPrompt: boolean,
+  conversationExperience?: AssessmentConversationExperience
 ) {
   const objectiveSteps: AssessmentStep[] = questions.map((question, index) => ({
     id: question.id,
@@ -107,15 +165,25 @@ function buildAssessmentSteps(
     question,
   }));
 
-  const conversationSteps: AssessmentStep[] = prompts.map((prompt, index) => ({
-    id: `prompt-${index}`,
-    kind: "conversation",
-    section: "conversation",
-    sectionIndex: index,
-    sectionTotal: prompts.length,
-    prompt,
-    promptIndex: index,
-  }));
+  const conversationSteps: AssessmentStep[] = conversationExperience
+    ? [
+        {
+          id: "conversation-ai",
+          kind: "conversation_ai",
+          section: "conversation",
+          sectionIndex: 0,
+          sectionTotal: 1,
+        },
+      ]
+    : prompts.map((prompt, index) => ({
+        id: `prompt-${index}`,
+        kind: "conversation",
+        section: "conversation",
+        sectionIndex: index,
+        sectionTotal: prompts.length,
+        prompt,
+        promptIndex: index,
+      }));
 
   const writingSteps: AssessmentStep[] = includesWritingPrompt
     ? [
@@ -132,32 +200,94 @@ function buildAssessmentSteps(
   return [...objectiveSteps, ...conversationSteps, ...writingSteps];
 }
 
-function getStoredState(storageKey: string) {
+function buildConversationPairs(turns: AssessmentConversationTurn[]) {
+  const pairs: Array<{ prompt: string; answer: string }> = [];
+  let pendingPrompt = "";
+
+  for (const turn of turns) {
+    const text = turn.text.trim();
+    if (!text) {
+      continue;
+    }
+
+    if (turn.speaker === "ai") {
+      pendingPrompt = text;
+      continue;
+    }
+
+    if (turn.countsTowardProgress !== false) {
+      pairs.push({
+        prompt: pendingPrompt,
+        answer: text,
+      });
+    }
+  }
+
+  return pairs;
+}
+
+function getInitialState(
+  storageKey: string,
+  seededState?: AssessmentFormProps["initialState"]
+): StoredAssessmentState {
+  const baseState: StoredAssessmentState = {
+    answers: seededState?.answers ?? emptyAssessmentState.answers,
+    conversation: seededState?.conversation ?? emptyAssessmentState.conversation,
+    writingSample: seededState?.writingSample ?? emptyAssessmentState.writingSample,
+    conversationTranscript:
+      seededState?.conversationTranscript ?? emptyAssessmentState.conversationTranscript,
+    conversationDurationSeconds:
+      seededState?.conversationDurationSeconds ?? emptyAssessmentState.conversationDurationSeconds,
+  };
+
   if (typeof window === "undefined") {
-    return emptyAssessmentState;
+    return baseState;
   }
 
   const stored = window.localStorage.getItem(storageKey);
 
   if (!stored) {
-    return emptyAssessmentState;
+    return baseState;
   }
 
   try {
-    const parsed = JSON.parse(stored) as {
-      answers?: Record<string, string>;
-      conversation?: Record<string, string>;
-      writingSample?: string;
-    };
+    const parsed = JSON.parse(stored) as Partial<StoredAssessmentState>;
 
     return {
-      answers: parsed.answers ?? {},
-      conversation: parsed.conversation ?? {},
-      writingSample: parsed.writingSample ?? "",
+      answers: {
+        ...baseState.answers,
+        ...(parsed.answers ?? {}),
+      },
+      conversation: {
+        ...baseState.conversation,
+        ...(parsed.conversation ?? {}),
+      },
+      writingSample: parsed.writingSample ?? baseState.writingSample,
+      conversationTranscript: Array.isArray(parsed.conversationTranscript)
+        ? parsed.conversationTranscript
+            .map((turn) => {
+              const speaker: "ai" | "student" =
+                turn.speaker === "student" ? "student" : "ai";
+
+              return {
+                speaker,
+                text: String(turn.text ?? "").trim(),
+                countsTowardProgress:
+                  typeof turn.countsTowardProgress === "boolean"
+                    ? turn.countsTowardProgress
+                    : undefined,
+              };
+            })
+            .filter((turn) => turn.text.length > 0)
+        : baseState.conversationTranscript,
+      conversationDurationSeconds:
+        typeof parsed.conversationDurationSeconds === "number"
+          ? parsed.conversationDurationSeconds
+          : baseState.conversationDurationSeconds,
     };
   } catch {
     window.localStorage.removeItem(storageKey);
-    return emptyAssessmentState;
+    return baseState;
   }
 }
 
@@ -166,6 +296,8 @@ function isStepComplete(
   answers: Record<string, string>,
   conversation: Record<string, string>,
   writingSample: string,
+  conversationReplyCount: number,
+  conversationTarget: number
 ) {
   if (step.kind === "objective") {
     return Boolean(answers[step.question.id]);
@@ -173,6 +305,10 @@ function isStepComplete(
 
   if (step.kind === "conversation") {
     return Boolean(conversation[String(step.promptIndex)]?.trim());
+  }
+
+  if (step.kind === "conversation_ai") {
+    return conversationReplyCount >= conversationTarget;
   }
 
   return Boolean(writingSample.trim());
@@ -183,9 +319,18 @@ function getFirstIncompleteStep(
   answers: Record<string, string>,
   conversation: Record<string, string>,
   writingSample: string,
+  conversationReplyCount: number,
+  conversationTarget: number
 ) {
   const firstIncompleteIndex = steps.findIndex((step) =>
-    !isStepComplete(step, answers, conversation, writingSample)
+    !isStepComplete(
+      step,
+      answers,
+      conversation,
+      writingSample,
+      conversationReplyCount,
+      conversationTarget
+    )
   );
 
   return firstIncompleteIndex === -1 ? Math.max(steps.length - 1, 0) : firstIncompleteIndex;
@@ -205,6 +350,76 @@ function countWords(value: string) {
   return normalized.split(/\s+/).length;
 }
 
+function speakText(text: string) {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+    return;
+  }
+
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+}
+
+function conversationStatusCopy(replyCount: number, replyTarget: number) {
+  if (replyCount >= replyTarget) {
+    return "Conversation complete. Continue when you're ready.";
+  }
+
+  if (replyCount === 0) {
+    return "Answer naturally. One or two clear sentences are enough.";
+  }
+
+  if (replyCount === replyTarget - 1) {
+    return "One more strong reply and then you'll move on.";
+  }
+
+  return "Keep the conversation going in your own words.";
+}
+
+function voiceStateCopy(state: AssessmentVoiceState) {
+  switch (state) {
+    case "starting":
+      return "Starting live voice";
+    case "listening":
+      return "Listening";
+    case "thinking":
+      return "Thinking";
+    case "speaking":
+      return "Speaking";
+    case "error":
+      return "Voice issue";
+    default:
+      return "Ready";
+  }
+}
+
+function counterpartLabel(counterpartRole: string) {
+  switch (counterpartRole) {
+    case "placement_coach":
+      return "Placement coach";
+    default:
+      return "Conversation partner";
+  }
+}
+
+function withOpeningTurn(
+  state: StoredAssessmentState,
+  conversationExperience?: AssessmentConversationExperience
+): StoredAssessmentState {
+  if (!conversationExperience || state.conversationTranscript.length > 0) {
+    return state;
+  }
+
+  const openingTurn: AssessmentConversationTurn = {
+    speaker: "ai",
+    text: conversationExperience.openingTurn,
+  };
+
+  return {
+    ...state,
+    conversationTranscript: [openingTurn],
+  };
+}
+
 export function AssessmentForm({
   storageKey,
   assessmentAttemptId,
@@ -217,48 +432,145 @@ export function AssessmentForm({
   includesWritingPrompt = false,
   extraPayload = {},
   backHref,
+  initialState: seededInitialState,
+  introNote,
+  conversationExperience,
 }: AssessmentFormProps) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
+  const [conversationPending, setConversationPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [initialState] = useState(() => getStoredState(storageKey));
-  const [answers, setAnswers] = useState<Record<string, string>>(initialState.answers);
-  const [conversation, setConversation] = useState<Record<string, string>>(initialState.conversation);
-  const [writingSample, setWritingSample] = useState(initialState.writingSample);
+  const [hasRestoredClientState, setHasRestoredClientState] = useState(false);
+  const seededState = withOpeningTurn(
+    {
+      answers: seededInitialState?.answers ?? emptyAssessmentState.answers,
+      conversation: seededInitialState?.conversation ?? emptyAssessmentState.conversation,
+      writingSample: seededInitialState?.writingSample ?? emptyAssessmentState.writingSample,
+      conversationTranscript:
+        seededInitialState?.conversationTranscript ?? emptyAssessmentState.conversationTranscript,
+      conversationDurationSeconds:
+        seededInitialState?.conversationDurationSeconds ??
+        emptyAssessmentState.conversationDurationSeconds,
+    },
+    conversationExperience
+  );
+  const seededConversationReplyCount = conversationExperience
+    ? buildConversationPairs(seededState.conversationTranscript).slice(
+        0,
+        conversationExperience.responseTarget
+      ).length
+    : prompts.filter((_, index) => seededState.conversation[String(index)]?.trim()).length;
+  const [answers, setAnswers] = useState<Record<string, string>>(seededState.answers);
+  const [conversation, setConversation] = useState<Record<string, string>>(seededState.conversation);
+  const [writingSample, setWritingSample] = useState(seededState.writingSample);
+  const [conversationInput, setConversationInput] = useState("");
+  const [conversationTranscript, setConversationTranscript] = useState<AssessmentConversationTurn[]>(
+    seededState.conversationTranscript
+  );
+  const [conversationDurationSeconds, setConversationDurationSeconds] = useState(
+    seededState.conversationDurationSeconds
+  );
+
+  const conversationReplyTarget = conversationExperience?.responseTarget ?? prompts.length;
+  const diagnosticRequiresVoice = conversationExperience?.requireVoice ?? false;
+  const conversationPairs = useMemo(
+    () =>
+      conversationExperience
+        ? buildConversationPairs(conversationTranscript).slice(0, conversationReplyTarget)
+        : [],
+    [conversationExperience, conversationReplyTarget, conversationTranscript]
+  );
+  const conversationReplyCount = conversationExperience
+    ? conversationPairs.length
+    : prompts.filter((_, index) => conversation[String(index)]?.trim()).length;
+
+  const steps = useMemo(
+    () => buildAssessmentSteps(questions, prompts, includesWritingPrompt, conversationExperience),
+    [conversationExperience, includesWritingPrompt, prompts, questions]
+  );
+
   const [currentStepIndex, setCurrentStepIndex] = useState(() =>
     getFirstIncompleteStep(
-      buildAssessmentSteps(questions, prompts, includesWritingPrompt),
-      initialState.answers,
-      initialState.conversation,
-      initialState.writingSample,
+      steps,
+      seededState.answers,
+      seededState.conversation,
+      seededState.writingSample,
+      seededConversationReplyCount,
+      conversationReplyTarget
     )
   );
 
-  const steps = useMemo(
-    () => buildAssessmentSteps(questions, prompts, includesWritingPrompt),
-    [questions, prompts, includesWritingPrompt]
-  );
+  useEffect(() => {
+    const restoredState = withOpeningTurn(
+      getInitialState(storageKey, seededInitialState),
+      conversationExperience
+    );
+    const restoredReplyCount = conversationExperience
+      ? buildConversationPairs(restoredState.conversationTranscript).slice(
+          0,
+          conversationReplyTarget
+        ).length
+      : prompts.filter((_, index) => restoredState.conversation[String(index)]?.trim()).length;
+
+    setAnswers(restoredState.answers);
+    setConversation(restoredState.conversation);
+    setWritingSample(restoredState.writingSample);
+    setConversationTranscript(restoredState.conversationTranscript);
+    setConversationDurationSeconds(restoredState.conversationDurationSeconds);
+    setCurrentStepIndex(
+      getFirstIncompleteStep(
+        steps,
+        restoredState.answers,
+        restoredState.conversation,
+        restoredState.writingSample,
+        restoredReplyCount,
+        conversationReplyTarget
+      )
+    );
+    setHasRestoredClientState(true);
+  }, [
+    conversationExperience,
+    conversationReplyTarget,
+    prompts,
+    seededInitialState,
+    steps,
+    storageKey,
+  ]);
 
   useEffect(() => {
+    if (!hasRestoredClientState) {
+      return;
+    }
+
     window.localStorage.setItem(
       storageKey,
-      JSON.stringify({ answers, conversation, writingSample })
+      JSON.stringify({
+        answers,
+        conversation,
+        writingSample,
+        conversationTranscript,
+        conversationDurationSeconds,
+      } satisfies StoredAssessmentState)
     );
-  }, [answers, conversation, writingSample, storageKey]);
+  }, [
+    answers,
+    conversation,
+    conversationDurationSeconds,
+    conversationTranscript,
+    hasRestoredClientState,
+    storageKey,
+    writingSample,
+  ]);
 
   const answeredQuestionCount = useMemo(
     () => questions.filter((question) => answers[question.id]).length,
     [answers, questions]
   );
 
-  const answeredPromptCount = useMemo(
-    () => prompts.filter((_, index) => conversation[String(index)]?.trim()).length,
-    [conversation, prompts]
-  );
-
   const writingCount = includesWritingPrompt && writingSample.trim() ? 1 : 0;
-  const totalRequiredCount = questions.length + prompts.length + (includesWritingPrompt ? 1 : 0);
-  const completedRequiredCount = answeredQuestionCount + answeredPromptCount + writingCount;
+  const totalRequiredCount =
+    questions.length + conversationReplyTarget + (includesWritingPrompt ? 1 : 0);
+  const completedRequiredCount = answeredQuestionCount + conversationReplyCount + writingCount;
   const completionPct =
     totalRequiredCount === 0 ? 100 : Math.round((completedRequiredCount / totalRequiredCount) * 100);
   const allRequiredComplete = completedRequiredCount === totalRequiredCount;
@@ -267,7 +579,14 @@ export function AssessmentForm({
   const currentSectionKey = currentStep.section;
   const currentSectionMeta = sectionMeta[currentSectionKey];
   const isLastStep = currentStepIndex === steps.length - 1;
-  const currentStepComplete = isStepComplete(currentStep, answers, conversation, writingSample);
+  const currentStepComplete = isStepComplete(
+    currentStep,
+    answers,
+    conversation,
+    writingSample,
+    conversationReplyCount,
+    conversationReplyTarget
+  );
 
   const sectionSummaries = [
     {
@@ -279,10 +598,10 @@ export function AssessmentForm({
     },
     {
       key: "conversation",
-      label: "Conversation",
-      description: pluralize(prompts.length, "response"),
-      completed: answeredPromptCount,
-      total: prompts.length,
+      label: conversationExperience ? "AI conversation" : "Conversation",
+      description: pluralize(conversationReplyTarget, "response"),
+      completed: conversationReplyCount,
+      total: conversationReplyTarget,
     },
     ...(includesWritingPrompt
       ? [
@@ -303,6 +622,135 @@ export function AssessmentForm({
       : currentStep.kind === "writing"
         ? writingSample
         : "";
+  const nextButtonLabel = !isLastStep
+    ? steps[currentStepIndex + 1].section !== currentSectionKey
+      ? `Continue to ${sectionMeta[steps[currentStepIndex + 1].section].navLabel}`
+      : "Continue"
+    : submitLabel;
+  const lastAiTurn =
+    [...conversationTranscript].reverse().find((turn) => turn.speaker === "ai")?.text ?? "";
+
+  const {
+    isSupported: liveVoiceSupported,
+    liveActive: liveVoiceActive,
+    voiceState,
+    startLiveConversation,
+    pauseLiveConversation,
+  } = useAssessmentLiveVoice({
+    openingTurn: conversationExperience?.openingTurn ?? "",
+    setError,
+    onVoiceTurn: async ({ transcriptText, durationSeconds }) => {
+      const result = await submitConversationTurn({
+        text: transcriptText,
+        durationSeconds,
+        voiceCaptured: true,
+      });
+
+      if (!result) {
+        return null;
+      }
+
+      return {
+        aiReplyText: result.aiResponseText,
+        continueConversation: !result.canAdvance,
+      };
+    },
+  });
+
+  async function submitConversationTurn(studentInput?: {
+    text?: string;
+    audioDataUrl?: string;
+    audioMimeType?: string;
+    durationSeconds?: number;
+    voiceCaptured?: boolean;
+  }) {
+    if (!conversationExperience) {
+      return null;
+    }
+
+    const text = studentInput?.text?.trim() ?? conversationInput.trim();
+    if (
+      diagnosticRequiresVoice &&
+      !studentInput?.audioDataUrl &&
+      !studentInput?.voiceCaptured
+    ) {
+      setError("Use the microphone to answer this part of the diagnostic.");
+      return null;
+    }
+
+    if (!text && !studentInput?.audioDataUrl) {
+      return null;
+    }
+
+    setConversationPending(true);
+    setError(null);
+
+    try {
+      const response = await fetch(conversationExperience.turnEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          assessmentAttemptId,
+          transcript: conversationTranscript,
+          studentInput: {
+            text: text || undefined,
+            audioDataUrl: studentInput?.audioDataUrl,
+            audioMimeType: studentInput?.audioMimeType,
+            durationSeconds: studentInput?.durationSeconds,
+            voiceCaptured: studentInput?.voiceCaptured,
+          },
+        }),
+      });
+
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: { message?: string };
+        studentTranscriptText?: string;
+        aiResponseText?: string;
+        durationSeconds?: number;
+        countsTowardProgress?: boolean;
+        canAdvance?: boolean;
+      };
+
+      if (!response.ok || !payload.studentTranscriptText || !payload.aiResponseText) {
+        setError(payload.error?.message ?? "We couldn't continue the conversation. Please try again.");
+        setConversationPending(false);
+        return null;
+      }
+
+      const studentTranscriptText = payload.studentTranscriptText.trim();
+      const aiResponseText = payload.aiResponseText.trim();
+      const studentTurn: AssessmentConversationTurn = {
+        speaker: "student",
+        text: studentTranscriptText,
+        countsTowardProgress: payload.countsTowardProgress !== false,
+      };
+      const aiTurn: AssessmentConversationTurn = {
+        speaker: "ai",
+        text: aiResponseText,
+      };
+
+      setConversationTranscript((current) => [
+        ...current,
+        studentTurn,
+        aiTurn,
+      ]);
+      setConversationDurationSeconds(
+        (current) => current + (payload.durationSeconds ?? studentInput?.durationSeconds ?? 0)
+      );
+      setConversationInput("");
+      return {
+        aiResponseText,
+        canAdvance: Boolean(payload.canAdvance),
+      };
+    } catch {
+      setError("We couldn't continue the conversation. Please try again.");
+      return null;
+    } finally {
+      setConversationPending(false);
+    }
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -311,8 +759,22 @@ export function AssessmentForm({
       return;
     }
 
+    if (liveVoiceActive) {
+      pauseLiveConversation();
+    }
+
     setPending(true);
     setError(null);
+
+    const conversationTurnsPayload = conversationExperience
+      ? conversationPairs.map((turn) => ({
+          prompt: turn.prompt,
+          answer: turn.answer,
+        }))
+      : prompts.map((prompt, index) => ({
+          prompt,
+          answer: conversation[String(index)] ?? "",
+        }));
 
     try {
       const response = await fetch(endpoint, {
@@ -329,11 +791,9 @@ export function AssessmentForm({
               correctValue: question.correctValue,
               skill: question.skill,
             })),
-            conversationTurns: prompts.map((prompt, index) => ({
-              prompt,
-              answer: conversation[String(index)] ?? "",
-            })),
+            conversationTurns: conversationTurnsPayload,
             writingSample: includesWritingPrompt ? writingSample : undefined,
+            durationSeconds: conversationDurationSeconds || undefined,
           },
           ...extraPayload,
         }),
@@ -367,6 +827,10 @@ export function AssessmentForm({
   function handleBack() {
     setError(null);
 
+    if (liveVoiceActive) {
+      pauseLiveConversation();
+    }
+
     if (currentStepIndex > 0) {
       setCurrentStepIndex((current) => current - 1);
       return;
@@ -386,14 +850,11 @@ export function AssessmentForm({
     }
 
     setError(null);
+    if (liveVoiceActive) {
+      pauseLiveConversation();
+    }
     setCurrentStepIndex((current) => Math.min(current + 1, steps.length - 1));
   }
-
-  const nextButtonLabel = !isLastStep
-    ? steps[currentStepIndex + 1].section !== currentSectionKey
-      ? `Continue to ${sectionMeta[steps[currentStepIndex + 1].section].navLabel}`
-      : "Continue"
-    : submitLabel;
 
   return (
     <form className="space-y-6" onSubmit={handleSubmit}>
@@ -409,6 +870,11 @@ export function AssessmentForm({
                 <CardDescription className="max-w-3xl text-sm sm:text-base">
                   {description}
                 </CardDescription>
+                {introNote ? (
+                  <div className="max-w-3xl rounded-2xl border border-secondary/20 bg-secondary/5 px-4 py-3 text-sm text-foreground">
+                    {introNote}
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -426,9 +892,9 @@ export function AssessmentForm({
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                   Conversation
                 </p>
-                <p className="mt-2 text-lg font-semibold text-foreground">{prompts.length}</p>
+                <p className="mt-2 text-lg font-semibold text-foreground">{conversationReplyTarget}</p>
                 <p className="text-sm text-muted-foreground">
-                  {pluralize(prompts.length, "short response")}
+                  {pluralize(conversationReplyTarget, "captured reply", "captured replies")}
                 </p>
               </div>
               <div className="rounded-2xl border border-border/70 bg-background/70 px-4 py-3">
@@ -469,7 +935,7 @@ export function AssessmentForm({
                   ? "border-primary/30 bg-card/95 shadow-md shadow-primary/10"
                   : isComplete
                     ? "border-primary/20 bg-primary/5"
-                    : "border-border/70 bg-card/80",
+                    : "border-border/70 bg-card/80"
               )}
             >
               <div className="flex items-center justify-between gap-3">
@@ -494,7 +960,9 @@ export function AssessmentForm({
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="space-y-3">
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-secondary">
-                {currentSectionMeta.eyebrow} - {currentStep.sectionIndex + 1} of {currentStep.sectionTotal}
+                {currentStep.kind === "conversation_ai"
+                  ? currentSectionMeta.eyebrow
+                  : `${currentSectionMeta.eyebrow} - ${currentStep.sectionIndex + 1} of ${currentStep.sectionTotal}`}
               </p>
               <div className="space-y-2">
                 <CardTitle className="text-2xl leading-tight sm:text-[2rem]">
@@ -502,14 +970,18 @@ export function AssessmentForm({
                     ? currentStep.question.prompt
                     : currentStep.kind === "conversation"
                       ? currentStep.prompt
-                      : "Write 3-5 sentences about what you learned this week."}
+                      : currentStep.kind === "conversation_ai"
+                        ? conversationExperience?.scenarioTitle
+                        : "Write 3-5 sentences about what you learned this week."}
                 </CardTitle>
                 <CardDescription className="max-w-2xl text-sm sm:text-base">
                   {currentStep.kind === "objective"
                     ? `${currentSectionMeta.description} This question focuses on ${toTitleCase(currentStep.question.skill)}.`
                     : currentStep.kind === "conversation"
                       ? currentSectionMeta.description
-                      : `${currentSectionMeta.description} Aim for 3-5 full sentences.`}
+                      : currentStep.kind === "conversation_ai"
+                        ? conversationExperience?.scenarioSetup
+                        : `${currentSectionMeta.description} Aim for 3-5 full sentences.`}
                 </CardDescription>
               </div>
             </div>
@@ -521,7 +993,11 @@ export function AssessmentForm({
                   ? "Select one answer before continuing."
                   : currentStep.kind === "conversation"
                     ? "Short responses are enough. Focus on clarity, not perfect grammar."
-                    : "A short paragraph is enough. Clear ideas matter more than length."}
+                    : currentStep.kind === "conversation_ai"
+                      ? diagnosticRequiresVoice
+                        ? "The AI introduces the scene first, then the mic stays live so the conversation feels natural."
+                        : "Talk like you would to a real person and keep the conversation moving."
+                      : "A short paragraph is enough. Clear ideas matter more than length."}
               </p>
             </div>
           </div>
@@ -555,7 +1031,7 @@ export function AssessmentForm({
                         "flex items-start gap-4 rounded-3xl border px-5 py-4 transition-all",
                         isSelected
                           ? "border-primary/30 bg-primary/6 shadow-sm"
-                          : "border-border/70 bg-background/75 hover:border-primary/20 hover:bg-muted/20",
+                          : "border-border/70 bg-background/75 hover:border-primary/20 hover:bg-muted/20"
                       )}
                     >
                       <span
@@ -563,7 +1039,7 @@ export function AssessmentForm({
                           "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border",
                           isSelected
                             ? "border-primary bg-primary text-primary-foreground"
-                            : "border-border bg-background",
+                            : "border-border bg-background"
                         )}
                       >
                         {isSelected ? <Check className="size-3" /> : null}
@@ -574,6 +1050,222 @@ export function AssessmentForm({
                 );
               })}
             </fieldset>
+          ) : currentStep.kind === "conversation_ai" && conversationExperience ? (
+            <div className="space-y-6">
+              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                <span className="rounded-full border border-border/70 bg-background/80 px-3 py-1">
+                  {counterpartLabel(conversationExperience.counterpartRole)}
+                </span>
+                <span className="rounded-full border border-border/70 bg-background/80 px-3 py-1">
+                  {conversationReplyCount}/{conversationReplyTarget} captured
+                </span>
+                <span className="rounded-full border border-border/70 bg-background/80 px-3 py-1">
+                  {diagnosticRequiresVoice ? "Voice required" : "Voice or text"}
+                </span>
+                {diagnosticRequiresVoice ? (
+                  <span className="rounded-full border border-border/70 bg-background/80 px-3 py-1">
+                    {voiceStateCopy(voiceState)}
+                  </span>
+                ) : null}
+                {liveVoiceActive ? (
+                  <span className="rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-foreground">
+                    Mic live
+                  </span>
+                ) : null}
+                {!liveVoiceSupported && diagnosticRequiresVoice ? (
+                  <span className="rounded-full border border-destructive/30 bg-destructive/5 px-3 py-1 text-destructive">
+                    Browser unsupported
+                  </span>
+                ) : null}
+                {diagnosticRequiresVoice ? (
+                  <span className="rounded-full border border-border/70 bg-background/80 px-3 py-1">
+                    No repeat recording taps
+                  </span>
+                ) : null}
+                {diagnosticRequiresVoice && conversationReplyCount >= conversationReplyTarget ? (
+                  <span className="rounded-full border border-secondary/20 bg-secondary/5 px-3 py-1 text-foreground">
+                    Ready to continue
+                  </span>
+                ) : null}
+              </div>
+
+              <div className="rounded-3xl border border-border/70 bg-muted/20 p-4 sm:p-5">
+                <div className="space-y-3">
+                  {conversationTranscript.map((turn, index) => {
+                    const isAi = turn.speaker === "ai";
+
+                    return (
+                      <div
+                        key={`${turn.speaker}-${index}-${turn.text.slice(0, 24)}`}
+                        className={cn("flex", isAi ? "justify-start" : "justify-end")}
+                      >
+                        <div
+                          className={cn(
+                            "max-w-2xl rounded-3xl border px-4 py-3 shadow-sm",
+                            isAi
+                              ? "border-border/80 bg-background text-foreground"
+                              : "border-primary/20 bg-primary/8 text-foreground"
+                          )}
+                        >
+                          <div className="flex items-center justify-between gap-4">
+                            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-secondary">
+                              {isAi ? counterpartLabel(conversationExperience.counterpartRole) : "You"}
+                            </p>
+                            {isAi ? (
+                              <button
+                                type="button"
+                                className="inline-flex items-center gap-1 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground transition hover:text-foreground"
+                                onClick={() => speakText(turn.text)}
+                              >
+                                <Volume2 className="size-3.5" />
+                                Replay
+                              </button>
+                            ) : null}
+                          </div>
+                          <p className="mt-3 text-base leading-relaxed text-foreground">{turn.text}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-border/70 bg-background/80 p-5">
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Your reply</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {diagnosticRequiresVoice
+                        ? `${conversationStatusCopy(conversationReplyCount, conversationReplyTarget)} Start once, then keep talking out loud as the AI responds.`
+                        : conversationStatusCopy(conversationReplyCount, conversationReplyTarget)}
+                    </p>
+                  </div>
+                  {diagnosticRequiresVoice ? (
+                    <div className="space-y-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex flex-wrap gap-3">
+                          {liveVoiceActive ? (
+                            <Button
+                              type="button"
+                              size="lg"
+                              variant="outline"
+                              onClick={() => pauseLiveConversation()}
+                              disabled={conversationPending || pending}
+                            >
+                              <Mic className="size-4" />
+                              Pause voice
+                            </Button>
+                          ) : (
+                            <Button
+                              type="button"
+                              size="lg"
+                              onClick={() =>
+                                void startLiveConversation({
+                                  speakOpeningTurn: conversationReplyCount === 0,
+                                })
+                              }
+                              disabled={conversationPending || pending || !liveVoiceSupported}
+                            >
+                              {voiceState === "starting" ? (
+                                <>
+                                  <Loader2 className="size-4 animate-spin" />
+                                  Starting live voice
+                                </>
+                              ) : (
+                                <>
+                                  <Mic className="size-4" />
+                                  {conversationReplyCount === 0
+                                    ? "Start live conversation"
+                                    : "Resume live conversation"}
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {liveVoiceActive
+                            ? "The mic stays live while the conversation moves turn by turn."
+                            : liveVoiceSupported
+                              ? "One tap starts the AI introduction and the live voice loop."
+                              : "This browser can't run the live voice diagnostic."}
+                        </div>
+                      </div>
+                      <div className="rounded-2xl border border-secondary/15 bg-secondary/5 px-4 py-3 text-sm text-foreground">
+                        Typing is disabled here. This diagnostic uses voice so we can hear how the learner responds in spoken English.
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex flex-wrap gap-3">
+                        <Button
+                          type="button"
+                          size="lg"
+                          onClick={() => void submitConversationTurn()}
+                          disabled={conversationPending || pending || !conversationInput.trim()}
+                        >
+                          {conversationPending ? (
+                            <>
+                              <Loader2 className="size-4 animate-spin" />
+                              Sending
+                            </>
+                          ) : (
+                            "Send reply"
+                          )}
+                        </Button>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {countWords(conversationInput)} words
+                      </div>
+                    </div>
+                  )}
+                  {!diagnosticRequiresVoice ? (
+                    <Textarea
+                      value={conversationInput}
+                      onChange={(event) => {
+                        setError(null);
+                        setConversationInput(event.target.value);
+                      }}
+                      placeholder="Type your reply here. Simple English is fine."
+                      className="min-h-32 resize-y rounded-3xl border-border/70 bg-background/80 px-4 py-3"
+                      disabled={conversationPending || pending}
+                    />
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-border/70 bg-muted/20 p-5">
+                <details className="group">
+                  <summary className="cursor-pointer list-none text-sm font-semibold text-foreground">
+                    Need help?
+                  </summary>
+                  <div className="mt-4 space-y-4 text-sm text-muted-foreground">
+                    <div>
+                      <p className="font-semibold text-foreground">Helpful phrases</p>
+                      <p className="mt-1">
+                        {conversationExperience.helpfulPhrases.join(" · ")}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground">Example</p>
+                      <p className="mt-1">{conversationExperience.modelExample}</p>
+                    </div>
+                  </div>
+                </details>
+              </div>
+
+              <div className="rounded-2xl border border-secondary/15 bg-secondary/5 px-4 py-3 text-sm text-foreground">
+                {lastAiTurn ? (
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 font-medium text-foreground transition hover:text-primary"
+                    onClick={() => speakText(lastAiTurn)}
+                  >
+                    <Volume2 className="size-4" />
+                    Replay the latest AI reply
+                  </button>
+                ) : null}
+              </div>
+            </div>
           ) : (
             <div className="space-y-3">
               <Label htmlFor={currentStep.id} className="text-sm font-semibold text-foreground">
@@ -622,7 +1314,13 @@ export function AssessmentForm({
         </CardContent>
 
         <CardFooter className="flex flex-col gap-3 border-t pt-6 sm:flex-row sm:items-center sm:justify-between">
-          <Button type="button" size="lg" variant="outline" onClick={handleBack} disabled={pending}>
+          <Button
+            type="button"
+            size="lg"
+            variant="outline"
+            onClick={handleBack}
+            disabled={pending || conversationPending}
+          >
             <ArrowLeft className="size-4" />
             Back
           </Button>
@@ -633,7 +1331,7 @@ export function AssessmentForm({
                 type="button"
                 size="lg"
                 onClick={handleContinue}
-                disabled={!currentStepComplete || pending}
+                disabled={!currentStepComplete || pending || conversationPending}
                 className="w-full sm:w-auto"
               >
                 {nextButtonLabel}
@@ -643,7 +1341,7 @@ export function AssessmentForm({
               <Button
                 type="submit"
                 size="lg"
-                disabled={!allRequiredComplete || pending}
+                disabled={!allRequiredComplete || pending || conversationPending}
                 className="w-full sm:w-auto"
               >
                 {pending ? "Submitting..." : submitLabel}

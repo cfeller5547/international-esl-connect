@@ -30,9 +30,9 @@ export default function LandingPage() {
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
           {[
-            "Quick baseline in 4-6 minutes",
-            "Teacher-aligned recommendations",
-            "Progress reports with clear next steps",
+            "Full diagnostic before signup",
+            "Level placement matched to your curriculum",
+            "Saved report and clear next steps after signup",
           ].map((item) => (
             <div key={item} className="flex items-center gap-2 text-sm text-muted-foreground">
               <CheckCircle2 className="size-4 text-secondary" />
@@ -53,16 +53,16 @@ export default function LandingPage() {
           </div>
           {[
             {
-              title: "1. Baseline assessment",
-              body: "Measure six skills with objective items and a short AI conversation.",
+              title: "1. Full diagnostic",
+              body: "Measure six skills with objective items, a writing sample, and an AI conversation before signup.",
             },
             {
-              title: "2. Personalized next action",
-              body: "Home shows one high-priority action instead of a crowded menu.",
+              title: "2. Save and unlock report",
+              body: "Create your account after the diagnostic to save the report, level placement, and curriculum starting point.",
             },
             {
-              title: "3. Continuous learning chain",
-              body: "Move from lesson to worksheet to speaking practice without breaking flow.",
+              title: "3. Start with the right next step",
+              body: "Enter the app with your assigned level, next lesson, and class support already aligned.",
             },
           ].map((step) => (
             <div key={step.title} className="rounded-3xl border border-border/70 bg-muted/30 px-5 py-4">
@@ -71,8 +71,7 @@ export default function LandingPage() {
             </div>
           ))}
           <div id="how-it-works" className="rounded-3xl bg-accent/20 px-5 py-4 text-sm text-foreground">
-            Homework support stays inside Learn, Speak defaults to text-first on free
-            plans, and reports always end with one clear next step.
+            Complete the diagnostic first, unlock the report after signup, and enter the app with one clear next step.
             <ArrowRight className="ml-2 inline size-4" />
           </div>
         </CardContent>

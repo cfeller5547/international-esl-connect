@@ -62,12 +62,12 @@ export async function POST(request: Request) {
 
     await UsageService.getOrCreateSubscription(user.id);
 
-    if (guestSessionToken) {
-      await OnboardingService.migrateGuestSessionToUser({
-        guestSessionToken,
-        userId: user.id,
-      });
-    }
+    const migratedReport = guestSessionToken
+      ? await OnboardingService.migrateGuestSessionToUser({
+          guestSessionToken,
+          userId: user.id,
+        })
+      : null;
 
     await setAuthSession({
       userId: user.id,
@@ -80,13 +80,13 @@ export async function POST(request: Request) {
       userId: user.id,
       guestSessionToken,
       properties: {
-        conversion_source: "onboarding_results",
+        conversion_source: "onboarding_assessment",
       },
     });
 
     return ok({
       userId: user.id,
-      redirectTo: "/app/home",
+      redirectTo: migratedReport ? `/app/progress/reports/${migratedReport.id}` : "/app/home",
     });
   } catch (error) {
     return toErrorResponse(error);

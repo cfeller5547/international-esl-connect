@@ -31,6 +31,7 @@ Current core model:
   - `reassessment`
 - `mini_mock` never changes level
 - curriculum MVP is English-only
+- onboarding and full-diagnostic placement interviews are voice-required and use a one-tap continuous mic flow rather than per-turn recording
 
 Current fixed curriculum system:
 - 4 levels:
@@ -69,6 +70,7 @@ Current Speak UX shape:
 - Pro voice Speak uses browser-mic realtime conversation backed by OpenAI Realtime
 - active voice sessions live on `/app/speak/session/:sessionId`
 - realtime transcript snapshots sync back through the app before the session is completed
+- non-realtime fallback Speak panels are read-only for voice sessions so the app does not regress to per-turn recording UX
 - Learn voice missions use parallel Learn-scoped realtime routes under `/api/v1/learn/curriculum/speaking/:sessionId/*`
 
 ## 3. Read First
@@ -119,8 +121,10 @@ Do not casually change these:
 - `src/app/onboarding/*`
 - `src/app/app/assessment/full/*`
 - `src/features/assessment/assessment-form.tsx`
+- `src/features/assessment/use-assessment-live-voice.ts`
 - `src/server/services/onboarding-service.ts`
 - `src/server/services/assessment-service.ts`
+- `src/server/services/assessment-conversation-service.ts`
 
 ### Curriculum Learn
 - `src/app/app/learn/page.tsx`
@@ -149,7 +153,7 @@ Do not casually change these:
 ### Speak
 - `src/app/app/speak/*`
 - `src/features/speak/speak-realtime-session-panel.tsx`
-- `src/features/speak/use-voice-recorder.ts`
+- `src/features/speak/speak-session-panel.tsx`
 - `src/server/services/conversation-service.ts`
 - `src/server/services/speak-service.ts`
 

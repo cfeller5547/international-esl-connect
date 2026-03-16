@@ -10,7 +10,7 @@ import {
   generateTranscriptAnnotations,
 } from "./heuristics";
 
-export type ConversationSurface = "learn" | "speak";
+export type ConversationSurface = "assessment" | "learn" | "speak";
 export type ConversationMissionKind =
   | "free_speech"
   | "guided"
@@ -27,6 +27,7 @@ export type ConversationContext = {
   canDoStatement?: string | null;
   performanceTask?: string | null;
   counterpartRole?: string | null;
+  introductionText?: string | null;
   openingQuestion?: string | null;
   targetPhrases: string[];
   followUpPrompts: string[];
@@ -274,6 +275,8 @@ function getCounterpartLabel(context: ConversationContext) {
       return "teacher";
     case "classmate":
       return "classmate";
+    case "placement_coach":
+      return "placement coach";
     case "interviewer":
       return "interviewer";
     case "customer":
@@ -300,6 +303,33 @@ function generateFallbackConversationReply({
   turns: ConversationTurnLike[];
   studentInput: string;
 }) {
+  if (context.surface === "assessment") {
+    const learnerWordCount = studentInput.trim().split(/\s+/).filter(Boolean).length;
+    const learnerTurnCount = turns.filter((turn) => turn.speaker === "student").length + 1;
+    const nextPromptRaw =
+      context.followUpPrompts[learnerTurnCount] ??
+      context.followUpPrompts.at(-1) ??
+      "Can you tell me a little more about that?";
+    const nextPrompt = normalizeQuestion(stripImperativePrefix(nextPromptRaw));
+    const learnerPoint = summarizeLearnerPoint(studentInput);
+
+    return {
+      aiResponseText:
+        learnerWordCount < 6
+          ? `Thanks. Can you tell me a little more about ${learnerPoint === "that" ? "that" : `"${learnerPoint}"`} ?`.replace(
+              /\s+\?/g,
+              "?"
+            )
+          : `That helps me understand you better. ${nextPrompt || "Can you give me one example?"}`,
+      microCoaching: "",
+      turnSignals: {
+        fluencyIssue: learnerWordCount < 6,
+        grammarIssue: /\bgoed\b/i.test(studentInput),
+        vocabOpportunity: learnerWordCount < 14,
+      },
+    };
+  }
+
   if (context.surface !== "learn") {
     return generateSpeakReply({
       starterPrompt: context.starterPrompt ?? context.scenarioSetup,
@@ -332,6 +362,17 @@ function generateFallbackConversationReply({
 }
 
 export function createOpeningPrompt(context: ConversationContext) {
+  if (context.surface === "assessment") {
+    const introduction =
+      context.introductionText?.trim() ||
+      "Hi, I'm Maya. I'll talk with you for a couple of minutes so I can understand how you use English in class.";
+    const question = normalizeQuestion(
+      context.openingQuestion?.trim() || "To start, tell me your name and one class you are taking right now."
+    );
+
+    return `${introduction} ${question}`.trim();
+  }
+
   if (context.surface === "learn") {
     return createLearnOpeningPrompt({
       scenarioTitle: context.scenarioTitle,
@@ -423,6 +464,19 @@ export async function generateConversationReply({
           "Return JSON only with this shape:",
           '{"reply":"string","microCoaching":"string","turnSignals":{"fluencyIssue":false,"grammarIssue":false,"vocabOpportunity":false}}',
         ].join(" ")
+      : context.surface === "assessment"
+        ? [
+            `You are a warm ${counterpartLabel} having a short English placement conversation with a learner.`,
+            "Sound like a real person, not a test engine, script, or worksheet.",
+            "Acknowledge what the learner just said naturally before you move forward.",
+            "If the learner asks for clarification with something like 'why?', 'what do you mean?', or 'can you repeat that?', do not answer for the learner or switch roles. Rephrase your last question in simpler English and invite a real answer.",
+            "Ask exactly one short follow-up question unless the conversation already has enough detail, in which case close warmly without another question.",
+            "Do not mention scores, evaluation, pronunciation analysis, rubrics, or that you are grading the learner.",
+            "Keep your reply brief enough to sound spoken, usually one or two short sentences.",
+            "Do not correct the learner during the live exchange.",
+            "Return JSON only with this shape:",
+            '{"reply":"string","microCoaching":"string","turnSignals":{"fluencyIssue":false,"grammarIssue":false,"vocabOpportunity":false}}',
+          ].join(" ")
       : [
           "You are ESL International Connect.",
           "Continue a short English-learning conversation in a warm, professional tone.",
@@ -456,6 +510,7 @@ export async function generateConversationReply({
               `Scenario title: ${context.scenarioTitle}`,
               `Scenario setup: ${context.scenarioSetup}`,
               `Counterpart role: ${counterpartLabel}`,
+              `Introduction style: ${context.introductionText ?? "n/a"}`,
               `Can-do goal: ${context.canDoStatement ?? "n/a"}`,
               `Performance task: ${context.performanceTask ?? "n/a"}`,
               `Target phrases: ${context.targetPhrases.join(", ") || "n/a"}`,
@@ -485,13 +540,17 @@ export async function generateConversationReply({
     parsed.reply?.trim() ||
     (context.surface === "learn"
       ? "I see. Can you give one more detail?"
-      : "Good start. Add one more detail so I can understand the situation better.");
+      : context.surface === "assessment"
+        ? "Thanks. Can you tell me a little more about that?"
+        : "Good start. Add one more detail so I can understand the situation better.");
 
   return {
     aiResponseText,
     microCoaching:
       parsed.microCoaching?.trim() ||
-      (context.surface === "learn" ? "" : "Keep your answer clear and connected."),
+      (context.surface === "learn" || context.surface === "assessment"
+        ? ""
+        : "Keep your answer clear and connected."),
     turnSignals: {
       fluencyIssue: Boolean(parsed.turnSignals?.fluencyIssue),
       grammarIssue: Boolean(parsed.turnSignals?.grammarIssue),

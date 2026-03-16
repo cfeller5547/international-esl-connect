@@ -1,14 +1,11 @@
 import { AssessmentForm } from "@/features/assessment/assessment-form";
-import { FULL_DIAGNOSTIC_QUESTIONS } from "@/features/assessment/question-bank";
+import {
+  FULL_DIAGNOSTIC_CONVERSATION,
+  FULL_DIAGNOSTIC_PROMPTS,
+  FULL_DIAGNOSTIC_QUESTIONS,
+} from "@/features/assessment/question-bank";
 import { getCurrentUser } from "@/server/auth";
 import { AssessmentService } from "@/server/services/assessment-service";
-
-const FULL_PROMPTS = [
-  "Describe a class activity you completed recently.",
-  "What did you understand well, and what still feels confusing?",
-  "Give an example sentence using this week's topic.",
-  "What would you ask your teacher if you needed more help?",
-];
 
 export default async function FullDiagnosticPage() {
   const user = await getCurrentUser();
@@ -17,23 +14,35 @@ export default async function FullDiagnosticPage() {
     return null;
   }
 
-  const attempt = await AssessmentService.startAssessment({
+  const fullDiagnostic = await AssessmentService.getFullDiagnosticBootstrap({
     userId: user.id,
-    context: "onboarding_full",
+    reusableQuestionIds: FULL_DIAGNOSTIC_QUESTIONS.map((question) => question.id),
   });
+
+  const importedQuestionCount = fullDiagnostic.importedObjectiveCount;
+  const introNote =
+    importedQuestionCount > 0
+      ? `We carried over ${importedQuestionCount} completed baseline question${importedQuestionCount === 1 ? "" : "s"} so you can continue from the deeper diagnostic instead of starting over.`
+      : undefined;
 
   return (
     <AssessmentForm
-      storageKey={`full-diagnostic-${attempt.id}`}
-      assessmentAttemptId={attempt.id}
+      storageKey={`full-diagnostic-${fullDiagnostic.attempt.id}`}
+      assessmentAttemptId={fullDiagnostic.attempt.id}
       endpoint="/api/v1/assessment/full/complete"
       questions={FULL_DIAGNOSTIC_QUESTIONS}
-      prompts={FULL_PROMPTS}
+      prompts={[...FULL_DIAGNOSTIC_PROMPTS]}
       title="Full diagnostic"
       description="Expand the baseline with more objective items, a short writing prompt, and a longer AI conversation."
       submitLabel="Complete full diagnostic"
       includesWritingPrompt
       backHref="/app/home"
+      initialState={fullDiagnostic.initialState}
+      introNote={introNote}
+      conversationExperience={{
+        ...FULL_DIAGNOSTIC_CONVERSATION,
+        turnEndpoint: "/api/v1/assessment/full/conversation/turn",
+      }}
     />
   );
 }

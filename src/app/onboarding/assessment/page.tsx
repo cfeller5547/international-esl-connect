@@ -2,15 +2,13 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { AssessmentForm } from "@/features/assessment/assessment-form";
-import { QUICK_BASELINE_QUESTIONS } from "@/features/assessment/question-bank";
+import {
+  FULL_DIAGNOSTIC_CONVERSATION,
+  FULL_DIAGNOSTIC_PROMPTS,
+  FULL_DIAGNOSTIC_QUESTIONS,
+} from "@/features/assessment/question-bank";
 import { trackEvent } from "@/server/analytics";
 import { OnboardingService } from "@/server/services/onboarding-service";
-
-const QUICK_PROMPTS = [
-  "Tell me one thing you studied this week.",
-  "What felt easy, and what felt hard?",
-  "How would you explain today's topic to a classmate?",
-];
 
 export default async function OnboardingAssessmentPage() {
   const cookieStore = await cookies();
@@ -20,30 +18,32 @@ export default async function OnboardingAssessmentPage() {
     redirect("/");
   }
 
-  const attempt = await OnboardingService.startQuickBaseline(guestSessionToken);
+  const attempt = await OnboardingService.startFullDiagnostic(guestSessionToken);
 
   await trackEvent({
     eventName: "assessment_started",
     route: "/onboarding/assessment",
     guestSessionToken,
     properties: {
-      context: "onboarding_quick",
+      context: "onboarding_full",
     },
   });
 
   return (
     <AssessmentForm
-      storageKey={`quick-baseline-${attempt.id}`}
+      storageKey={`onboarding-full-diagnostic-${attempt.id}`}
       assessmentAttemptId={attempt.id}
       endpoint="/api/v1/onboarding/session/assessment/complete"
-      questions={QUICK_BASELINE_QUESTIONS}
-      prompts={QUICK_PROMPTS}
-      title="Quick baseline assessment"
-      description="Complete the short baseline before signup. The conversation section is required."
-      submitLabel="Complete quick baseline"
+      questions={FULL_DIAGNOSTIC_QUESTIONS}
+      prompts={[...FULL_DIAGNOSTIC_PROMPTS]}
+      title="Full diagnostic assessment"
+      description="Complete the full diagnostic before signup so we can place you in the right curriculum from the start."
+      submitLabel="Continue to signup"
+      includesWritingPrompt
       backHref="/onboarding/profile"
-      extraPayload={{
-        phase: "quick_baseline",
+      conversationExperience={{
+        ...FULL_DIAGNOSTIC_CONVERSATION,
+        turnEndpoint: "/api/v1/onboarding/session/assessment/conversation/turn",
       }}
     />
   );

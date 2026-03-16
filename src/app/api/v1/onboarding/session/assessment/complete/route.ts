@@ -33,7 +33,6 @@ const assessmentPayloadSchema = z.object({
 const schema = z.object({
   assessmentAttemptId: z.string().min(1),
   payload: assessmentPayloadSchema,
-  phase: z.literal("quick_baseline").optional(),
 });
 
 export async function POST(request: Request) {
@@ -46,7 +45,7 @@ export async function POST(request: Request) {
       throw new Error("Guest session missing.");
     }
 
-    const report = await OnboardingService.completeQuickBaseline({
+    const report = await OnboardingService.completeFullDiagnostic({
       guestSessionToken,
       assessmentAttemptId: payload.assessmentAttemptId,
       payload: payload.payload,
@@ -56,7 +55,7 @@ export async function POST(request: Request) {
       reportPreviewId: report.id,
       overallScore: report.overallScore,
       levelLabel: report.levelLabel,
-      redirectTo: "/onboarding/results",
+      redirectTo: "/signup",
     });
   } catch (error) {
     return toErrorResponse(error);

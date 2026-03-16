@@ -18,8 +18,8 @@ export default function PublicLayout({
           <Link href="/login" className="hover:text-foreground">
             Log in
           </Link>
-          <Link href="/signup" className="hover:text-foreground">
-            Sign up
+          <Link href="/get-started" className="hover:text-foreground">
+            Get started
           </Link>
         </div>
       </div>

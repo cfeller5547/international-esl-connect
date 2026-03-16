@@ -150,23 +150,33 @@ Activation rule:
 
 Pre-signup stepper:
 1. Profile
-2. Quick baseline assessment (required short AI conversation + objective items, 4-6 min target)
-3. Results report preview
-4. Signup to persist report
+2. Full diagnostic assessment (required objective items + AI conversation + writing sample)
+3. Signup to unlock and persist report inside the app
 
 Rules:
 - Show clear step progress
 - No repeated data entry after signup
 - Persist state in temporary guest session
-- Quick baseline should feel guided, not split into competing equal-weight columns.
+- Cold-start public signup entry must begin at step 1, not step 4. Public `Get started` entry should create or resume the guest session and route to the correct in-progress onboarding step.
+- `/signup` is reserved for guests who have completed the onboarding diagnostic. If a guest reaches `/signup` early, redirect them back to the correct onboarding step.
+- The diagnostic should feel guided, not split into competing equal-weight columns.
 - Within the assessment route, present one primary task at a time:
   - objective question
-  - short conversation response
+  - one transcript-first AI conversation stage with a human introduction, natural follow-up questions, and a required continuous live voice reply
+  - writing sample
   - final submit state
+- The assessment conversation must feel like a short interview with a real person, not a worksheet:
+  - first AI turn introduces the speaker before asking the opening question
+  - follow-up turns acknowledge the learner's answer and ask one short next question
+  - learner starts the conversation once and then keeps talking; the UI must not require a new `Record answer` press for every turn
+  - typing is not a fallback path for the onboarding or full-diagnostic placement interview
+  - no robotic copy such as `answer in your own words` or meta references to scoring during the live exchange
+  - clarification turns such as `why?` or `what do you mean?` must trigger a rephrase and must not count as captured assessment evidence
 
 Post-signup completion rule:
-- First Home primary CTA should be `Complete full diagnostic` until done.
-- Full diagnostic upgrades the quick baseline report into full-depth analysis.
+- Successful signup from onboarding should route directly into the authenticated report view, not expose the report on the public side.
+- The onboarding full diagnostic is the initial placement assessment that determines the learner's starting curriculum.
+- After the authenticated report view, the learner should enter Home with a real next-step recommendation rather than another required assessment.
 - Qualifying assessments determine `currentLevel`.
 - Reassessments can promote immediately but must never demote.
 - `mini_mock` reports do not change curriculum level.
@@ -206,8 +216,8 @@ Transcript learning layer:
 ## 9. Positive Reinforcement UX
 
 Define explicit reward moments:
-1. quick baseline completed
-2. first full diagnostic completed
+1. first full diagnostic completed
+2. first report unlocked after signup
 3. first conversation completed
 4. streak milestones (3, 7, 14 days)
 5. meaningful skill delta improvement
