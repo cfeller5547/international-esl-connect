@@ -16,7 +16,7 @@ export function StreakPanel({
 }: StreakPanelProps) {
   return (
     <Card className="border-border/70 bg-card/95">
-      <CardContent className="flex items-center justify-between gap-4 px-5 py-4">
+      <CardContent className="flex flex-col items-start gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
         <div className="flex items-center gap-3">
           <div className="grid size-10 place-items-center rounded-2xl bg-accent/20 text-accent-foreground">
             <Flame className="size-5" />
@@ -39,4 +39,3 @@ export function StreakPanel({
     </Card>
   );
 }
-

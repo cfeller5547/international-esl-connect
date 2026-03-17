@@ -65,7 +65,7 @@ export function SpeakLaunchPanel({
   }
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+    <div className="grid gap-4 sm:gap-6 xl:grid-cols-[1.05fr_0.95fr]">
       <Card className="border-border/70 bg-card/95">
         <CardHeader>
           <CardTitle className="text-xl">Start practice</CardTitle>
@@ -75,7 +75,7 @@ export function SpeakLaunchPanel({
             <button
               type="button"
               onClick={() => setMode("free_speech")}
-              className={`rounded-3xl border px-4 py-4 text-left ${
+              className={`rounded-[1.35rem] border px-4 py-4 text-left sm:rounded-3xl ${
                 mode === "free_speech"
                   ? "border-primary bg-primary/8"
                   : "border-border/70 bg-muted/30"
@@ -89,7 +89,7 @@ export function SpeakLaunchPanel({
             <button
               type="button"
               onClick={() => setMode("guided")}
-              className={`rounded-3xl border px-4 py-4 text-left ${
+              className={`rounded-[1.35rem] border px-4 py-4 text-left sm:rounded-3xl ${
                 mode === "guided" ? "border-primary bg-primary/8" : "border-border/70 bg-muted/30"
               }`}
             >
@@ -127,7 +127,7 @@ export function SpeakLaunchPanel({
                     key={starter.key}
                     type="button"
                     onClick={() => setStarterKey(starter.key)}
-                    className={`rounded-2xl border px-4 py-3 text-left ${
+                    className={`rounded-[1.1rem] border px-4 py-3 text-left sm:rounded-2xl ${
                       starterKey === starter.key
                         ? "border-primary bg-primary/8"
                         : "border-border/70 bg-muted/30"
@@ -148,7 +148,7 @@ export function SpeakLaunchPanel({
                     key={scenario.key}
                     type="button"
                     onClick={() => setScenarioKey(scenario.key)}
-                    className={`rounded-2xl border px-4 py-3 text-left ${
+                    className={`rounded-[1.1rem] border px-4 py-3 text-left sm:rounded-2xl ${
                       scenarioKey === scenario.key
                         ? "border-primary bg-primary/8"
                         : "border-border/70 bg-muted/30"

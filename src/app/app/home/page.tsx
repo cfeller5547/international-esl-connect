@@ -65,10 +65,10 @@ export default async function HomePage() {
                 </span>
               </div>
 
-              <h1 className="mt-4 max-w-3xl text-[2.65rem] leading-[0.96] font-semibold">
+              <h1 className="mt-4 max-w-3xl text-[2.15rem] leading-[0.98] font-semibold sm:text-[2.65rem] sm:leading-[0.96]">
                 {viewModel.hero.title}
               </h1>
-              <p className="mt-3 max-w-[44rem] text-[1rem] leading-7 text-muted-foreground">
+              <p className="mt-3 max-w-[44rem] text-[0.97rem] leading-6 text-muted-foreground sm:text-[1rem] sm:leading-7">
                 {viewModel.hero.reason}
               </p>
 
@@ -139,7 +139,7 @@ export default async function HomePage() {
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-secondary">
                     {item.label}
                   </p>
-                  <p className="mt-1 text-[1.38rem] leading-[1.12] font-semibold text-foreground">{item.value}</p>
+                  <p className="mt-1 text-[1.22rem] leading-[1.15] font-semibold text-foreground sm:text-[1.38rem] sm:leading-[1.12]">{item.value}</p>
                   <p className="mt-1 text-sm leading-[1.35rem] text-muted-foreground">{item.detail}</p>
                 </div>
               </CardContent>

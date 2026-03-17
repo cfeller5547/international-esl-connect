@@ -25,7 +25,7 @@ export default async function OnboardingProfilePage() {
   return (
     <Card className="surface-glow border-border/70 bg-card/95">
       <CardHeader className="space-y-3">
-        <CardTitle className="text-2xl">Build your learning profile</CardTitle>
+        <CardTitle className="text-xl sm:text-2xl">Build your learning profile</CardTitle>
         <p className="text-sm text-muted-foreground">
           This only takes a minute. We use it to personalize the baseline assessment
           and your first recommendations.
@@ -37,4 +37,3 @@ export default async function OnboardingProfilePage() {
     </Card>
   );
 }
-

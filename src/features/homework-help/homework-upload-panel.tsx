@@ -192,14 +192,14 @@ export function HomeworkUploadPanel({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <Card className="surface-glow overflow-hidden border-border/70 bg-card/95">
         <CardHeader className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-secondary">
             Homework Help
           </p>
-          <CardTitle className="text-3xl">Upload an assignment, get guided through it</CardTitle>
-          <p className="max-w-2xl text-sm text-muted-foreground">
+          <CardTitle className="text-2xl leading-tight sm:text-3xl">Upload an assignment, get guided through it</CardTitle>
+          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
             We read the assignment, split it into questions, and coach you through each one.
           </p>
         </CardHeader>
@@ -241,7 +241,7 @@ export function HomeworkUploadPanel({
               {(parsedUpload.questions ?? []).slice(0, 4).map((question) => (
                 <div
                   key={`${question.index}-${question.promptText}`}
-                  className="rounded-3xl border border-border/70 bg-background/70 px-4 py-4"
+                  className="rounded-[1.2rem] border border-border/70 bg-background/70 px-4 py-4 sm:rounded-3xl"
                 >
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-secondary">
                     Question {question.index}
@@ -256,7 +256,7 @@ export function HomeworkUploadPanel({
             <div className="flex flex-col gap-3 sm:flex-row">
               <Button
                 size="lg"
-                className="sm:min-w-56"
+                className="w-full sm:min-w-56 sm:w-auto"
                 onClick={handleStartSession}
                 disabled={startingSession}
               >
@@ -267,6 +267,7 @@ export function HomeworkUploadPanel({
                 type="button"
                 size="lg"
                 variant="outline"
+                className="w-full sm:w-auto"
                 onClick={() => setParsedUpload(null)}
               >
                 Upload something else
@@ -276,14 +277,14 @@ export function HomeworkUploadPanel({
         </Card>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
+      <div className="grid gap-4 sm:gap-6 xl:grid-cols-[1.08fr_0.92fr]">
         <Card className="border-border/70 bg-card/95">
           <CardHeader>
             <CardTitle className="text-2xl">Upload assignment</CardTitle>
           </CardHeader>
           <CardContent>
             <form className="space-y-5" onSubmit={handleSubmit}>
-              <div className="rounded-3xl border border-dashed border-border/70 bg-muted/20 p-5">
+              <div className="rounded-[1.35rem] border border-dashed border-border/70 bg-muted/20 p-4 sm:rounded-3xl sm:p-5">
                 <div className="flex items-center gap-3">
                   <span className="rounded-2xl bg-background p-2 text-secondary shadow-sm">
                     <Upload className="size-4" />
@@ -313,14 +314,14 @@ export function HomeworkUploadPanel({
               </div>
 
               {statusText ? (
-                <div className="flex items-center gap-3 rounded-3xl border border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+                <div className="flex items-center gap-3 rounded-[1.2rem] border border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground sm:rounded-3xl">
                   <LoaderCircle className="size-4 animate-spin text-secondary" />
                   <span>{statusText}</span>
                 </div>
               ) : null}
 
               {errorText ? (
-                <div className="rounded-3xl border border-destructive/30 bg-destructive/8 px-4 py-3 text-sm text-destructive">
+                <div className="rounded-[1.2rem] border border-destructive/30 bg-destructive/8 px-4 py-3 text-sm text-destructive sm:rounded-3xl">
                   {errorText}
                 </div>
               ) : null}
@@ -343,7 +344,7 @@ export function HomeworkUploadPanel({
                   key={session.id}
                   type="button"
                   onClick={() => router.push(`/app/tools/homework/session/${session.id}`)}
-                  className="w-full rounded-3xl border border-border/70 bg-muted/20 px-4 py-4 text-left transition hover:border-border hover:bg-muted/30"
+                  className="w-full rounded-[1.2rem] border border-border/70 bg-muted/20 px-4 py-4 text-left transition hover:border-border hover:bg-muted/30 sm:rounded-3xl"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <p className="font-semibold text-foreground">

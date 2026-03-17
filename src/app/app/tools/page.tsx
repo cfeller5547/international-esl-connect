@@ -39,14 +39,14 @@ export default async function ToolsPage() {
 
   return (
     <PageShell className="px-0 py-0">
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         <Card className="surface-glow border-border/70 bg-card/95">
           <CardHeader className="space-y-3">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-secondary">
               Tools
             </p>
-            <CardTitle className="text-3xl">Homework help and test prep, separate from curriculum</CardTitle>
-            <p className="max-w-2xl text-sm text-muted-foreground">
+            <CardTitle className="text-2xl leading-tight sm:text-3xl">Homework help and test prep, separate from curriculum</CardTitle>
+            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
               Learn stays focused on your assigned curriculum. Use Tools when you need tactical help with homework or a short sprint for an upcoming test.
             </p>
           </CardHeader>
@@ -59,12 +59,12 @@ export default async function ToolsPage() {
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-secondary">
                   Homework Help
                 </p>
-                <CardTitle className="text-2xl">
+                <CardTitle className="text-xl sm:text-2xl">
                   {activeHomeworkSession ? "Resume homework session" : "Start homework help"}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm leading-6 text-muted-foreground">
                   Upload an assignment, parse questions, and work through them step by step without leaving the app.
                 </p>
               </CardContent>
@@ -77,12 +77,12 @@ export default async function ToolsPage() {
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-secondary">
                   Test Prep Sprint
                 </p>
-                <CardTitle className="text-2xl">
+                <CardTitle className="text-xl sm:text-2xl">
                   {activeTestPrepPlan ? "Continue active prep plan" : "Build a prep sprint"}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm leading-6 text-muted-foreground">
                   Create a short focused plan around your next test date and run a mini mock when you are ready.
                 </p>
               </CardContent>

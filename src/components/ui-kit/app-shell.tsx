@@ -21,9 +21,9 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <div className="min-h-screen pb-20 xl:pb-0">
       <header className="sticky top-0 z-40 border-b border-border/45 bg-background/84 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-2.5 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-3 py-2 sm:gap-4 sm:px-6 sm:py-2.5 lg:px-8">
           <Link href="/app/home" aria-label="ESL International Connect home">
-            <Logo className="w-[156px] sm:w-[184px]" priority />
+            <Logo className="w-[138px] sm:w-[184px]" priority />
           </Link>
 
           <nav className="hidden items-center gap-1.5 xl:flex">

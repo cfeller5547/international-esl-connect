@@ -72,10 +72,10 @@ export default async function LearnPage() {
 
   return (
     <PageShell className="px-0 py-0">
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         <Card className="surface-glow overflow-hidden border-border/70 bg-card/95">
-          <CardContent className="grid gap-6 px-6 py-6 lg:grid-cols-[minmax(0,1.05fr)_320px] lg:px-8 lg:py-8">
-            <div className="space-y-5">
+          <CardContent className="grid gap-4 px-5 py-5 sm:gap-6 sm:px-6 sm:py-6 lg:grid-cols-[minmax(0,1.05fr)_320px] lg:px-8 lg:py-8">
+            <div className="space-y-4 sm:space-y-5">
               <div className="flex flex-wrap items-center gap-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.22em] text-secondary">
                   Your English path
@@ -88,15 +88,15 @@ export default async function LearnPage() {
               {currentUnit && currentActivity ? (
                 <>
                   <div className="space-y-3">
-                    <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-[2.5rem]">
+                    <h1 className="text-[2rem] font-semibold tracking-tight text-foreground sm:text-[2.5rem]">
                       Continue {currentUnit.title}
                     </h1>
-                    <p className="max-w-3xl text-base text-muted-foreground">
+                    <p className="max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
                       {currentUnit.canDoStatement}
                     </p>
                   </div>
 
-                  <div className="space-y-3 rounded-[1.8rem] border border-border/70 bg-muted/15 px-5 py-5">
+                  <div className="space-y-3 rounded-[1.5rem] border border-border/70 bg-muted/15 px-4 py-4 sm:rounded-[1.8rem] sm:px-5 sm:py-5">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <p className="text-sm font-semibold text-foreground">{currentActivity.title}</p>
@@ -123,14 +123,14 @@ export default async function LearnPage() {
                   <div className="flex flex-col gap-3 sm:flex-row">
                     <Link
                       href={currentActivity.href}
-                      className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground sm:w-auto"
                     >
                       Continue step
                       <ArrowRight className="size-4" />
                     </Link>
                     <Link
                       href={`/app/learn/unit/${currentUnit.slug}`}
-                      className="inline-flex items-center justify-center gap-2 rounded-full border border-border/70 px-5 py-3 text-sm font-semibold text-foreground transition hover:border-primary/35 hover:bg-primary/5"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-border/70 px-5 py-3 text-sm font-semibold text-foreground transition hover:border-primary/35 hover:bg-primary/5 sm:w-auto"
                     >
                       View unit details
                     </Link>
@@ -139,24 +139,24 @@ export default async function LearnPage() {
               ) : (
                 <>
                   <div className="space-y-3">
-                    <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-[2.5rem]">
+                    <h1 className="text-[2rem] font-semibold tracking-tight text-foreground sm:text-[2.5rem]">
                       Current curriculum complete
                     </h1>
-                    <p className="max-w-3xl text-base text-muted-foreground">
+                    <p className="max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
                       You have finished every required unit in your active level. Revisit completed work or wait for your next assessment to unlock a higher curriculum.
                     </p>
                   </div>
                   <div className="flex flex-col gap-3 sm:flex-row">
                     <Link
                       href="/app/progress"
-                      className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground sm:w-auto"
                     >
                       Open Progress
                       <ArrowRight className="size-4" />
                     </Link>
                     <Link
                       href="/app/speak"
-                      className="inline-flex items-center justify-center gap-2 rounded-full border border-border/70 px-5 py-3 text-sm font-semibold text-foreground transition hover:border-primary/35 hover:bg-primary/5"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-border/70 px-5 py-3 text-sm font-semibold text-foreground transition hover:border-primary/35 hover:bg-primary/5 sm:w-auto"
                     >
                       Practice in Speak
                     </Link>
@@ -165,7 +165,7 @@ export default async function LearnPage() {
               )}
             </div>
 
-            <div className="space-y-4 rounded-[1.9rem] border border-border/70 bg-background/75 px-5 py-5">
+            <div className="space-y-3 rounded-[1.5rem] border border-border/70 bg-background/75 px-4 py-4 sm:space-y-4 sm:rounded-[1.9rem] sm:px-5 sm:py-5">
               <div className="space-y-2">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-secondary">
                   Focus now
@@ -179,7 +179,7 @@ export default async function LearnPage() {
                 </p>
               </div>
 
-              <div className="rounded-[1.6rem] border border-border/70 bg-card/85 px-4 py-4">
+              <div className="rounded-[1.3rem] border border-border/70 bg-card/85 px-4 py-4 sm:rounded-[1.6rem]">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-secondary">
                   Curriculum
                 </p>
@@ -191,7 +191,7 @@ export default async function LearnPage() {
                 </p>
               </div>
 
-              <div className="rounded-[1.6rem] border border-border/70 bg-card/85 px-4 py-4">
+              <div className="rounded-[1.3rem] border border-border/70 bg-card/85 px-4 py-4 sm:rounded-[1.6rem]">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-secondary">
                   Roadmap status
                 </p>
@@ -223,7 +223,7 @@ export default async function LearnPage() {
                 return (
                   <div
                     key={activity.id}
-                    className={`rounded-[1.6rem] border px-5 py-4 ${
+                    className={`rounded-[1.3rem] border px-4 py-4 sm:rounded-[1.6rem] sm:px-5 ${
                       isCurrent
                         ? "border-primary/40 bg-primary/8"
                         : activity.status === "completed"
@@ -254,14 +254,14 @@ export default async function LearnPage() {
                             </span>
                           )}
                         </div>
-                        <p className="text-lg font-semibold text-foreground">{activity.title}</p>
+                        <p className="text-base font-semibold text-foreground sm:text-lg">{activity.title}</p>
                         <p className="text-sm text-muted-foreground">{activity.description}</p>
                       </div>
 
                       {activity.status === "completed" || isCurrent ? (
                         <Link
                           href={activity.href}
-                          className={`inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${
+                          className={`inline-flex w-full items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold sm:w-auto ${
                             isCurrent
                               ? "bg-primary text-primary-foreground"
                               : "border border-border/70 text-foreground transition hover:border-primary/35 hover:bg-primary/5"
@@ -278,7 +278,7 @@ export default async function LearnPage() {
           </Card>
         ) : null}
 
-        <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+        <div className="grid gap-4 sm:gap-6 xl:grid-cols-[1.05fr_0.95fr]">
           <Card className="border-border/70 bg-card/95">
             <CardHeader className="space-y-3">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-secondary">
@@ -291,7 +291,7 @@ export default async function LearnPage() {
                 completedUnits.map((unit) => (
                   <div
                     key={unit.id}
-                    className="flex flex-col gap-3 rounded-[1.5rem] border border-border/70 bg-muted/10 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+                    className="flex flex-col gap-3 rounded-[1.25rem] border border-border/70 bg-muted/10 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:rounded-[1.5rem]"
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
@@ -330,7 +330,7 @@ export default async function LearnPage() {
               {upcomingUnits.map((unit) => (
                 <div
                   key={unit.id}
-                  className="rounded-[1.5rem] border border-border/70 bg-background/60 px-4 py-4"
+                    className="rounded-[1.25rem] border border-border/70 bg-background/60 px-4 py-4 sm:rounded-[1.5rem]"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-2">
@@ -359,7 +359,7 @@ export default async function LearnPage() {
               {curriculum.archivedCurricula.map((entry) => (
                 <div
                   key={entry.id}
-                  className="rounded-[1.5rem] border border-border/70 bg-muted/15 px-4 py-4"
+                  className="rounded-[1.25rem] border border-border/70 bg-muted/15 px-4 py-4 sm:rounded-[1.5rem]"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <p className="font-semibold text-foreground">{entry.title}</p>

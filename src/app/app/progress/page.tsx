@@ -34,15 +34,15 @@ export default async function ProgressPage() {
 
   return (
     <PageShell className="px-0 py-0">
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold">Progress</h1>
+            <h1 className="text-2xl font-semibold sm:text-3xl">Progress</h1>
             <p className="mt-2 text-sm text-muted-foreground">
               Review your report history, track streaks, and run a new assessment when you need an update.
             </p>
           </div>
-          <Button asChild size="lg">
+          <Button asChild size="lg" className="w-full sm:w-auto">
             <Link href="/app/progress/reassessment">Run new assessment</Link>
           </Button>
         </div>

@@ -257,14 +257,17 @@ export function HomeworkSessionPanel({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <Card className="surface-glow border-border/70 bg-card/95">
         <CardHeader className="space-y-4">
           <div className="space-y-1">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-secondary">
               Homework Help
             </p>
-            <CardTitle className="text-3xl">{assignmentTitle}</CardTitle>
+            <CardTitle className="text-2xl leading-tight sm:text-3xl">{assignmentTitle}</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              {subject} · {difficultyLevel}
+            </p>
           </div>
 
           <div className="space-y-3">
@@ -302,8 +305,8 @@ export function HomeworkSessionPanel({
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
-          <div className="space-y-6">
+        <div className="grid gap-4 sm:gap-6 xl:grid-cols-[1.08fr_0.92fr]">
+          <div className="space-y-4 sm:space-y-6">
             <Card className="border-border/70 bg-card/95">
               <CardHeader className="space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -319,8 +322,8 @@ export function HomeworkSessionPanel({
                     {currentQuestion.focusSkill ?? currentQuestion.questionType}
                   </span>
                 </div>
-                <div className="rounded-3xl border border-border/70 bg-background/70 px-5 py-5">
-                  <p className="text-base leading-7 text-foreground">
+                <div className="rounded-[1.25rem] border border-border/70 bg-background/70 px-4 py-4 sm:rounded-3xl sm:px-5 sm:py-5">
+                  <p className="text-[0.96rem] leading-7 text-foreground sm:text-base">
                     {currentQuestion.promptText}
                   </p>
                 </div>
@@ -337,12 +340,13 @@ export function HomeworkSessionPanel({
                   />
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => runCoachAction("explain")}
                     disabled={pendingAction !== null}
+                    className="h-auto min-h-11 justify-start px-3 py-3 text-sm sm:justify-center"
                   >
                     <MessageSquareQuote className="size-4" />
                     {pendingAction === "explain"
@@ -354,6 +358,7 @@ export function HomeworkSessionPanel({
                     variant="outline"
                     onClick={() => runCoachAction("plan")}
                     disabled={pendingAction !== null}
+                    className="h-auto min-h-11 justify-start px-3 py-3 text-sm sm:justify-center"
                   >
                     <ListChecks className="size-4" />
                     {pendingAction === "plan"
@@ -365,6 +370,7 @@ export function HomeworkSessionPanel({
                     variant="outline"
                     onClick={() => runCoachAction("hint")}
                     disabled={pendingAction !== null}
+                    className="h-auto min-h-11 justify-start px-3 py-3 text-sm sm:justify-center"
                   >
                     <Lightbulb className="size-4" />
                     {pendingAction === "hint"
@@ -376,6 +382,7 @@ export function HomeworkSessionPanel({
                     variant="secondary"
                     onClick={() => runCoachAction("check")}
                     disabled={pendingAction !== null}
+                    className="h-auto min-h-11 justify-start px-3 py-3 text-sm sm:justify-center"
                   >
                     <SearchCheck className="size-4" />
                     {pendingAction === "check"
@@ -384,7 +391,7 @@ export function HomeworkSessionPanel({
                   </Button>
                   <Button
                     type="button"
-                    className="sm:col-span-2 xl:col-span-2"
+                    className="col-span-2 h-auto min-h-11 justify-center px-3 py-3 text-sm sm:col-span-2 xl:col-span-2"
                     onClick={() => runCoachAction("submit")}
                     disabled={pendingAction !== null}
                   >
@@ -396,13 +403,13 @@ export function HomeworkSessionPanel({
                 </div>
 
                 {statusText ? (
-                  <div className="rounded-3xl border border-emerald-500/30 bg-emerald-500/8 px-4 py-3 text-sm text-emerald-700">
+                  <div className="rounded-[1.2rem] border border-emerald-500/30 bg-emerald-500/8 px-4 py-3 text-sm text-emerald-700 sm:rounded-3xl">
                     {statusText}
                   </div>
                 ) : null}
 
                 {errorText ? (
-                  <div className="rounded-3xl border border-destructive/30 bg-destructive/8 px-4 py-3 text-sm text-destructive">
+                  <div className="rounded-[1.2rem] border border-destructive/30 bg-destructive/8 px-4 py-3 text-sm text-destructive sm:rounded-3xl">
                     {errorText}
                   </div>
                 ) : null}
@@ -410,7 +417,7 @@ export function HomeworkSessionPanel({
                 <div className="space-y-3">
                   <p className="text-sm font-semibold text-foreground">Coach feed</p>
                   {currentFeed.length === 0 ? (
-                    <div className="rounded-3xl border border-border/70 bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
+                    <div className="rounded-[1.2rem] border border-border/70 bg-muted/20 px-4 py-4 text-sm leading-6 text-muted-foreground sm:rounded-3xl">
                       Start with <span className="font-semibold text-foreground">Break it down</span>{" "}
                       if the prompt is confusing, or <span className="font-semibold text-foreground">Make a plan</span>{" "}
                       if you know what the question wants but need a structure.
@@ -419,7 +426,7 @@ export function HomeworkSessionPanel({
                     currentFeed.map((entry, index) => (
                       <div
                         key={`${entry.action}-${index}`}
-                        className="rounded-3xl border border-border/70 bg-background/70 px-4 py-4"
+                        className="rounded-[1.2rem] border border-border/70 bg-background/70 px-4 py-4 sm:rounded-3xl"
                       >
                         <div className="flex items-center justify-between gap-3">
                           <p className="text-sm font-semibold text-foreground">
@@ -440,7 +447,7 @@ export function HomeworkSessionPanel({
                           </ul>
                         ) : null}
                         {entry.suggestedStarter ? (
-                          <div className="mt-3 rounded-2xl border border-border/70 bg-muted/20 px-3 py-3 text-sm text-foreground">
+                          <div className="mt-3 rounded-[1rem] border border-border/70 bg-muted/20 px-3 py-3 text-sm text-foreground sm:rounded-2xl">
                             Suggested starter: {entry.suggestedStarter}
                           </div>
                         ) : null}
@@ -457,7 +464,7 @@ export function HomeworkSessionPanel({
             </Card>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             <Card className="border-border/70 bg-card/95">
               <CardHeader>
                 <CardTitle className="text-xl">Question map</CardTitle>
@@ -472,7 +479,7 @@ export function HomeworkSessionPanel({
                       key={`${question.index}-${question.promptText}`}
                       type="button"
                       onClick={() => jumpToQuestion(index)}
-                      className={`w-full rounded-3xl border px-4 py-4 text-left transition ${
+                      className={`w-full rounded-[1.2rem] border px-4 py-4 text-left transition sm:rounded-3xl ${
                         isCurrent
                           ? "border-primary/40 bg-primary/8"
                           : "border-border/70 bg-muted/20 hover:bg-muted/30"
@@ -528,7 +535,7 @@ export function HomeworkSessionPanel({
                   <AccordionItem value="source">
                     <AccordionTrigger>Full assignment text</AccordionTrigger>
                     <AccordionContent>
-                      <pre className="max-h-[24rem] overflow-auto whitespace-pre-wrap rounded-3xl border border-border/70 bg-muted/20 px-4 py-4 text-sm text-muted-foreground">
+                      <pre className="max-h-[24rem] overflow-auto whitespace-pre-wrap rounded-[1.2rem] border border-border/70 bg-muted/20 px-4 py-4 text-sm text-muted-foreground sm:rounded-3xl">
                         {rawText}
                       </pre>
                     </AccordionContent>
