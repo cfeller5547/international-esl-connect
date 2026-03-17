@@ -15,7 +15,16 @@ export async function GET(
 
     const { homeworkUploadId } = await params;
     const upload = await HomeworkHelpService.getUpload(homeworkUploadId, user.id);
-    const parsedPayload = upload.parsedPayload as { questions?: unknown[] };
+    const parsedPayload = upload.parsedPayload as {
+      assignmentTitle?: string;
+      assignmentSummary?: string;
+      subject?: string;
+      difficultyLevel?: string;
+      reviewNotes?: string[];
+      extractionNotes?: string[];
+      rawText?: string;
+      questions?: unknown[];
+    };
 
     return ok({
       homeworkUploadId: upload.id,
@@ -24,6 +33,14 @@ export async function GET(
       parseConfidence: upload.parseConfidence,
       requiresReview: upload.status === "needs_review",
       errorCode: upload.errorCode,
+      assignmentTitle: parsedPayload.assignmentTitle ?? null,
+      assignmentSummary: parsedPayload.assignmentSummary ?? null,
+      subject: parsedPayload.subject ?? null,
+      difficultyLevel: parsedPayload.difficultyLevel ?? null,
+      reviewNotes: parsedPayload.reviewNotes ?? [],
+      extractionNotes: parsedPayload.extractionNotes ?? [],
+      rawText: parsedPayload.rawText ?? null,
+      questions: parsedPayload.questions ?? [],
     });
   } catch (error) {
     return toErrorResponse(error);

@@ -120,8 +120,11 @@ Do not casually change these:
 
 ### Home and recommendations
 - `src/app/app/home/page.tsx`
+- `src/features/home/home-view-model.ts`
 - `src/server/services/recommendation-service.ts`
 - `src/server/services/context-service.ts`
+- `src/components/ui-kit/tracked-link.tsx`
+- `src/lib/client-analytics.ts`
 
 ### Onboarding and assessment
 - `src/app/api/v1/onboarding/session/route.ts`
@@ -311,19 +314,21 @@ When touching Learn, preserve that direction.
 Known current gaps / drift:
 - `src/app/api/v1/onboarding/session/route.ts` still always creates a fresh guest session instead of resuming an existing in-progress onboarding guest
 - `src/app/app/progress/reassessment/page.tsx` still uses the older text-prompt reassessment flow rather than the voice-first full diagnostic path used by onboarding/full placement
-- `src/app/app/home/page.tsx` still hardcodes a `Continue curriculum` quick action even when the current recommendation points to a non-curriculum destination
+- Home no longer uses the older duplicated quick-action dashboard pattern; if it starts drifting back toward equal-weight cards or prime-space class-context forms, treat that as regression
 
 ## 10. Common Failure Modes
 
 Avoid these:
 1. Reintroducing mixed Learn + Tools entry points
 2. Adding more than one dominant CTA on a screen
-3. Reintroducing equal-weight card grids inside active learning flows
-4. Breaking `currentLevel` promotion rules
-5. Letting `mini_mock` affect curriculum assignment
-6. Changing APIs or analytics without updating specs
-7. Using UI language or duplicated status chrome that creates competing progress models on the same screen
-8. Re-expanding Learn activity surfaces into dashboards
+3. Duplicating the Home primary recommendation in secondary actions
+4. Reintroducing large class-context forms into Home
+5. Reintroducing equal-weight card grids inside active learning flows
+6. Breaking `currentLevel` promotion rules
+7. Letting `mini_mock` affect curriculum assignment
+8. Changing APIs or analytics without updating specs
+9. Using UI language or duplicated status chrome that creates competing progress models on the same screen
+10. Re-expanding Learn activity surfaces into dashboards
 
 ## 11. Multi-Agent Coordination Rules
 

@@ -218,10 +218,16 @@ Upload parsing stages:
 1. file normalization and type validation
 2. text extraction:
    - native text extraction for text PDFs
-   - OCR for image PDFs and photos
+   - AI vision/OCR extraction for image PDFs, screenshots, and photos
 3. AI-assisted question segmentation and classification
-4. parse confidence scoring and sanity checks
-5. structured payload persistence (`parsed_payload`)
+4. structured question enrichment for coaching:
+   - focus skill
+   - answer format
+   - success criteria
+   - plan steps
+   - common pitfalls
+5. parse confidence scoring and sanity checks
+6. structured payload persistence (`parsed_payload`)
 
 Parse status model:
 - `uploaded`
@@ -233,6 +239,23 @@ Parse status model:
 
 Fallback behavior:
 - if confidence below threshold, mark `needs_review` and show manual question edit UI path
+
+## 11. Homework Coaching Loop Contract (MVP)
+
+Once a homework session starts, coaching is question-scoped and action-based rather than open-ended chat.
+
+Supported coaching actions:
+- `explain`: paraphrase what the question is asking without solving it
+- `plan`: give a short answer plan or sequence of moves
+- `hint`: serve the next laddered hint only
+- `check`: evaluate the learner draft against success criteria without advancing
+- `submit`: decide whether the learner has done enough to move on
+
+Required coaching guardrails:
+- do not dump full answers during the live coaching loop
+- keep help grounded in the uploaded assignment and the current question metadata
+- only `submit` may advance question progress
+- `check` may mark a draft as ready to submit without auto-advancing
 - if parsing fails, preserve upload and allow retry or text paste fallback
 
 ## 11. Cross-Cutting Concerns

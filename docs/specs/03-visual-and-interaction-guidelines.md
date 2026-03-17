@@ -138,9 +138,11 @@ Avoid equal visual weight between overall trend and per-skill detail.
 ## 7. Home Screen Hierarchy Contract
 
 - Primary card: full-width, top priority
-- Secondary row: compact, fast actions such as `Continue curriculum`, `Homework Help`, and `Test Prep Sprint`
-- Collapsible informational content: lower visual weight
-- Persistent urgent action: `Homework Help now` must remain visible without crowding primary CTA hierarchy
+- Urgent action: a persistent but visually subordinate `Homework Help now` action in the same zone as the primary card
+- Support strip: one compact row for current focus and learning rhythm
+- Secondary row: 1-2 compact fast actions that do not duplicate the primary recommendation
+- Collapsible informational content: lower visual weight and tucked below the fold
+- Class-context setup should not sit as a large always-open form on Home
 
 ## 8. Copy and Tone Guidelines
 
@@ -149,6 +151,12 @@ Tone:
 - Specific
 - Direct
 - Non-judgmental
+
+Home copy rules:
+- no meta-product labels like `Primary next step`
+- one short recommendation title
+- one short reason sentence
+- secondary actions should stay one line and action-oriented
 
 Use:
 - "Try this next"

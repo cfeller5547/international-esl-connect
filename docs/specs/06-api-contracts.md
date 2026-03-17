@@ -722,17 +722,37 @@ Response:
 ```
 
 ### `GET /api/v1/learn/homework/upload/:homeworkUploadId`
-Response:
-```json
-{
-  "homeworkUploadId": "uuid",
-  "status": "parsed",
-  "detectedQuestionCount": 8,
-  "parseConfidence": 0.82,
-  "requiresReview": false,
-  "errorCode": null
-}
-```
+  Response:
+  ```json
+  {
+    "homeworkUploadId": "uuid",
+    "status": "parsed",
+    "detectedQuestionCount": 8,
+    "parseConfidence": 0.82,
+    "requiresReview": false,
+    "errorCode": null,
+    "assignmentTitle": "string",
+    "assignmentSummary": "string",
+    "subject": "string",
+    "difficultyLevel": "light|moderate|challenging",
+    "reviewNotes": ["string"],
+    "extractionNotes": ["string"],
+    "rawText": "string",
+    "questions": [
+      {
+        "index": 1,
+        "promptText": "string",
+        "questionType": "string",
+        "focusSkill": "string",
+        "studentGoal": "string",
+        "answerFormat": "string",
+        "successCriteria": ["string"],
+        "planSteps": ["string"],
+        "commonPitfalls": ["string"]
+      }
+    ]
+  }
+  ```
 
 ### `POST /api/v1/learn/homework/session/start`
 Request:
@@ -743,23 +763,34 @@ Request:
 ```
 
 ### `POST /api/v1/learn/homework/session/step`
-Request:
-```json
-{
-  "sessionId": "uuid",
-  "questionIndex": 2,
-  "studentAnswer": "string",
-  "requestHintLevel": 1
-}
-```
-Response:
-```json
-{
-  "result": "incorrect",
-  "feedback": "Think about which tense shows completed action.",
-  "nextHintLevelAvailable": 2
-}
-```
+  Request:
+  ```json
+  {
+    "sessionId": "uuid",
+    "questionIndex": 2,
+    "studentAnswer": "string",
+    "action": "explain"
+  }
+  ```
+  Response:
+  ```json
+  {
+    "action": "explain",
+    "result": "keep_working",
+    "coachTitle": "What this question wants",
+    "coachMessage": "string",
+    "checklist": ["string"],
+    "suggestedStarter": "string or null",
+    "shouldAdvance": false,
+    "readyToSubmit": false,
+    "nextHintLevelAvailable": 2,
+    "sessionCompleted": false
+  }
+  ```
+  Notes:
+  - supported action values are `explain`, `plan`, `hint`, `check`, and `submit`
+  - `submit` is the only action that may advance to the next question
+  - `check` may return `readyToSubmit: true` without advancing, so the learner can choose when to move on
 
 ## 5. Speak
 

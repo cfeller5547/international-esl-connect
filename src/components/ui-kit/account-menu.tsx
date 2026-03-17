@@ -60,7 +60,7 @@ export function AccountMenu() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="rounded-full">
+        <Button variant="outline" size="sm" className="rounded-full border-border/70 bg-background/90 px-4 shadow-[0_10px_20px_-18px_hsl(var(--foreground)/0.45)]">
           Account
         </Button>
       </DialogTrigger>

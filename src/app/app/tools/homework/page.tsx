@@ -15,6 +15,9 @@ export default async function ToolsHomeworkPage() {
     where: { userId: user.id },
     orderBy: { createdAt: "desc" },
     take: 6,
+    include: {
+      homeworkUpload: true,
+    },
   });
 
   await trackEvent({
@@ -31,6 +34,9 @@ export default async function ToolsHomeworkPage() {
           id: session.id,
           createdAt: session.createdAt.toISOString(),
           status: session.status,
+          assignmentTitle:
+            ((session.homeworkUpload.parsedPayload as { assignmentTitle?: string })
+              ?.assignmentTitle as string | undefined) ?? "Homework session",
         }))}
       />
     </PageShell>

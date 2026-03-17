@@ -23,6 +23,7 @@ export default async function ToolsHomeworkSessionPage({
     },
     include: {
       homeworkUpload: true,
+      steps: true,
     },
   });
 
@@ -32,14 +33,50 @@ export default async function ToolsHomeworkSessionPage({
 
   const parsed = session.homeworkUpload.parsedPayload as {
     rawText?: string;
-    questions?: Array<{ index: number; promptText: string; questionType: string }>;
+    assignmentTitle?: string;
+    assignmentSummary?: string;
+    subject?: string;
+    difficultyLevel?: string;
+    reviewNotes?: string[];
+    questions?: Array<{
+      index: number;
+      promptText: string;
+      questionType: string;
+      focusSkill?: string;
+      studentGoal?: string;
+      answerFormat?: string;
+      successCriteria?: string[];
+      planSteps?: string[];
+      commonPitfalls?: string[];
+    }>;
   };
+  const completedQuestionIndices = Array.from(
+    new Set(
+      session.steps
+        .filter((step) => {
+          const feedbackPayload = (step.feedbackPayload ?? {}) as {
+            shouldAdvance?: boolean;
+          };
+          return step.result === "completed" || feedbackPayload.shouldAdvance === true;
+        })
+        .map((step) => step.questionIndex)
+    )
+  ).sort((a, b) => a - b);
 
   return (
     <HomeworkSessionPanel
       sessionId={session.id}
+      sessionStatus={session.status}
+      assignmentTitle={parsed.assignmentTitle ?? "Homework help"}
+      assignmentSummary={
+        parsed.assignmentSummary ?? "Work through each question with guided coaching."
+      }
+      subject={parsed.subject ?? "general coursework"}
+      difficultyLevel={parsed.difficultyLevel ?? "moderate"}
+      reviewNotes={parsed.reviewNotes ?? []}
       rawText={parsed.rawText ?? "No source text available."}
       questions={parsed.questions ?? []}
+      completedQuestionIndices={completedQuestionIndices}
     />
   );
 }

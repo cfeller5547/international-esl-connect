@@ -42,6 +42,7 @@ yarn-error.log*
 
 # uploads (user-generated files)
 /uploads
+/storage
 
 # typescript
 *.tsbuildinfo

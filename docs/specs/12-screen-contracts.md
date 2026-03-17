@@ -120,28 +120,27 @@ This document translates product and UX principles into concrete, testable scree
 - Loading/empty/error: skeleton for route content; shell remains stable.
 - Exit transition: tab changes preserve in-progress state where possible.
 - Instrumentation: `app_shell_viewed`.
-- Implementation note: `nav_tab_clicked` is reserved and is not emitted by the current shell implementation.
+- Instrumentation note: `nav_tab_clicked` is emitted by the current client shell tabs.
 
 ## 3.3 Home
 
 ### `/app/home`
 - Goal: present exactly one highest-priority next action.
 - Primary CTA: dynamic action from recommendation service.
-- Secondary actions: two to three compact cards only (for example Continue curriculum, Homework Help, Test Prep Sprint).
+- Secondary actions: one to two compact cards only, and they must not duplicate the primary CTA destination.
 - Required components:
   - Tier 1 primary CTA card (full width)
-  - Tier 2 secondary action row (2-3 items)
-  - Tier 3 collapsible summary (skills snapshot, recent activity)
   - persistent urgent quick action: `Homework Help now`
-  - class-context prompt card when missing (`Upload syllabus` or `Add weekly topics`)
-  - streak status chip/panel (current streak + next milestone hint)
+  - Tier 2 support strip for `Current focus` and `Learning rhythm`
+  - Tier 2b secondary action row (1-2 items)
+  - Tier 3 collapsible learning summary (`Your learning picture`)
 - Loading/empty/error:
   - Loading: skeleton for primary CTA card
   - Empty: fallback CTA `Start a recommended practice`
   - Error: retry CTA and safe default to Learn recommendation
 - Exit transition: CTA routes directly to target activity.
-- Instrumentation: `home_primary_cta_rendered`, `class_context_prompt_shown`, `class_context_submitted`.
-- Implementation note: `home_primary_cta_clicked` and `homework_quick_action_clicked` are reserved and are not emitted by the current server-rendered Home surface.
+- Instrumentation: `home_primary_cta_rendered`, `home_primary_cta_clicked`, `homework_quick_action_clicked`.
+- Implementation note: class-context capture remains a product capability, but it is no longer a required Home component in this pass.
 
 ## 3.4 Learn
 
@@ -354,10 +353,16 @@ This document translates product and UX principles into concrete, testable scree
 - Primary CTA: `Upload assignment`.
 - Secondary actions: `Paste text instead`, `Resume previous session`.
 - Required components:
-  - upload zone
-  - supported format list
+  - upload zone for screenshot, photo, pasted text, or PDF
+  - supported format guidance with clear quality tips
   - recent homework sessions
   - parse progress state (`extracting_text` / `segmenting_questions`)
+  - assignment brief preview before session start:
+    - assignment title
+    - short summary
+    - detected question count
+    - parse confidence
+    - first few detected questions
   - parse review fallback UI when status is `needs_review`
 - Loading/empty/error: upload validation errors must be explicit and recoverable.
 - Exit transition: route to `/app/tools/homework/session/:sessionId`.
@@ -375,8 +380,13 @@ This document translates product and UX principles into concrete, testable scree
 ### `/app/tools/homework/session/:sessionId`
 - Goal: complete homework with guided help, not answer dumping.
 - Primary CTA: `Submit step`.
-- Secondary actions: `Get hint` (laddered), `Next question`.
-- Required components: split panel (source assignment + workspace), hint ladder, question progress.
+- Secondary actions: `Break it down`, `Make a plan`, `Next hint`, `Check my work`, `Next question`.
+- Required components:
+  - split panel (workspace + assignment/source panel)
+  - question progress map
+  - current-question success criteria
+  - laddered coaching actions that do not immediately dump full answers
+  - visible coach feed showing the latest guided response
 - Loading/empty/error: autosave responses; recover after refresh.
 - Exit transition: return to Tools or Home with updated weakness tags.
 - Instrumentation: `homework_step_submitted`, `homework_hint_requested`, `homework_session_completed`.

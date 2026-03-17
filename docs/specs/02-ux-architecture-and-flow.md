@@ -12,11 +12,16 @@ Purpose:
 
 Layout contract:
 - Tier 1: one dynamic primary CTA card
-- Tier 2: 2-3 secondary actions
-- Tier 3: collapsible summary (skills + recent activity)
+- Tier 2: one slim support strip for current focus and learning rhythm
+- Tier 2b: 1-2 compact secondary actions
+- Tier 3: collapsible learning summary
+- Keep Home oriented around a coach briefing, not a dashboard of equal-weight modules
 
 Urgent-help rule:
 - A persistent `Homework Help now` quick action must be available from Home without extra navigation.
+
+Class-context rule:
+- Class context should still be captured early in the product, but it should not occupy prime Home real estate in this pass.
 
 ### 2.2 Learn
 Purpose:
@@ -102,6 +107,7 @@ Information architecture guardrail:
 3. Any "upload homework" entry should route into Tools -> Homework Help workflow.
 4. Persistent urgent homework entry from Home is required to minimize panic-flow friction.
 5. Speak voice must stay inside Speak. Curriculum speaking stays inside Learn even when both use shared conversation infrastructure.
+6. Home should not duplicate the primary recommendation inside the secondary-action row.
 
 ## 4. Continuous Activity Chaining
 

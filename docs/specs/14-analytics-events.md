@@ -86,57 +86,57 @@ Implementation note:
    - properties: `action_type`, `target_url`, `reason_code`
 2. `home_primary_cta_clicked`
    - trigger: user taps home primary CTA
+   - properties: `action_type`, `target_url`, `reason_code`
 3. `homework_quick_action_clicked`
    - trigger: user taps persistent urgent homework action on Home
-4. `class_context_prompt_shown`
-   - trigger: class-context setup prompt visible on Home
-5. `class_context_submitted`
+   - properties: `target_url`
+4. `class_context_submitted`
    - trigger: syllabus upload, manual topics save, or class profile save
-6. `learn_recommendation_rendered`
+5. `learn_recommendation_rendered`
    - trigger: learn recommendation card render
    - properties: `recommendation_type`, `weakest_skill`
-7. `learn_recommendation_clicked`
+6. `learn_recommendation_clicked`
    - trigger: user starts recommended activity
-8. `curriculum_viewed`
+7. `curriculum_viewed`
    - trigger: Learn curriculum landing rendered
    - properties: `level`, `current_unit_slug`, `current_activity_type`
-9. `unit_started`
+8. `unit_started`
    - trigger: curriculum unit overview opened
    - properties: `unit_slug`
-10. `unit_activity_completed`
+9. `unit_activity_completed`
    - trigger: curriculum unit activity completed
    - properties: `unit_slug`, `activity_type`, `score`
-11. `unit_completed`
+10. `unit_completed`
    - trigger: all required unit activities are complete
    - properties: `unit_slug`
-12. `curriculum_level_promoted`
+11. `curriculum_level_promoted`
    - trigger: qualifying assessment promotes the learner into a higher curriculum
    - properties: `previous_level`, `new_level`
-13. `learn_speaking_mission_started`
+12. `learn_speaking_mission_started`
    - trigger: user starts a Learn speaking mission
    - properties: `unit_slug`, `interaction_mode`, `delivery_mode`, `is_benchmark`
-14. `learn_speaking_mission_completed`
+13. `learn_speaking_mission_completed`
    - trigger: Learn speaking mission review is generated
    - properties: `unit_slug`, `interaction_mode`, `delivery_mode`, `is_benchmark`, `score`
-15. `learn_speaking_feedback_viewed`
+14. `learn_speaking_feedback_viewed`
    - trigger: Learn speaking review state rendered
    - properties: `unit_slug`, `status`
-16. `learn_speaking_retry_started`
+15. `learn_speaking_retry_started`
    - trigger: user starts a retry of the same Learn speaking mission
    - properties: `unit_slug`, `interaction_mode`, `delivery_mode`, `is_benchmark`
-17. `learn_speaking_phrase_saved`
+16. `learn_speaking_phrase_saved`
    - trigger: user saves a phrase from Learn speaking review
    - properties: `session_id`
-18. `recommendation_content_source_selected`
+17. `recommendation_content_source_selected`
    - trigger: recommendation payload finalized
    - properties: `content_id`, `source_type`, `content_type`
-19. `recommendation_rule_applied`
+18. `recommendation_rule_applied`
    - trigger: deterministic recommendation rule selected
    - properties: `reason_code`
 
 Implementation note:
 - `learn_recommendation_rendered` and `learn_recommendation_clicked` are reserved from the earlier recommendation-card Learn surface and are not emitted by the current curriculum-led Learn UI.
-- `home_primary_cta_clicked`, `homework_quick_action_clicked`, and `recommendation_content_source_selected` are not emitted in the current server-rendered build.
+- `recommendation_content_source_selected` is still not emitted in the current build.
 
 ## 4.3 Homework Help
 
@@ -292,7 +292,7 @@ Implementation note:
    - trigger: support contact flow started
 
 Implementation note:
-- `nav_tab_clicked` is reserved and is not emitted by the current shell implementation.
+- `nav_tab_clicked` is emitted by the current client-side shell tabs on desktop and mobile.
 
 ## 5. KPI Mapping
 

@@ -34,7 +34,7 @@ Data model note:
 - Full diagnostic assessment pre-signup including objective items, writing, and required live AI voice conversation
 - Signup after the diagnostic to unlock the saved report inside the authenticated app
 - Formal report generation and persistence over time
-- Home with one dynamic primary CTA
+- Home as a coach-briefing surface with one dynamic primary CTA
 - Home persistent "Homework Help now" quick action for urgent use
 - Learn with one assigned fixed curriculum based on `currentLevel`
 - sequential unit unlocks and required unit activities (`lesson`, `practice`, `speaking`, `writing`, `checkpoint`)
@@ -50,7 +50,7 @@ Data model note:
 - Teacher-provided lesson content pipeline (lessons, worksheets, videos) as canonical source
 - Placeholder content library for pre-content MVP bootstrap
 - Homework Help inside Tools
-- Strong early class-context capture (syllabus upload or "what are you studying this week?")
+- Strong early class-context capture (syllabus upload or "what are you studying this week?"), but not as prime Home content
 - Speak free-talk + guided scenarios with:
   - free tier text-first conversations (with TTS playback)
   - pro tier full voice conversation and pronunciation feedback
@@ -92,15 +92,16 @@ Rule:
 2. Onboarding stepper (profile -> full diagnostic assessment)
 3. Signup and save diagnostic report
 4. Enter authenticated report view with level placement and next-step plan
-5. Capture class context (syllabus or weekly topics)
+5. Capture class context (syllabus or weekly topics) in onboarding follow-through or profile flows, not as required Home chrome
 6. Continue into the assigned curriculum in Learn
 
 ### 7.2 Daily Learning Loop
 1. Home primary CTA
-2. Urgent path available anytime via `Homework Help now`
-3. Learn unit activity chain (`lesson` -> `practice` -> `speaking mission` -> `writing` -> `checkpoint`)
-4. Inline progress update + celebration moment
-5. Optional Progress deep dive and share card generation
+2. Compact support strip clarifies current focus and learning rhythm
+3. Urgent path available anytime via `Homework Help now`
+4. Learn unit activity chain (`lesson` -> `practice` -> `speaking mission` -> `writing` -> `checkpoint`)
+5. Inline progress update + celebration moment
+6. Optional Progress deep dive and share card generation
 
 Content sourcing rule:
 - when teacher-provided content exists for target topic/skill, it must be prioritized over placeholder content.

@@ -8,8 +8,8 @@ import { HomeworkHelpService } from "@/server/services/homework-help-service";
 const schema = z.object({
   sessionId: z.string().min(1),
   questionIndex: z.number().int().min(0),
-  studentAnswer: z.string(),
-  requestHintLevel: z.number().int().min(0).max(3),
+  studentAnswer: z.string().optional().default(""),
+  action: z.enum(["explain", "plan", "hint", "check", "submit"]),
 });
 
 export async function POST(request: Request) {
