@@ -75,4 +75,27 @@ describe("openai conversation helpers", () => {
     expect(opening).not.toMatch(/let's practice/i);
     expect(opening).not.toMatch(/start with this/i);
   });
+
+  it("creates a short human opener for free speech without role-play framing", () => {
+    const opening = createOpeningPrompt({
+      surface: "speak",
+      missionKind: "free_speech",
+      interactionMode: "text",
+      starterKey: "learning",
+      starterLabel: "Something I'm learning",
+      scenarioTitle: "Something I'm learning",
+      scenarioSetup: "Have an open conversation about something the learner is studying.",
+      openingQuestion: "What are you learning right now?",
+      targetPhrases: ["I'm learning...", "One part that stands out is..."],
+      followUpPrompts: ["Ask what part feels easiest right now."],
+      successCriteria: [],
+      starterPrompt: "Talk about something you are learning right now.",
+      activeTopic: "cell division",
+      contextHint: "Use cell division or another class idea that feels current.",
+      isBenchmark: false,
+    });
+
+    expect(opening).toBe("What are you learning right now?");
+    expect(opening).not.toMatch(/teacher|classmate|practice session/i);
+  });
 });

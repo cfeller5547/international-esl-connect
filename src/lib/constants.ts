@@ -34,24 +34,24 @@ export const TOP_NAV_ITEMS = [
 
 export const SPEAK_STARTERS = [
   {
-    key: "school_day",
-    label: "My school day",
-    prompt: "Tell me about your classes today.",
+    key: "today",
+    label: "Something from today",
+    prompt: "Start with something that happened today.",
   },
   {
-    key: "homework_help",
-    label: "Homework talk",
-    prompt: "Explain one homework question you're unsure about.",
+    key: "learning",
+    label: "Something I'm learning",
+    prompt: "Talk about something you are learning in class.",
   },
   {
-    key: "test_prep",
-    label: "Test prep",
-    prompt: "Practice a short dialogue using this week's test topics.",
+    key: "say_better",
+    label: "Something I want to say better",
+    prompt: "Pick one idea you want to explain more clearly.",
   },
   {
-    key: "free_topic",
-    label: "Anything",
-    prompt: "Choose any topic and start speaking.",
+    key: "surprise_me",
+    label: "Surprise me",
+    prompt: "Let the AI choose a good topic from your context.",
   },
 ] as const;
 

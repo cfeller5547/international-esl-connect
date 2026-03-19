@@ -255,19 +255,34 @@ This document translates product and UX principles into concrete, testable scree
 
 ### `/app/speak`
 - Goal: launch conversation practice quickly.
-- Primary CTA: `Start this practice` on one recommendation-led hero.
-- Secondary actions: manual scenario/starter selector and interaction-mode selector.
+- Primary CTA:
+  - guided recommendation: `Start this practice`
+  - free-speech recommendation: one-tap topic-lane buttons
+- Secondary actions: alternate free-speech lanes or guided scenario picker plus interaction-mode selector.
 - Required components:
-  - one recommendation-led hero with:
-    - recommended scenario/starter
+  - compact top-level mode switch in the page header area:
+    - `Free speech`
+    - `Guided scenario`
+  - only the selected mode's launch surface should be visible at one time
+  - one primary launch surface under the mode switch; do not stack a separate introductory mode card above it
+  - recommendation should be expressed mainly through default selection and preselected content, not repeated badges or explanatory callouts
+  - guided recommendation uses a richer hero with:
+    - recommended scenario
     - one speaking goal
     - one short `why now` reason
     - 2-3 target phrases
-  - mode cards for alternate setup
-  - starter/scenario list below the hero
+  - free-speech recommendation uses a lighter quick-start treatment with:
+    - one short line like `Pick a topic and start talking`
+    - four topic-led quick-start lanes
+    - optional small context hint
   - clear interaction-mode selector (`Text-first`, `Voice (Pro)`)
-  - free-speech starter chips (at least 4 prompts)
+  - free-speech lanes:
+    - `Something from today`
+    - `Something I'm learning`
+    - `Something I want to say better`
+    - `Surprise me`
   - first-time default selection preselected to avoid blank state
+  - guided scenario picker remains available for non-recommended structured practice
 - Loading/empty/error:
   - preview mode auto-provisions signed-in accounts on Pro
   - if voice is unavailable for environment or device reasons, fall back cleanly to text
@@ -279,11 +294,16 @@ This document translates product and UX principles into concrete, testable scree
 - Primary CTA: `Send` / `Finish session`.
 - Secondary actions: `Help me`, reconnect live voice if needed, end session.
 - Required components:
-  - pre-session mission card before the first learner turn:
+  - guided sessions only:
+    - pre-session mission card before the first learner turn
     - scenario / counterpart role
     - one clear speaking goal
     - 2-3 target phrases
     - one short `why now` reason
+  - free-speech sessions skip the mission card and enter the conversation screen directly with:
+    - mode badge
+    - topic / lane label
+    - optional small context hint
   - shared transcript pane
   - compact mission header after the session starts; no persistent coach sidebar
   - activity-state indicator (`Ready to start`, `Connecting`, `Listening`, `Thinking`, `Speaking`, `Session complete`, `Connection issue`)
@@ -301,7 +321,8 @@ This document translates product and UX principles into concrete, testable scree
   - one minimal `Help me` support action that reveals one contextual hint without sending a turn
   - post-session completion mode:
     - dedicated completion summary card
-    - synthesized coach summary (`What to keep`, `Next focus`, `Key moments`)
+    - guided review uses coach-style labels (`What to keep`, `Next focus`, `Key moments`)
+    - free-speech review uses lighter labels (`What sounded natural`, `Next thing to try`, `Phrases to reuse`)
     - transcript moved into a secondary expandable `Conversation snapshot`
     - phrase bank actions biased toward reusable multi-word chunks, not isolated words
 - Loading/empty/error: resilient reconnect flow for temporary AI failures.
@@ -309,6 +330,7 @@ This document translates product and UX principles into concrete, testable scree
   - active voice sessions should feel like real-time back-and-forth audio, not turn-by-turn upload
   - transcript sync must survive overlapping browser updates without dropping the session
   - coaching appears only after a learner turn lands in the transcript
+  - free-speech voice sessions should not display the guided mission brief before `Start live conversation`
 - Exit transition: completion summary first, then recommend next Learn step.
 - Instrumentation: `speak_turn_submitted`, `speak_turn_coaching_shown`, `speak_help_requested`, `speak_session_completed`, `transcript_phrase_saved`.
 

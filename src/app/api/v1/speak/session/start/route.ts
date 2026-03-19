@@ -1,16 +1,30 @@
 import { z } from "zod";
 
+import { GUIDED_SCENARIOS, SPEAK_STARTERS } from "@/lib/constants";
 import { trackEvent } from "@/server/analytics";
 import { getCurrentUser } from "@/server/auth";
 import { AppError, toErrorResponse } from "@/server/errors";
 import { ok, parseJson } from "@/server/http";
 import { SpeakService } from "@/server/services/speak-service";
 
+const starterKeySchema = z.enum(
+  SPEAK_STARTERS.map((starter) => starter.key) as [
+    (typeof SPEAK_STARTERS)[number]["key"],
+    ...(typeof SPEAK_STARTERS)[number]["key"][],
+  ]
+);
+const scenarioKeySchema = z.enum(
+  GUIDED_SCENARIOS.map((scenario) => scenario.key) as [
+    (typeof GUIDED_SCENARIOS)[number]["key"],
+    ...(typeof GUIDED_SCENARIOS)[number]["key"][],
+  ]
+);
+
 const schema = z.object({
   mode: z.enum(["free_speech", "guided"]),
   interactionMode: z.enum(["text", "voice"]),
-  starterKey: z.string().optional().nullable(),
-  scenarioKey: z.string().optional().nullable(),
+  starterKey: starterKeySchema.optional().nullable(),
+  scenarioKey: scenarioKeySchema.optional().nullable(),
 });
 
 export async function POST(request: Request) {

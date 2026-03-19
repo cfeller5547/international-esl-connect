@@ -168,18 +168,22 @@ Pass condition:
 ## 3.6.1 Speak Starter Experience
 
 1. Open Speak as first-time user.
-2. Verify starter chips are visible and one default starter is preselected.
-3. Start session from a starter chip.
+2. Verify the top of the page shows an explicit `Free speech / Guided scenario` mode switch.
+3. Verify only one mode launch surface is visible at a time.
+4. Verify free-speech quick-start lanes are visible and one default lane is preselected.
+5. Start session from a free-speech lane in one tap.
+6. Verify a free-speech text session skips the mission brief and opens directly into the conversation surface.
 
 Pass condition:
 - no empty-state confusion before first message
+- launch page reads as one decision path rather than stacked intro cards
 
 ## 3.6.2 Speak Realtime Voice
 
 1. Log in as a Pro user.
 2. Open Speak and switch interaction mode to `Voice (Pro)`.
 3. Start a new Speak session.
-4. Verify the session page shows `Start live conversation` before the mic becomes active.
+4. Verify guided voice sessions show `Start live conversation` before the mic becomes active.
 5. Start the live conversation and verify the browser negotiates the realtime voice session successfully.
 6. Speak for multiple turns and verify:
    - transcript updates while the conversation is live
@@ -188,6 +192,7 @@ Pass condition:
 7. Finish the session.
 8. Verify no late transcript-sync failures occur after completion.
 9. Verify the review surface loads with summary feedback and phrase-bank save actions.
+10. Repeat with a free-speech voice session and verify it skips the guided mission brief while still waiting for `Start live conversation`.
 
 Pass condition:
 - the live voice path feels like an actual back-and-forth conversation

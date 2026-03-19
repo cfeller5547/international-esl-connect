@@ -54,7 +54,7 @@ const LEGACY_CONTENT_ITEMS: Prisma.ContentItemCreateInput[] = [
           },
           metadataPayload: {
             nextWorksheetId: "11111111-1111-1111-1111-111111111102",
-            targetStarterKey: "school_day",
+            targetStarterKey: "today",
           },
         },
       ],

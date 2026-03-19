@@ -170,4 +170,59 @@ describe("conversation service realtime support", () => {
       }))
     ).toEqual(turns);
   });
+
+  it("suppresses vocab-only visible coaching in free-speech realtime sync", async () => {
+    const user = await prisma.user.create({
+      data: {
+        email: `speak-realtime-free-${crypto.randomUUID()}@example.com`,
+        passwordHash: "hashed",
+        ageBand: "age_16_18",
+        nativeLanguage: "english",
+        targetLanguage: "english",
+        schoolLevel: "high_school",
+      },
+    });
+
+    const started = await ConversationService.startSession({
+      userId: user.id,
+      mode: "free_speech",
+      interactionMode: "text",
+      surface: "speak",
+      missionKind: "free_speech",
+      scenarioKey: "learning",
+      seedOpeningTurn: false,
+      summaryPayload: {
+        starterKey: "learning",
+        starterLabel: "Something I'm learning",
+        scenarioTitle: "Something I'm learning",
+        scenarioSetup: "Have an open conversation about something the learner is studying.",
+        targetPhrases: ["I'm learning...", "One part that stands out is..."],
+        followUpPrompts: ["Ask what part feels easiest right now."],
+      },
+    });
+
+    const sync = await ConversationService.syncRealtimeTranscript({
+      sessionId: started.sessionId,
+      userId: user.id,
+      turns: [
+        {
+          speaker: "ai",
+          text: "What are you learning right now?",
+        },
+        {
+          speaker: "student",
+          text: "We are learning about plants and cells in science today.",
+        },
+      ],
+    });
+
+    expect(sync.studentCoachings).toHaveLength(0);
+
+    const synced = await ConversationService.getSession(started.sessionId, user.id);
+    expect(
+      (synced?.turns.find((turn) => turn.speaker === "student")?.metricsPayload as {
+        microCoaching?: string | null;
+      })?.microCoaching ?? null
+    ).toBeNull();
+  });
 });

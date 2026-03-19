@@ -48,7 +48,9 @@ export function SpeakSessionPanel({
       ? "review"
       : initialTurns.some((turn) => turn.speaker === "student")
         ? "conversation"
-        : "brief"
+        : mission.mode === "guided"
+          ? "brief"
+          : "conversation"
   );
   const [helpPrompt, setHelpPrompt] = useState<string | null>(null);
 
@@ -170,10 +172,12 @@ export function SpeakSessionPanel({
   }
 
   const counterpartLabel = getSpeakCounterpartLabel(mission.counterpartRole);
+  const showMissionBrief = phase === "brief" && mission.mode === "guided";
+  const showCounterpart = mission.mode === "guided";
 
   return (
     <div className="space-y-6">
-      {phase === "brief" ? (
+      {showMissionBrief ? (
         <Card className="border-border/70 bg-card/95 shadow-sm">
           <CardHeader className="space-y-4">
             <div className="flex flex-wrap items-center gap-2">
@@ -245,16 +249,20 @@ export function SpeakSessionPanel({
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="outline" className="rounded-full px-3 py-1 text-xs uppercase">
-                  Conversation
+                  {mission.mode === "free_speech" ? "Free speech" : "Conversation"}
                 </Badge>
-                <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs">
-                  {counterpartLabel}
-                </Badge>
+                {showCounterpart ? (
+                  <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs">
+                    {counterpartLabel}
+                  </Badge>
+                ) : null}
               </div>
               <div>
                 <CardTitle className="text-2xl">{mission.scenarioTitle}</CardTitle>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {mission.canDoStatement ?? mission.performanceTask}
+                  {mission.mode === "free_speech"
+                    ? mission.contextHint ?? "Start from a real topic and keep the conversation natural."
+                    : mission.canDoStatement ?? mission.performanceTask}
                 </p>
               </div>
             </div>
@@ -299,7 +307,9 @@ export function SpeakSessionPanel({
             )}
 
             <div className="rounded-[1.5rem] border border-border/70 bg-muted/15 px-4 py-3 text-sm text-muted-foreground">
-              Finish the session to unlock a cleaner coach summary, key moments, and reusable phrases.
+              {mission.mode === "free_speech"
+                ? "Finish the session to see what sounded natural, one thing to try next, and phrases worth reusing."
+                : "Finish the session to unlock a cleaner coach summary, key moments, and reusable phrases."}
             </div>
           </CardContent>
         </Card>
@@ -314,7 +324,7 @@ export function SpeakSessionPanel({
               review={review}
               studentTurnCount={studentTurnCount}
             />
-            <SpeakReviewPanel review={review} sessionId={sessionId} />
+            <SpeakReviewPanel review={review} sessionId={sessionId} mode={mission.mode} />
           </>
         ) : (
           <Card className="border-border/70 bg-card/95 shadow-sm">

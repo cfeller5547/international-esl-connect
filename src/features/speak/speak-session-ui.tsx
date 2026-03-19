@@ -35,7 +35,33 @@ function coachingToneClasses(turn: SpeakTranscriptTurn) {
   return "border-border/70 bg-card/90 text-foreground";
 }
 
-function getReviewStatusCopy(status: SpeakSessionReview["status"]) {
+function getReviewStatusCopy(
+  status: SpeakSessionReview["status"],
+  mode: SpeakMissionDetails["mode"]
+) {
+  if (mode === "free_speech") {
+    switch (status) {
+      case "practice_once_more":
+        return {
+          label: "Keep it going",
+          description:
+            "You got the conversation moving. One more round with fuller answers will make it feel easier.",
+        };
+      case "almost_there":
+        return {
+          label: "Good session",
+          description:
+            "You kept the conversation going. The next gain comes from adding a little more detail.",
+        };
+      default:
+        return {
+          label: "You kept it going",
+          description:
+            "This conversation gave you useful language you can carry into the next one.",
+        };
+    }
+  }
+
   switch (status) {
     case "practice_once_more":
       return {
@@ -113,7 +139,7 @@ export function SpeakCompletionCard({
   review: SpeakSessionReview | null;
   studentTurnCount: number;
 }) {
-  const statusCopy = getReviewStatusCopy(review?.status ?? "ready");
+  const statusCopy = getReviewStatusCopy(review?.status ?? "ready", mission.mode);
 
   return (
     <Card className="border-border/70 bg-card/95 shadow-sm">
@@ -123,9 +149,11 @@ export function SpeakCompletionCard({
             <Badge variant="outline" className="rounded-full px-3 py-1 text-xs uppercase">
               Session complete
             </Badge>
-            <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs">
-              {counterpartLabel}
-            </Badge>
+            {mission.mode === "guided" ? (
+              <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs">
+                {counterpartLabel}
+              </Badge>
+            ) : null}
             <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs">
               {statusCopy.label}
             </Badge>
@@ -140,13 +168,13 @@ export function SpeakCompletionCard({
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-          <div className="rounded-[1.5rem] border border-border/70 bg-muted/20 p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              What landed
-            </p>
-            <p className="mt-2 text-sm text-foreground">
-              {review?.strength ?? "You stayed in the conversation and kept your ideas moving."}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+            <div className="rounded-[1.5rem] border border-border/70 bg-muted/20 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                {mission.mode === "free_speech" ? "What sounded natural" : "What landed"}
+              </p>
+              <p className="mt-2 text-sm text-foreground">
+                {review?.strength ?? "You stayed in the conversation and kept your ideas moving."}
             </p>
           </div>
           <div className="rounded-[1.5rem] border border-border/70 bg-muted/20 p-4">
@@ -169,9 +197,11 @@ export function SpeakCompletionCard({
 export function SpeakReviewPanel({
   review,
   sessionId,
+  mode,
 }: {
   review: SpeakSessionReview;
   sessionId: string;
+  mode: SpeakMissionDetails["mode"];
 }) {
   const [savedPhrases, setSavedPhrases] = useState<Set<string>>(new Set());
 
@@ -205,21 +235,25 @@ export function SpeakReviewPanel({
       <Card className="border-border/70 bg-card/95 shadow-sm">
         <CardHeader className="space-y-3 pb-4">
           <Badge variant="outline" className="w-fit rounded-full px-3 py-1 text-xs uppercase">
-            Coach summary
+            {mode === "free_speech" ? "Conversation takeaways" : "Coach summary"}
           </Badge>
-          <CardTitle className="text-2xl">What to keep and what to refine</CardTitle>
+          <CardTitle className="text-2xl">
+            {mode === "free_speech"
+              ? "What sounded natural and what to try next"
+              : "What to keep and what to refine"}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-[1.5rem] border border-border/70 bg-muted/20 p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                What to keep
+                {mode === "free_speech" ? "What sounded natural" : "What to keep"}
               </p>
               <p className="mt-2 text-sm text-foreground">{review.strength}</p>
             </div>
             <div className="rounded-[1.5rem] border border-border/70 bg-muted/20 p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Next focus
+                {mode === "free_speech" ? "Next thing to try" : "Next focus"}
               </p>
               <p className="mt-2 text-sm text-foreground">{review.improvement}</p>
             </div>
@@ -296,7 +330,9 @@ export function SpeakReviewPanel({
           <Badge variant="outline" className="w-fit rounded-full px-3 py-1 text-xs uppercase">
             Phrase bank
           </Badge>
-          <CardTitle className="text-2xl">Keep these phrases for next time</CardTitle>
+          <CardTitle className="text-2xl">
+            {mode === "free_speech" ? "Phrases to reuse" : "Keep these phrases for next time"}
+          </CardTitle>
           <p className="text-sm text-muted-foreground">
             Save reusable language from the session, not single words.
           </p>

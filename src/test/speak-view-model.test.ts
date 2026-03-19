@@ -33,9 +33,31 @@ describe("speak view model", () => {
     });
 
     expect(recommendation.mode).toBe("free_speech");
-    expect(recommendation.starterKey).toBe("test_prep");
+    expect(recommendation.starterKey).toBe("learning");
     expect(recommendation.recommendedInteractionMode).toBe("text");
-    expect(recommendation.whyNow).toMatch(/preterite tense/i);
+    expect(recommendation.mission.contextHint).toMatch(/preterite tense/i);
+  });
+
+  it("builds free-speech missions as open conversation lanes instead of role-play missions", () => {
+    const mission = buildSpeakMission(
+      {
+        mode: "free_speech",
+        starterKey: "say_better",
+      },
+      {
+        currentLevel: "intermediate",
+        weakestSkill: "speaking",
+        activeTopics: ["cell division"],
+        currentLearnTitle: "Continue Tell Stories Clearly",
+        plan: "pro",
+      }
+    );
+
+    expect(mission.mode).toBe("free_speech");
+    expect(mission.mission.counterpartRole).toBeNull();
+    expect(mission.mission.canDoStatement).toBeNull();
+    expect(mission.mission.performanceTask).toBeNull();
+    expect(mission.mission.openingQuestion).toMatch(/explain better/i);
   });
 
   it("builds manual guided missions with level-aware phrases and a real opening question", () => {

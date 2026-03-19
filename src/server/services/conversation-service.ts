@@ -108,14 +108,16 @@ function deriveRealtimeStudentCoaching({
           ? `Good. Keep moving toward this goal: ${context.successCriteria[0]}`
           : "Good. Keep the next answer just as clear.";
 
+  const visibleCoaching = buildSpeakTurnCoaching({
+    microCoaching,
+    turnSignals,
+    mode: context.missionKind === "free_speech" ? "free_speech" : "guided",
+  });
+
   return {
     turnIndex,
-    microCoaching,
-    coachLabel:
-      buildSpeakTurnCoaching({
-        microCoaching,
-        turnSignals,
-      })?.label ?? "Keep this move",
+    microCoaching: visibleCoaching?.note ?? "",
+    coachLabel: visibleCoaching?.label ?? "Keep this move",
     turnSignals,
   };
 }
@@ -145,6 +147,28 @@ function createRealtimeInstructions(context: ConversationContext) {
       `Opening line: ${createOpeningPrompt(context)}`,
       `Can-do goal: ${context.canDoStatement ?? "Keep the conversation clear and useful."}`,
       `Performance task: ${context.performanceTask ?? "Respond naturally and keep the conversation moving."}`,
+      targetPhraseHint,
+      `Follow-up style: ${followUpHints}`,
+    ].join(" ");
+  }
+
+  if (context.missionKind === "free_speech") {
+    const laneLabel = context.starterLabel ?? context.scenarioTitle;
+
+    return [
+      "You are a warm English conversation partner for an ESL learner.",
+      "Sound like a real person having a natural conversation, not a teacher script, chatbot, or worksheet.",
+      "Keep responses short and natural for live audio, usually one or two sentences plus one open follow-up question.",
+      "Open with one short human question and let the topic drift naturally if the learner takes it somewhere real.",
+      "Do not introduce yourself with role-play framing and do not mention exercises, goals, target phrases, or feedback while the conversation is live.",
+      "Naturally recast or model better English inside your reply when useful instead of explicitly correcting the learner.",
+      "If the learner struggles, simplify your language and gently rephrase instead of switching languages.",
+      `Conversation lane: ${laneLabel}.`,
+      `Opening question: ${createOpeningPrompt(context)}`,
+      `Learner level: ${context.learnerLevel ?? "n/a"}.`,
+      `Current focus skill: ${context.focusSkill ?? "n/a"}.`,
+      `Active class topic: ${context.activeTopic ?? "n/a"}.`,
+      `Context hint: ${context.contextHint ?? "n/a"}.`,
       targetPhraseHint,
       `Follow-up style: ${followUpHints}`,
     ].join(" ");
@@ -182,6 +206,8 @@ function readContextFromSummaryPayload(
     missionKind,
     interactionMode,
     scenarioKey,
+    starterKey: typeof payload.starterKey === "string" ? payload.starterKey : null,
+    starterLabel: typeof payload.starterLabel === "string" ? payload.starterLabel : null,
     scenarioTitle: String(payload.scenarioTitle ?? payload.title ?? "Conversation mission"),
     scenarioSetup: String(
       payload.scenarioSetup ??
@@ -216,6 +242,7 @@ function readContextFromSummaryPayload(
         ? payload.recommendationReason
         : null,
     activeTopic: typeof payload.activeTopic === "string" ? payload.activeTopic : null,
+    contextHint: typeof payload.contextHint === "string" ? payload.contextHint : null,
     isBenchmark: Boolean(payload.isBenchmark),
   };
 }
@@ -474,7 +501,10 @@ export const ConversationService = {
             })
           : null
       )
-      .filter((coaching): coaching is PersistedTurnCoaching => Boolean(coaching));
+      .filter(
+        (coaching): coaching is PersistedTurnCoaching =>
+          Boolean(coaching && coaching.microCoaching)
+      );
     const coachingByTurnIndex = new Map(
       studentCoachings.map((coaching) => [coaching.turnIndex, coaching])
     );

@@ -11,6 +11,9 @@ export type SpeakTurnCoaching = {
 };
 
 export type SpeakMissionDetails = {
+  mode: "free_speech" | "guided";
+  starterKey: string | null;
+  starterLabel: string | null;
   scenarioTitle: string;
   scenarioSetup: string;
   counterpartRole: string | null;
@@ -20,6 +23,7 @@ export type SpeakMissionDetails = {
   recommendationReason: string | null;
   openingPrompt: string | null;
   activeTopic: string | null;
+  contextHint: string | null;
 };
 
 export type SpeakReviewHighlight = {
@@ -111,12 +115,22 @@ export function getSpeakCounterpartLabel(counterpartRole: string | null | undefi
 export function buildSpeakTurnCoaching({
   microCoaching,
   turnSignals,
+  mode = "guided",
 }: {
   microCoaching?: string | null;
   turnSignals?: Partial<SpeakTurnSignals> | null;
+  mode?: "free_speech" | "guided";
 }): SpeakTurnCoaching | null {
   const normalizedSignals = normalizeSpeakTurnSignals(turnSignals);
   const note = microCoaching?.trim() ?? "";
+
+  if (
+    mode === "free_speech" &&
+    !normalizedSignals.grammarIssue &&
+    !normalizedSignals.fluencyIssue
+  ) {
+    return null;
+  }
 
   if (
     !note &&
@@ -173,6 +187,39 @@ export function buildSpeakHelpPrompt({
   latestAiTurn?: string | null;
   studentTurnCount: number;
 }) {
+  if (mission.mode === "free_speech") {
+    const topic = mission.activeTopic?.trim() || mission.starterLabel?.toLowerCase() || "today";
+    const firstPhrase = mission.targetPhrases[0] ?? "I want to say...";
+    const secondPhrase = mission.targetPhrases[1] ?? "For example...";
+    const latestQuestion = latestAiTurn?.trim().toLowerCase() ?? "";
+
+    if (studentTurnCount === 0) {
+      if (mission.starterKey === "learning") {
+        return `Start with "${firstPhrase}" and talk about one thing you are learning right now.`;
+      }
+
+      if (mission.starterKey === "say_better") {
+        return `Start with "${firstPhrase}" and say the main idea in one simple sentence.`;
+      }
+
+      return `Start with one clear sentence about ${topic}.`;
+    }
+
+    if (latestQuestion.includes("why")) {
+      return `Start with one reason, then add "${secondPhrase}" and one real example.`;
+    }
+
+    if (latestQuestion.includes("example")) {
+      return `Use "${secondPhrase}" and give one concrete detail from class or daily life.`;
+    }
+
+    if (latestQuestion.includes("what") || latestQuestion.includes("tell me")) {
+      return `Answer simply first, then add one more detail with "${secondPhrase}".`;
+    }
+
+    return `Try "${firstPhrase}" and add one connected detail so the conversation keeps moving.`;
+  }
+
   const topic =
     mission.activeTopic?.trim() ||
     mission.scenarioTitle.trim().replace(/^practice\s+/i, "").toLowerCase();

@@ -800,7 +800,7 @@ Request:
 {
   "mode": "free_speech",
   "interactionMode": "text",
-  "starterKey": "school_day",
+  "starterKey": "learning",
   "scenarioKey": null
 }
 ```
@@ -808,6 +808,8 @@ Request:
 Behavior:
 - free-tier users may request `voice` but must receive plan-aware downgrade or paywall response.
 - `interactionMode = voice` creates a Speak session that is completed through the realtime browser flow, not through `/api/v1/speak/session/turn`.
+- `mode = free_speech` is typically started from one-tap quick-start lanes.
+- `mode = guided` keeps the structured scenario picker.
 
 Response:
 ```json
@@ -822,10 +824,10 @@ Response:
 ```json
 {
   "starters": [
-    { "key": "school_day", "label": "My school day", "prompt": "Tell me about your classes today." },
-    { "key": "homework_help", "label": "Homework talk", "prompt": "Explain one homework question you're unsure about." },
-    { "key": "test_prep", "label": "Test prep", "prompt": "Practice a short dialogue using this week's test topics." },
-    { "key": "free_topic", "label": "Anything", "prompt": "Choose any topic and start speaking." }
+    { "key": "today", "label": "Something from today", "prompt": "Start with something that happened today." },
+    { "key": "learning", "label": "Something I'm learning", "prompt": "Talk about something you are learning in class." },
+    { "key": "say_better", "label": "Something I want to say better", "prompt": "Pick one idea you want to explain more clearly." },
+    { "key": "surprise_me", "label": "Surprise me", "prompt": "Let the AI choose a good topic from your context." }
   ]
 }
 ```
@@ -848,7 +850,15 @@ Response:
 ```json
 {
   "aiResponseText": "string",
-  "transcriptUpdated": true
+  "transcriptUpdated": true,
+  "microCoaching": "string",
+  "coachLabel": "string",
+  "turnSignals": {
+    "fluencyIssue": false,
+    "grammarIssue": false,
+    "vocabOpportunity": false
+  },
+  "studentTranscriptText": "string or null"
 }
 ```
 
@@ -856,6 +866,7 @@ Notes:
 - This route is the text-turn path and the non-realtime fallback path.
 - Active Pro voice Speak sessions use `/api/v1/speak/session/:sessionId/realtime` plus transcript sync instead of submitting one uploaded turn at a time.
 - Active Pro Learn voice missions use the parallel Learn-scoped realtime routes under `/api/v1/learn/curriculum/speaking/:sessionId/*`.
+- `free_speech` may intentionally suppress visible vocab-only coaching even when the AI teaches through recasts in the reply itself.
 
 ### `POST /api/v1/speak/session/:sessionId/realtime`
 Creates a short-lived OpenAI Realtime client secret for an active Pro voice Speak session.

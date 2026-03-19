@@ -41,6 +41,14 @@ export default async function SpeakSessionPage({
 
   const summaryPayload = session.summaryPayload as Record<string, unknown>;
   const mission: SpeakMissionDetails = {
+    mode:
+      (session.missionKind as "free_speech" | "guided" | null) === "free_speech"
+        ? "free_speech"
+        : "guided",
+    starterKey:
+      typeof summaryPayload.starterKey === "string" ? summaryPayload.starterKey : null,
+    starterLabel:
+      typeof summaryPayload.starterLabel === "string" ? summaryPayload.starterLabel : null,
     scenarioTitle: String(summaryPayload.scenarioTitle ?? "Speaking practice"),
     scenarioSetup: String(
       summaryPayload.scenarioSetup ??
@@ -81,6 +89,10 @@ export default async function SpeakSessionPage({
         typeof summaryPayload.performanceTask === "string"
           ? summaryPayload.performanceTask
           : null,
+      starterKey:
+        typeof summaryPayload.starterKey === "string" ? summaryPayload.starterKey : null,
+      starterLabel:
+        typeof summaryPayload.starterLabel === "string" ? summaryPayload.starterLabel : null,
       counterpartRole:
         typeof summaryPayload.counterpartRole === "string"
           ? summaryPayload.counterpartRole
@@ -118,10 +130,14 @@ export default async function SpeakSessionPage({
           : null,
       activeTopic:
         typeof summaryPayload.activeTopic === "string" ? summaryPayload.activeTopic : null,
+      contextHint:
+        typeof summaryPayload.contextHint === "string" ? summaryPayload.contextHint : null,
       isBenchmark: Boolean(summaryPayload.isBenchmark),
     }),
     activeTopic:
       typeof summaryPayload.activeTopic === "string" ? summaryPayload.activeTopic : null,
+    contextHint:
+      typeof summaryPayload.contextHint === "string" ? summaryPayload.contextHint : null,
   };
   const turns = session.turns.map((turn) => {
     const metrics = turn.metricsPayload as
@@ -144,6 +160,10 @@ export default async function SpeakSessionPage({
           ? buildSpeakTurnCoaching({
               microCoaching: metrics?.microCoaching,
               turnSignals: metrics?.turnSignals ?? null,
+              mode:
+                (session.missionKind as "free_speech" | "guided" | null) === "free_speech"
+                  ? "free_speech"
+                  : "guided",
             })
           : null,
     };

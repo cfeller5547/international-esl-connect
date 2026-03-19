@@ -23,6 +23,8 @@ export type ConversationContext = {
   missionKind: ConversationMissionKind;
   interactionMode: "text" | "voice";
   scenarioKey?: string | null;
+  starterKey?: string | null;
+  starterLabel?: string | null;
   scenarioTitle: string;
   scenarioSetup: string;
   canDoStatement?: string | null;
@@ -39,6 +41,7 @@ export type ConversationContext = {
   focusSkill?: string | null;
   recommendationReason?: string | null;
   activeTopic?: string | null;
+  contextHint?: string | null;
   isBenchmark?: boolean;
 };
 
@@ -209,13 +212,19 @@ function createFallbackReview({
     status,
     score,
     strength:
-      studentTurns.length >= 3
-        ? "You stayed in the conversation and answered with useful detail."
-        : "You responded clearly enough to keep the scenario moving.",
+      context.missionKind === "free_speech"
+        ? studentTurns.length >= 3
+          ? "You kept the conversation moving and sounded natural in places."
+          : "You got the conversation started and stayed with the topic."
+        : studentTurns.length >= 3
+          ? "You stayed in the conversation and answered with useful detail."
+          : "You responded clearly enough to keep the scenario moving.",
     improvement:
       correction
         ? `Focus on ${correction.reason.toLowerCase()} in your next attempt.`
-        : "Use one more target phrase and make your answer a little more specific.",
+        : context.missionKind === "free_speech"
+          ? "Next time, add one more clear detail when an answer feels short."
+          : "Use one more target phrase and make your answer a little more specific.",
     pronunciationNote:
       interactionMode === "voice" ? "Slow down slightly on key words for clearer delivery." : null,
     highlights: highlights.slice(0, 3),
@@ -345,7 +354,9 @@ function generateFallbackConversationReply({
 
   if (context.surface !== "learn") {
     return generateSpeakReply({
+      missionKind: context.missionKind === "free_speech" ? "free_speech" : "guided",
       starterPrompt: context.starterPrompt ?? context.scenarioSetup,
+      activeTopic: context.activeTopic,
       studentInput,
     });
   }
@@ -402,6 +413,14 @@ export function createOpeningPrompt(context: ConversationContext) {
       counterpartRole: context.counterpartRole,
       openingQuestion: context.openingQuestion,
     });
+  }
+
+  if (context.missionKind === "free_speech") {
+    return normalizeQuestion(
+      context.openingQuestion?.trim() ||
+        context.starterPrompt?.trim() ||
+        "What's on your mind right now?"
+    );
   }
 
   const introduction = context.introductionText?.trim() ?? "";
@@ -503,19 +522,33 @@ export async function generateConversationReply({
             "Return JSON only with this shape:",
             '{"reply":"string","microCoaching":"string","turnSignals":{"fluencyIssue":false,"grammarIssue":false,"vocabOpportunity":false}}',
           ].join(" ")
-      : [
-          "You are ESL International Connect.",
-          "Continue a short English-learning conversation in a warm, professional tone.",
-          "Sound like a real teacher, classmate, or conversation partner inside the scene, not a chatbot or worksheet.",
-          "Keep each reply to 1-2 short spoken sentences.",
-          "Stay inside the scenario and adapt to the learner's level.",
-          "Model better English naturally inside your reply when useful by recasting or expanding the learner's idea.",
-          "Prefer natural recasts and follow-up prompts over explicit correction language.",
-          "Use follow-up questions that help the learner show the target skill.",
-          "Do not mention scores, rubrics, evaluation, or coaching language while the conversation is live.",
-          "Return JSON only with this shape:",
-          '{"reply":"string","microCoaching":"string","turnSignals":{"fluencyIssue":false,"grammarIssue":false,"vocabOpportunity":false}}',
-        ].join(" ");
+      : context.missionKind === "free_speech"
+        ? [
+            "You are a warm English conversation partner for an ESL learner.",
+            "Continue a natural conversation in a human, lightly supportive tone.",
+            "Do not frame the exchange as a scenario, lesson, worksheet, or speaking task.",
+            "Do not introduce yourself as a teacher or classmate unless the learner explicitly asks for that kind of help.",
+            "Keep each reply to 1-2 short spoken sentences and usually one open follow-up question.",
+            "Allow mild topic drift if the learner takes the conversation somewhere real and related.",
+            "Model better English naturally inside your reply by recasting or expanding the learner's idea without explicit correction language.",
+            "Use the learner's level, active topic, and weak skill quietly to choose simpler or richer follow-ups.",
+            "Do not mention scores, rubrics, evaluation, target phrases, or coaching language while the conversation is live.",
+            "Return JSON only with this shape:",
+            '{"reply":"string","microCoaching":"string","turnSignals":{"fluencyIssue":false,"grammarIssue":false,"vocabOpportunity":false}}',
+          ].join(" ")
+        : [
+            "You are ESL International Connect.",
+            "Continue a short English-learning conversation in a warm, professional tone.",
+            "Sound like a real teacher, classmate, or conversation partner inside the scene, not a chatbot or worksheet.",
+            "Keep each reply to 1-2 short spoken sentences.",
+            "Stay inside the scenario and adapt to the learner's level.",
+            "Model better English naturally inside your reply when useful by recasting or expanding the learner's idea.",
+            "Prefer natural recasts and follow-up prompts over explicit correction language.",
+            "Use follow-up questions that help the learner show the target skill.",
+            "Do not mention scores, rubrics, evaluation, or coaching language while the conversation is live.",
+            "Return JSON only with this shape:",
+            '{"reply":"string","microCoaching":"string","turnSignals":{"fluencyIssue":false,"grammarIssue":false,"vocabOpportunity":false}}',
+          ].join(" ");
 
   const response = await openai.responses.create({
     model: env.OPENAI_TEXT_MODEL,
@@ -537,6 +570,7 @@ export async function generateConversationReply({
             text: [
               `Surface: ${context.surface}`,
               `Mission kind: ${context.missionKind}`,
+              `Starter lane: ${context.starterLabel ?? context.starterKey ?? "n/a"}`,
               `Scenario title: ${context.scenarioTitle}`,
               `Scenario setup: ${context.scenarioSetup}`,
               `Counterpart role: ${counterpartLabel}`,
@@ -548,6 +582,7 @@ export async function generateConversationReply({
               `Learner level: ${context.learnerLevel ?? "n/a"}`,
               `Current focus skill: ${context.focusSkill ?? "n/a"}`,
               `Active class topic: ${context.activeTopic ?? "n/a"}`,
+              `Context hint: ${context.contextHint ?? "n/a"}`,
               `Why this session matters now: ${context.recommendationReason ?? "n/a"}`,
               `Suggested next follow-up: ${followUpHint}`,
               "Conversation so far:",
@@ -582,7 +617,9 @@ export async function generateConversationReply({
     parsed.microCoaching?.trim() ||
     (context.surface === "learn" || context.surface === "assessment"
       ? ""
-      : "Keep your answer clear and connected.");
+      : context.missionKind === "free_speech"
+        ? ""
+        : "Keep your answer clear and connected.");
   const turnSignals = {
     fluencyIssue: Boolean(parsed.turnSignals?.fluencyIssue),
     grammarIssue: Boolean(parsed.turnSignals?.grammarIssue),
@@ -592,6 +629,7 @@ export async function generateConversationReply({
     buildSpeakTurnCoaching({
       microCoaching,
       turnSignals,
+      mode: context.missionKind === "free_speech" ? "free_speech" : "guided",
     })?.label ?? "Keep this move";
 
   return {
@@ -634,6 +672,9 @@ export async function evaluateMissionTranscript({
             text: [
               "You are evaluating a short ESL speaking mission.",
               "Be supportive, concrete, and brief.",
+              context.missionKind === "free_speech"
+                ? "For free-speech conversations, use lighter, more natural coaching language instead of task-heavy teacher language."
+                : "For guided scenarios, keep the feedback tied to the task and scenario.",
               "Return JSON only with this shape:",
               '{"status":"ready","score":78,"strength":"string","improvement":"string","pronunciationNote":"string or null","highlights":[{"turnIndex":1,"youSaid":"string","tryInstead":"string","why":"string"}],"vocabulary":[{"term":"string","definition":"string","translation":"string"}]}',
               "Use only these status values: ready, almost_there, practice_once_more.",

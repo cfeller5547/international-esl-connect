@@ -71,22 +71,36 @@ Current Speak UX shape:
 - preview mode currently means signed-in users land on the Pro-capable Speak path by default
 - the text-first Speak path still exists as the fallback shape when voice is unavailable or when plan gating is re-enabled later
 - active voice sessions live on `/app/speak/session/:sessionId`
-- sessions open with a short mission brief before the first learner turn:
+- `free_speech` and `guided` are intentionally different products now:
+  - `free_speech` is topic-led, one-tap, and skips the mission brief
+  - `guided` keeps the structured role-play brief / task / target-phrase framing
+- the Speak launch now uses a compact top-level mode switch, and only one primary mode surface should be shown at a time
+- avoid stacking a large introductory mode card above a second large launch card; Speak should read as one clean decision path
+- keep recommendation treatment quiet on Speak launch: prefer default selections over multiple visible `Recommended` badges and helper callouts
+- free-speech launch now uses 4 quick-start lanes:
+  - `Something from today`
+  - `Something I'm learning`
+  - `Something I want to say better`
+  - `Surprise me`
+- guided sessions open with a short mission brief before the first learner turn:
   - role / scenario
   - speaking goal
   - target phrases
   - why-now context
+- free-speech sessions start directly in the conversation surface with only light topic/context framing
 - once the mission starts, the transcript is the dominant surface
 - once the session ends, Speak switches into a review-first mode instead of leaving the live transcript as the primary surface
 - completed sessions now show:
   - completion summary card
-  - synthesized coach summary (`What to keep`, `Next focus`, `Key moments`)
+  - guided review summary (`What to keep`, `Next focus`, `Key moments`)
+  - free-speech review summary (`What sounded natural`, `Next thing to try`, `Phrases to reuse`)
   - secondary expandable `Conversation snapshot`
   - phrase bank items filtered toward reusable multi-word chunks
 - live coaching is subtle and transcript-native:
   - one coach label per learner turn
   - one concise coaching note per learner turn
   - one minimal `Help me` action
+- free-speech visible coaching is quieter than guided and should not surface vocab-only coaching chips
 - Speak should teach mostly through natural recasts and level-aware follow-up questions, not loud correction chrome
 - realtime transcript snapshots sync back through the app before the session is completed
 - non-realtime fallback Speak panels are read-only for voice sessions so the app does not regress to per-turn recording UX

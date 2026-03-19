@@ -89,9 +89,10 @@ Definition of done:
 
 Deliver:
 - Speak free and guided session flows with plan-aware mode behavior
+- explicit Speak mode switch with only one launch surface visible at a time
 - free-tier text-first + pro voice gating behavior
 - free-tier quota enforcement with deterministic limit keys
-- free-speech starter chips and first-run starter default
+- free-speech quick-start lanes and first-run default lane
 - transcript learning layer (inline corrections + phrase save)
 - Progress report library
 - reassessment flow producing new reports and comparisons

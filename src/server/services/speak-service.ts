@@ -14,6 +14,9 @@ import { ConversationService } from "./conversation-service";
 import { CurriculumService } from "./curriculum-service";
 import { UsageService } from "./usage-service";
 
+type SpeakStarterKey = (typeof SPEAK_STARTERS)[number]["key"];
+type GuidedScenarioKey = "class_discussion" | "presentation_practice" | "office_hours";
+
 async function getSpeakPersonalizationSnapshot(userId: string) {
   const [user, activeTopics, subscription] = await Promise.all([
     prisma.user.findUniqueOrThrow({
@@ -92,8 +95,8 @@ export const SpeakService = {
     userId: string;
     mode: "free_speech" | "guided";
     interactionMode: "text" | "voice";
-    starterKey?: string | null;
-    scenarioKey?: string | null;
+    starterKey?: SpeakStarterKey | null;
+    scenarioKey?: GuidedScenarioKey | null;
     summaryPayload?: Record<string, unknown>;
   }) {
     const snapshot = await getSpeakPersonalizationSnapshot(userId);
@@ -116,8 +119,6 @@ export const SpeakService = {
         scenarioKey: missionPlan.scenarioKey ?? missionPlan.starterKey,
         seedOpeningTurn: interactionMode !== "voice",
         summaryPayload: {
-          starterKey: missionPlan.starterKey,
-          scenarioKey: missionPlan.scenarioKey,
           ...missionPlan.mission,
           ...summaryPayload,
         },

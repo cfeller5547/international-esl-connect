@@ -57,11 +57,17 @@ Purpose:
 - Build spoken confidence and application
 
 Modes:
-- Free Speech sandbox
+- Free Speech open conversation
 - Guided scenario conversations
 
 Entry behavior:
 - Speak should open with one recommendation-led practice card rather than a configuration-first form.
+- Speak should make the two modes explicit at the top with a compact mode switch:
+  - `Free speech`
+  - `Guided scenario`
+- Only one mode's launch UI should be visible at a time to avoid mixed-mode confusion.
+- Do not use a separate large intro card plus a second large selected-mode card; the page should read as one decision path.
+- Recommendation should usually be shown through the default selected mode and the default selected topic/scenario, not through multiple visible recommendation badges.
 - The recommendation should be chosen from:
   - latest report focus / weakest skill
   - active syllabus or weekly topics
@@ -76,18 +82,28 @@ Plan behavior:
 - Voice review still happens after the session, not during the live exchange.
 
 First-run behavior:
-- Free Speech must present starter prompts (not an empty input state).
-- One starter is preselected by default so users can begin in one tap.
+- Free Speech must present quick-start topic lanes (not an empty input state).
+- The current lanes are:
+  - `Something from today`
+  - `Something I'm learning`
+  - `Something I want to say better`
+  - `Surprise me`
+- One lane is preselected by default so users can begin in one tap.
 - Voice sessions should open with one explicit `Start live conversation` moment so the user understands when the mic becomes active.
-- Both text and voice sessions should begin with a short mission card:
+- Guided sessions begin with a short mission card:
   - role / scenario
   - one speaking goal
   - 2-3 target phrases
   - one short `why now` reason
+- Free Speech does not use a mission card. It should start directly in the conversation surface with only light topic/context framing.
 
 Session behavior:
 - Once the mission starts, the transcript becomes the dominant surface.
 - Speak should not use a persistent coaching sidebar or worksheet-style support rail during the live exchange.
+- Free Speech should feel topic-led and learner-led:
+  - no role-play framing by default
+  - no visible performance task or success criteria in the live UI
+  - one short human opening question, not a scenario setup paragraph
 - Live coaching should be subtle and transcript-native:
   - one short coach label per learner turn
   - one concise coaching note per learner turn

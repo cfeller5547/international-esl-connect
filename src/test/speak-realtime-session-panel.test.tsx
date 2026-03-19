@@ -5,6 +5,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SpeakRealtimeSessionPanel } from "@/features/speak/speak-realtime-session-panel";
 
 const mission = {
+  mode: "guided" as const,
+  starterKey: null,
+  starterLabel: null,
   scenarioTitle: "Class discussion: introductions",
   scenarioSetup: "You are having a short class discussion with your teacher.",
   counterpartRole: "teacher",
@@ -14,6 +17,23 @@ const mission = {
   recommendationReason: "This matches your current class topic and keeps speaking momentum high.",
   openingPrompt: "Tell me one thing people should know about you.",
   activeTopic: "introductions",
+  contextHint: "Use introductions so the discussion stays close to class.",
+};
+
+const freeSpeechMission = {
+  mode: "free_speech" as const,
+  starterKey: "today",
+  starterLabel: "Something from today",
+  scenarioTitle: "Something from today",
+  scenarioSetup: "Have an open English conversation about something from today.",
+  counterpartRole: null,
+  canDoStatement: null,
+  performanceTask: null,
+  targetPhrases: ["Today I...", "One thing that happened was..."],
+  recommendationReason: "Start with a real moment from today.",
+  openingPrompt: "What happened today?",
+  activeTopic: null,
+  contextHint: "Anything from class or daily life is a good place to start.",
 };
 
 describe("SpeakRealtimeSessionPanel", () => {
@@ -113,5 +133,20 @@ describe("SpeakRealtimeSessionPanel", () => {
     expect(screen.queryByRole("button", { name: /finish session/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/student turns recorded/i)).not.toBeInTheDocument();
     expect(screen.getByText(/keep these phrases for next time/i)).toBeInTheDocument();
+  });
+
+  it("skips the mission brief for free-speech live sessions", () => {
+    render(
+      <SpeakRealtimeSessionPanel
+        sessionId="live-session-2"
+        mission={freeSpeechMission}
+        initialTurns={[]}
+      />
+    );
+
+    expect(screen.queryByText(/speaking goal/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/free speech live/i)).toBeInTheDocument();
+    expect(screen.getByText(/anything from class or daily life is a good place to start/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /start live conversation/i })).toBeInTheDocument();
   });
 });

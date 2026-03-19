@@ -336,33 +336,50 @@ function extractPhraseCandidates(text: string) {
 }
 
 export function generateSpeakReply({
+  missionKind,
   starterPrompt,
+  activeTopic,
   studentInput,
 }: {
+  missionKind: "free_speech" | "guided";
   starterPrompt: string;
+  activeTopic?: string | null;
   studentInput: string;
 }) {
   const trimmed = studentInput.trim();
+  const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
+
   const aiResponseText =
-    trimmed.length < 12
-      ? `Tell me a little more. Start with one specific example from ${starterPrompt.toLowerCase()}.`
-      : `Good detail. Now explain why that mattered and use one past-tense sentence.`;
+    missionKind === "free_speech"
+      ? wordCount < 5
+        ? activeTopic
+          ? `I heard that. Can you tell me a little more about ${activeTopic}?`
+          : "I heard that. Can you tell me a little more?"
+        : /why/i.test(trimmed)
+          ? "That's interesting. What made you ask that?"
+          : "That makes sense. What stands out most about it for you?"
+      : trimmed.length < 12
+        ? `Tell me a little more. Start with one specific example from ${starterPrompt.toLowerCase()}.`
+        : "Good detail. Now explain why that mattered and use one past-tense sentence.";
 
   const microCoaching = /goed/i.test(trimmed)
     ? "Use the irregular past form 'went' instead of 'goed'."
     : trimmed.split(/\s+/).length < 5
       ? "Try answering with one longer sentence."
-      : "Nice start. Keep your verb tense consistent.";
+      : missionKind === "free_speech"
+        ? ""
+        : "Nice start. Keep your verb tense consistent.";
 
   const turnSignals = {
-    fluencyIssue: trimmed.split(/\s+/).length < 5,
+    fluencyIssue: wordCount < 5,
     grammarIssue: /goed/i.test(trimmed),
-    vocabOpportunity: trimmed.split(/\s+/).length < 10,
+    vocabOpportunity: wordCount < 10,
   };
   const coachLabel =
     buildSpeakTurnCoaching({
       microCoaching,
       turnSignals,
+      mode: missionKind,
     })?.label ?? "Keep this move";
 
   return {

@@ -5,6 +5,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SpeakSessionPanel } from "@/features/speak/speak-session-panel";
 
 const mission = {
+  mode: "guided" as const,
+  starterKey: null,
+  starterLabel: null,
   scenarioTitle: "Office hours: photosynthesis",
   scenarioSetup:
     "You are meeting your teacher during office hours to talk about photosynthesis.",
@@ -18,6 +21,25 @@ const mission = {
   openingPrompt:
     "Hi, I'm your teacher for office hours today. What part of photosynthesis feels hardest right now?",
   activeTopic: "photosynthesis",
+  contextHint: "Use photosynthesis so the office-hours practice feels real.",
+};
+
+const freeSpeechMission = {
+  mode: "free_speech" as const,
+  starterKey: "learning",
+  starterLabel: "Something I'm learning",
+  scenarioTitle: "Something I'm learning",
+  scenarioSetup:
+    "Have an open English conversation about something the learner is studying.",
+  counterpartRole: null,
+  canDoStatement: null,
+  performanceTask: null,
+  targetPhrases: ["I'm learning...", "One part that stands out is..."],
+  recommendationReason:
+    "Cell division gives you a real topic to practice instead of a generic prompt.",
+  openingPrompt: "What are you learning right now?",
+  activeTopic: "cell division",
+  contextHint: "Use cell division or another class idea that feels current.",
 };
 
 describe("SpeakSessionPanel", () => {
@@ -115,6 +137,31 @@ describe("SpeakSessionPanel", () => {
     ).toBe(false);
   });
 
+  it("skips the mission brief for free-speech sessions and opens directly into conversation", () => {
+    render(
+      <SpeakSessionPanel
+        sessionId="session-free-1"
+        mission={freeSpeechMission}
+        interactionMode="text"
+        status="active"
+        initialTurns={[
+          {
+            turnIndex: 1,
+            speaker: "ai",
+            text: "What are you learning right now?",
+            coaching: null,
+          },
+        ]}
+        initialReview={null}
+      />
+    );
+
+    expect(screen.queryByText(/mission brief/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/free speech/i)).toBeInTheDocument();
+    expect(screen.getByText(/use cell division or another class idea that feels current/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/write your next answer/i)).toBeInTheDocument();
+  });
+
   it("switches completed sessions into review mode without live controls", () => {
     render(
       <SpeakSessionPanel
@@ -193,5 +240,61 @@ describe("SpeakSessionPanel", () => {
     expect(screen.queryByRole("button", { name: /help me/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /send/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /finish session/i })).not.toBeInTheDocument();
+  });
+
+  it("uses lighter review copy for completed free-speech sessions", () => {
+    render(
+      <SpeakSessionPanel
+        sessionId="session-free-2"
+        mission={freeSpeechMission}
+        interactionMode="text"
+        status="completed"
+        initialTurns={[
+          {
+            turnIndex: 1,
+            speaker: "ai",
+            text: "What are you learning right now?",
+            coaching: null,
+          },
+          {
+            turnIndex: 2,
+            speaker: "student",
+            text: "I'm learning about cell division.",
+            coaching: null,
+          },
+        ]}
+        initialReview={{
+          status: "ready",
+          strength: "You kept your answer direct and natural.",
+          improvement: "Add one more concrete detail next time.",
+          highlights: [],
+          turns: [
+            {
+              turnIndex: 1,
+              speaker: "ai",
+              text: "What are you learning right now?",
+              inlineCorrections: [],
+            },
+            {
+              turnIndex: 2,
+              speaker: "student",
+              text: "I'm learning about cell division.",
+              inlineCorrections: [],
+            },
+          ],
+          vocabulary: [
+            {
+              term: "I'm learning",
+              definition: "A natural way to talk about a current topic.",
+              translation: "I'm learning",
+            },
+          ],
+        }}
+      />
+    );
+
+    expect(screen.getByText(/what sounded natural and what to try next/i)).toBeInTheDocument();
+    expect(screen.getByText(/phrases to reuse/i)).toBeInTheDocument();
+    expect(screen.queryByText(/coach summary/i)).not.toBeInTheDocument();
   });
 });

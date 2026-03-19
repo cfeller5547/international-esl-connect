@@ -114,6 +114,7 @@ export function SpeakRealtimeSessionPanel({
     [transcript]
   );
   const counterpartLabel = getSpeakCounterpartLabel(mission.counterpartRole);
+  const showCounterpart = mission.mode === "guided";
 
   const applySyncedCoachings = useCallback(
     (
@@ -601,7 +602,8 @@ export function SpeakRealtimeSessionPanel({
     });
   }
 
-  const showMissionBrief = state === "idle" && transcript.length === 0 && !review;
+  const showMissionBrief =
+    mission.mode === "guided" && state === "idle" && transcript.length === 0 && !review;
   const showActiveSession = !showMissionBrief && state !== "review";
 
   return (
@@ -682,11 +684,13 @@ export function SpeakRealtimeSessionPanel({
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="outline" className="rounded-full px-3 py-1 text-xs uppercase">
-                    Speak live
+                    {mission.mode === "free_speech" ? "Free speech live" : "Speak live"}
                   </Badge>
-                  <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs">
-                    {counterpartLabel}
-                  </Badge>
+                  {showCounterpart ? (
+                    <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs">
+                      {counterpartLabel}
+                    </Badge>
+                  ) : null}
                   <Badge
                     variant={state === "error" ? "destructive" : "outline"}
                     className="rounded-full px-3 py-1 text-xs"
@@ -698,7 +702,9 @@ export function SpeakRealtimeSessionPanel({
                 <div>
                   <CardTitle className="text-3xl leading-tight">{mission.scenarioTitle}</CardTitle>
                   <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-                    {mission.canDoStatement ?? mission.performanceTask}
+                    {mission.mode === "free_speech"
+                      ? mission.contextHint ?? "Start from a real topic and let the conversation move naturally."
+                      : mission.canDoStatement ?? mission.performanceTask}
                   </p>
                 </div>
               </div>
@@ -707,6 +713,12 @@ export function SpeakRealtimeSessionPanel({
                   <Lightbulb className="size-4" />
                   Help me
                 </Button>
+                {state === "idle" ? (
+                  <Button onClick={startLiveConversation}>
+                    <Mic className="size-4" />
+                    Start live conversation
+                  </Button>
+                ) : null}
                 <Button
                   variant="outline"
                   onClick={finishSession}
@@ -725,13 +737,15 @@ export function SpeakRealtimeSessionPanel({
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.5rem] border border-border/70 bg-muted/15 px-4 py-3">
               <div className="space-y-1">
                 <p className="text-sm font-medium text-foreground">
-                  {state === "listening"
-                    ? "Speak naturally. The AI will answer when you pause."
-                    : state === "speaking"
-                      ? "The AI is responding out loud right now."
-                      : state === "thinking"
-                        ? "The AI is preparing the next spoken reply."
-                        : "Your microphone stays live for the conversation once connected."}
+                  {state === "idle"
+                    ? "Start live voice when you are ready. The conversation will open with one natural question."
+                    : state === "listening"
+                      ? "Speak naturally. The AI will answer when you pause."
+                      : state === "speaking"
+                        ? "The AI is responding out loud right now."
+                        : state === "thinking"
+                          ? "The AI is preparing the next spoken reply."
+                          : "Your microphone stays live for the conversation once connected."}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   Student turns recorded: {studentTurnCount}
@@ -740,6 +754,10 @@ export function SpeakRealtimeSessionPanel({
               {state === "error" ? (
                 <Button variant="outline" onClick={startLiveConversation}>
                   Retry connection
+                </Button>
+              ) : state === "idle" ? (
+                <Button variant="outline" onClick={startLiveConversation}>
+                  Start now
                 </Button>
               ) : null}
             </div>
@@ -764,7 +782,7 @@ export function SpeakRealtimeSessionPanel({
               review={review}
               studentTurnCount={studentTurnCount}
             />
-            <SpeakReviewPanel review={review} sessionId={sessionId} />
+            <SpeakReviewPanel review={review} sessionId={sessionId} mode={mission.mode} />
           </>
         ) : (
           <Card className="border-border/70 bg-card/95 shadow-sm">

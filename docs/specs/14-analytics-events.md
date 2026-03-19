@@ -169,7 +169,7 @@ Implementation note:
 1. `speak_landing_viewed`
    - trigger: speak landing view
 2. `speak_recommendation_viewed`
-   - trigger: recommendation-led Speak hero rendered
+   - trigger: recommendation-led Speak launch surface rendered
    - properties: `mode`, `scenario_key`
 3. `speak_recommendation_started`
    - trigger: user starts the recommended Speak session
@@ -178,7 +178,7 @@ Implementation note:
    - trigger: speak session start
    - properties: `mode`, `scenario_key`
 5. `speak_starter_selected`
-   - trigger: free-speech starter chosen
+   - trigger: free-speech quick-start lane chosen
    - properties: `starter_key`
 6. `speak_turn_submitted`
    - trigger: student submits turn
