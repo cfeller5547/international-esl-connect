@@ -297,6 +297,7 @@ This document translates product and UX principles into concrete, testable scree
 - Goal: review report history and trigger reassessment.
 - Primary CTA: `Run new assessment`.
 - Secondary actions: switch visible history range and open a selected report.
+- Scope rule: this route is report-centric; streak status does not appear here.
 - Required components:
   - overall score timeline
   - selected report summary

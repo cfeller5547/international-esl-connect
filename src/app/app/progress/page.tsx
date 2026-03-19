@@ -4,13 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageShell } from "@/components/ui-kit/page-shell";
 import { ProgressInsightsPanel } from "@/components/ui-kit/progress-insights-panel";
-import { StreakPanel } from "@/components/ui-kit/streak-panel";
 import { getReportTypeLabel } from "@/lib/progress";
 import { toTitleCase } from "@/lib/utils";
 import { getCurrentUser } from "@/server/auth";
 import { trackEvent } from "@/server/analytics";
 import { ReportService } from "@/server/services/report-service";
-import { StreakService } from "@/server/services/streak-service";
 
 export default async function ProgressPage() {
   const user = await getCurrentUser();
@@ -19,10 +17,7 @@ export default async function ProgressPage() {
     return null;
   }
 
-  const [history, streak] = await Promise.all([
-    ReportService.getProgressHistory(user.id),
-    StreakService.getSnapshot(user.id),
-  ]);
+  const history = await ReportService.getProgressHistory(user.id);
   const reports = [...history].reverse();
 
   await trackEvent({
@@ -39,19 +34,13 @@ export default async function ProgressPage() {
           <div>
             <h1 className="text-2xl font-semibold sm:text-3xl">Progress</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Review your report history, track streaks, and run a new assessment when you need an update.
+              Review your report history and run a new assessment when you need an update.
             </p>
           </div>
           <Button asChild size="lg" className="w-full sm:w-auto">
             <Link href="/app/progress/reassessment">Run new assessment</Link>
           </Button>
         </div>
-
-        <StreakPanel
-          currentStreakDays={streak.currentStreakDays}
-          longestStreakDays={streak.longestStreakDays}
-          nextMilestoneDays={streak.nextMilestoneDays}
-        />
 
         {reports.length > 0 ? (
           <ProgressInsightsPanel
