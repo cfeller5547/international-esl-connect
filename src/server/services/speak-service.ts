@@ -1,32 +1,84 @@
-import { GUIDED_SCENARIOS, SPEAK_STARTERS } from "@/lib/constants";
+import {
+  buildSpeakLaunchViewModel,
+  buildSpeakMission,
+  type SpeakLaunchViewModel,
+} from "@/features/speak/speak-view-model";
+import { SPEAK_STARTERS } from "@/lib/constants";
 import { AppError } from "@/server/errors";
+import { prisma } from "@/server/prisma";
 
 import { trackEvent } from "../analytics";
 
+import { ContextService } from "./context-service";
 import { ConversationService } from "./conversation-service";
+import { CurriculumService } from "./curriculum-service";
+import { UsageService } from "./usage-service";
 
-function resolveStarterPrompt(starterKey?: string | null) {
-  return (
-    SPEAK_STARTERS.find((starter) => starter.key === starterKey)?.prompt ??
-    SPEAK_STARTERS[0].prompt
-  );
-}
+async function getSpeakPersonalizationSnapshot(userId: string) {
+  const [user, activeTopics, subscription] = await Promise.all([
+    prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      include: {
+        reports: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          include: {
+            skillSnapshots: true,
+          },
+        },
+      },
+    }),
+    ContextService.getActiveTopics(userId),
+    UsageService.getOrCreateSubscription(userId),
+  ]);
 
-function resolveScenario(scenarioKey?: string | null) {
-  const scenario =
-    GUIDED_SCENARIOS.find((entry) => entry.key === scenarioKey) ??
-    GUIDED_SCENARIOS[0];
+  const latestReport = user.reports[0] ?? null;
+  const weakestSkill =
+    latestReport?.skillSnapshots
+      .slice()
+      .sort((a, b) => a.score - b.score)[0]
+      ?.skill ?? null;
+
+  let currentLearnTitle: string | null = null;
+
+  try {
+    const nextLearningAction = await CurriculumService.getNextLearningAction(userId);
+    currentLearnTitle = nextLearningAction.unitId ? nextLearningAction.title : null;
+  } catch {
+    currentLearnTitle = null;
+  }
 
   return {
-    title: scenario?.title ?? "Guided scenario",
-    description:
-      scenario?.description ?? "Practice a short academic speaking scenario.",
+    currentLevel: user.currentLevel ?? latestReport?.levelLabel ?? null,
+    weakestSkill,
+    activeTopics,
+    currentLearnTitle,
+    plan: subscription.plan as "free" | "pro",
   };
+}
+
+function countCoachedTurns(turns: Array<{ metricsPayload: unknown }>) {
+  return turns.filter((turn) => {
+    const metrics = turn.metricsPayload as Record<string, unknown> | null;
+    return Boolean(metrics?.microCoaching);
+  }).length;
 }
 
 export const SpeakService = {
   async getStarters() {
     return SPEAK_STARTERS;
+  },
+
+  async getLaunchState(userId: string): Promise<{
+    viewModel: SpeakLaunchViewModel;
+    plan: "free" | "pro";
+  }> {
+    const snapshot = await getSpeakPersonalizationSnapshot(userId);
+
+    return {
+      viewModel: buildSpeakLaunchViewModel(snapshot),
+      plan: snapshot.plan,
+    };
   },
 
   async startSession({
@@ -44,8 +96,15 @@ export const SpeakService = {
     scenarioKey?: string | null;
     summaryPayload?: Record<string, unknown>;
   }) {
-    const starterPrompt = resolveStarterPrompt(starterKey);
-    const scenario = resolveScenario(scenarioKey);
+    const snapshot = await getSpeakPersonalizationSnapshot(userId);
+    const missionPlan = buildSpeakMission(
+      {
+        mode,
+        starterKey,
+        scenarioKey,
+      },
+      snapshot
+    );
 
     try {
       const session = await ConversationService.startSession({
@@ -54,33 +113,12 @@ export const SpeakService = {
         interactionMode,
         surface: "speak",
         missionKind: mode,
-        scenarioKey: scenarioKey ?? starterKey,
+        scenarioKey: missionPlan.scenarioKey ?? missionPlan.starterKey,
         seedOpeningTurn: interactionMode !== "voice",
         summaryPayload: {
-          starterKey,
-          starterPrompt,
-          scenarioTitle: mode === "guided" ? scenario.title : "Open speaking practice",
-          scenarioSetup:
-            mode === "guided"
-              ? scenario.description
-              : starterPrompt,
-          targetPhrases: [],
-          followUpPrompts:
-            mode === "guided"
-              ? [
-                  "Answer with one clear idea, then add a helpful detail.",
-                  "Explain why that matters.",
-                  "Give one specific example from class, work, or daily life.",
-                ]
-              : [
-                  "Say a little more about that.",
-                  "Give one specific example.",
-                  "Explain why that matters to you.",
-                ],
-          successCriteria: [
-            "Respond clearly to the prompt.",
-            "Add at least one useful detail.",
-          ],
+          starterKey: missionPlan.starterKey,
+          scenarioKey: missionPlan.scenarioKey,
+          ...missionPlan.mission,
           ...summaryPayload,
         },
       });
@@ -91,19 +129,16 @@ export const SpeakService = {
         userId,
         properties: {
           mode,
-          scenario_key: scenarioKey ?? starterKey,
+          scenario_key: missionPlan.scenarioKey ?? missionPlan.starterKey,
         },
       });
 
       return {
         sessionId: session.sessionId,
-        starterPrompt,
+        starterPrompt: missionPlan.mission.starterPrompt,
       };
     } catch (error) {
-      if (
-        error instanceof AppError &&
-        error.code === "VOICE_MODE_UPGRADE_REQUIRED"
-      ) {
+      if (error instanceof AppError && error.code === "VOICE_MODE_UPGRADE_REQUIRED") {
         await trackEvent({
           eventName: "voice_mode_upgrade_prompt_shown",
           route: "/app/speak",
@@ -151,10 +186,23 @@ export const SpeakService = {
       },
     });
 
+    if (session && countCoachedTurns(session.turns) > 0) {
+      await trackEvent({
+        eventName: "speak_turn_coaching_shown",
+        route: `/app/speak/session/${sessionId}`,
+        userId,
+        properties: {
+          input_mode: session.interactionMode,
+        },
+      });
+    }
+
     return {
       aiResponseText: reply.aiResponseText,
       transcriptUpdated: true,
       microCoaching: reply.microCoaching,
+      turnSignals: reply.turnSignals,
+      coachLabel: reply.coachLabel,
       aiAudioBase64: reply.aiAudioBase64 ?? null,
       studentTranscriptText: reply.studentTranscriptText ?? null,
     };
@@ -195,6 +243,17 @@ export const SpeakService = {
           input_mode: "voice",
         },
       });
+
+      if (sync.studentCoachings.length > 0) {
+        await trackEvent({
+          eventName: "speak_turn_coaching_shown",
+          route: `/app/speak/session/${sessionId}`,
+          userId,
+          properties: {
+            input_mode: "voice",
+          },
+        });
+      }
     }
 
     return sync;

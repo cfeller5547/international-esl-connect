@@ -45,7 +45,7 @@ describe("conversation service realtime support", () => {
     const initial = await ConversationService.getSession(started.sessionId, user.id);
     expect(initial?.turns).toHaveLength(0);
 
-    await ConversationService.syncRealtimeTranscript({
+    const sync = await ConversationService.syncRealtimeTranscript({
       sessionId: started.sessionId,
       userId: user.id,
       turns: [
@@ -63,6 +63,10 @@ describe("conversation service realtime support", () => {
         },
       ],
     });
+
+    expect(sync.studentCoachings).toHaveLength(1);
+    expect(sync.studentCoachings[0]?.coachLabel).toBeTruthy();
+    expect(sync.studentCoachings[0]?.microCoaching).toBeTruthy();
 
     const synced = await ConversationService.getSession(started.sessionId, user.id);
     expect(
@@ -84,6 +88,12 @@ describe("conversation service realtime support", () => {
         text: "That is a clear start. What example from your area shows that problem?",
       },
     ]);
+    expect(
+      (synced?.turns.find((turn) => turn.speaker === "student")?.metricsPayload as {
+        microCoaching?: string;
+        coachLabel?: string;
+      })?.coachLabel
+    ).toBeTruthy();
 
     const completion = await ConversationService.completeSession({
       sessionId: started.sessionId,

@@ -2,7 +2,6 @@
 
 import { afterAll, describe, expect, it } from "vitest";
 
-import { AppError } from "@/server/errors";
 import { prisma } from "@/server/prisma";
 import { StreakService } from "@/server/services/streak-service";
 import { UsageService } from "@/server/services/usage-service";
@@ -32,7 +31,7 @@ describe("streaks and limits", () => {
     expect(second.currentStreakDays).toBe(1);
   });
 
-  it("enforces the documented free-tier text turn limit", async () => {
+  it("normalizes subscriptions to active pro access", async () => {
     const user = await prisma.user.create({
       data: {
         email: `limit-${crypto.randomUUID()}@example.com`,
@@ -45,21 +44,17 @@ describe("streaks and limits", () => {
       },
     });
 
-    await UsageService.getOrCreateSubscription(user.id);
-    const counter = await UsageService.getCurrentUsageCounter(user.id, "speak_text_turns");
-
-    await prisma.usageCounter.update({
-      where: { id: counter.id },
+    await prisma.subscription.create({
       data: {
-        usedValue: counter.limitValue - 1,
+        userId: user.id,
+        plan: "free",
+        status: "canceled",
       },
     });
 
-    await UsageService.assertWithinLimit(user.id, "speak_text_turns");
-    await UsageService.increment(user.id, "speak_text_turns");
+    const subscription = await UsageService.getOrCreateSubscription(user.id);
 
-    await expect(
-      UsageService.assertWithinLimit(user.id, "speak_text_turns")
-    ).rejects.toBeInstanceOf(AppError);
+    expect(subscription.plan).toBe("pro");
+    expect(subscription.status).toBe("active");
   });
 });

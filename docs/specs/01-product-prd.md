@@ -25,7 +25,7 @@ Data model note:
 5. Professional UX: clean, minimal, predictable navigation
 6. Speed-to-value: panic homework help in one tap
 7. Emotional reinforcement: celebrate real progress, not empty gamification
-8. Sustainable economics: free tier demonstrates value without unbounded AI cost
+8. Sustainable economics: billing and plan limits remain modeled, but the current preview mode provisions all accounts on Pro by default
 9. Content authenticity: teacher-provided academic content is the primary curriculum source
 
 ## 4. In-Scope (MVP)
@@ -44,22 +44,22 @@ Data model note:
   - focused transcript review
   - optional retry
 - unit speaking missions support:
-  - free tier text-first completion with TTS playback
-  - pro tier live voice input with pronunciation/clarity signals
+  - default account access currently includes the Pro voice path in preview mode
+  - text fallback remains available when voice is unavailable
 - units `3` and `6` in each curriculum act as stronger speaking benchmarks inside Learn without affecting level assignment
 - Teacher-provided lesson content pipeline (lessons, worksheets, videos) as canonical source
 - Placeholder content library for pre-content MVP bootstrap
 - Homework Help inside Tools
 - Strong early class-context capture (syllabus upload or "what are you studying this week?"), but not as prime Home content
 - Speak free-talk + guided scenarios with:
-  - free tier text-first conversations (with TTS playback)
-  - pro tier full voice conversation and pronunciation feedback
+  - default account access currently includes the Pro voice path in preview mode
+  - text fallback remains available when voice is unavailable
 - Interactive conversation transcript (review, phrase save, vocab extraction)
 - Progress with report history, overall trend timeline, per-skill trend views, and reassessment entry point
 - Shareable progress artifacts (level card, improvement card, milestone card)
 - Test Prep Sprint inside Tools (date/topic based focused plan + mini mock check)
 - Subscription and billing flows
-- Explicit free-tier usage limits and paywall triggers
+- Explicit free-tier usage limits and paywall triggers remain implemented, but they are temporarily suspended because all accounts are auto-provisioned on Pro
 
 ## 5. Out-of-Scope (MVP)
 
@@ -167,6 +167,11 @@ Business:
 - Test Prep Sprint usage and conversion uplift
 
 ## 10. Free Tier Limits (MVP Fixed)
+
+Temporary preview-mode rule:
+- all existing accounts are normalized to `pro`
+- all new accounts are created on `pro`
+- these limits remain documented for later billing reactivation, but they are not expected to gate users right now
 
 - `speakTextTurnsPerDay`: 120
 - `speakVoiceSecondsLifetimeTrial`: 180

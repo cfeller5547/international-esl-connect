@@ -1,6 +1,12 @@
 import { addDays, differenceInCalendarDays, formatISO } from "date-fns";
 
 import { FREE_TIER_LIMITS, SKILLS } from "@/lib/constants";
+import {
+  buildSpeakTurnCoaching,
+  filterSpeakVocabulary,
+  inferSpeakPhraseDefinition,
+  sanitizeSpeakPhraseTerm,
+} from "@/lib/speak";
 import { clamp, percentDelta } from "@/lib/utils";
 
 type ObjectiveAnswer = {
@@ -237,8 +243,6 @@ function escapeXml(value: string) {
 }
 
 export function generateTranscriptAnnotations(turns: Array<{ speaker: string; text: string }>) {
-  const vocabulary = new Map<string, { term: string; definition: string; translation: string }>();
-
   const annotatedTurns = turns.map((turn, index) => {
     const corrections: Array<{ span: string; suggestion: string; reason: string }> = [];
     if (/goed/i.test(turn.text)) {
@@ -256,18 +260,6 @@ export function generateTranscriptAnnotations(turns: Array<{ speaker: string; te
       });
     }
 
-    turn.text
-      .split(/\W+/)
-      .filter((word) => word.length > 6)
-      .slice(0, 2)
-      .forEach((word) => {
-        vocabulary.set(word.toLowerCase(), {
-          term: word,
-          definition: "Useful academic phrase from your session.",
-          translation: word,
-        });
-      });
-
     return {
       turnIndex: index + 1,
       speaker: turn.speaker,
@@ -278,8 +270,69 @@ export function generateTranscriptAnnotations(turns: Array<{ speaker: string; te
 
   return {
     turns: annotatedTurns,
-    vocabulary: Array.from(vocabulary.values()),
+    vocabulary: extractSpeakVocabulary(turns),
   };
+}
+
+function extractSpeakVocabulary(turns: Array<{ speaker: string; text: string }>) {
+  const candidates = turns
+    .filter((turn) => turn.speaker === "student")
+    .flatMap((turn) => extractPhraseCandidates(turn.text))
+    .map((term) => ({
+      term,
+      definition: inferSpeakPhraseDefinition(term),
+      translation: term,
+    }));
+
+  return filterSpeakVocabulary(candidates, 4);
+}
+
+function extractPhraseCandidates(text: string) {
+  const matches = new Set<string>();
+  const normalizedText = text.replace(/\s+/g, " ").trim();
+  const patterns = [
+    /\b(I think [^,.!?;]+)/gi,
+    /\b(Because [^,.!?;]+)/gi,
+    /\b(My name is [^,.!?;]+)/gi,
+    /\b(I(?:'m| am) from [^,.!?;]+)/gi,
+    /\b(I like to [^,.!?;]+)/gi,
+    /\b(One thing about me is [^,.!?;]+)/gi,
+    /\b(What stands out to me is [^,.!?;]+)/gi,
+    /\b(The part that confuses me is [^,.!?;]+)/gi,
+    /\b(In my opinion [^,.!?;]+)/gi,
+    /\b(For example,? [^,.!?;]+)/gi,
+  ];
+
+  for (const pattern of patterns) {
+    for (const match of normalizedText.matchAll(pattern)) {
+      const phrase = sanitizeSpeakPhraseTerm(match[1] ?? "");
+      if (phrase) {
+        matches.add(phrase);
+      }
+    }
+  }
+
+  if (matches.size > 0) {
+    return Array.from(matches);
+  }
+
+  const clauses = normalizedText
+    .split(/[.!?]/)
+    .map((clause) => clause.trim())
+    .filter(Boolean);
+
+  for (const clause of clauses) {
+    const phrase = sanitizeSpeakPhraseTerm(clause);
+    if (!phrase) {
+      continue;
+    }
+
+    if (/^(i|because|my|one|what|the|for)\b/i.test(phrase)) {
+      matches.add(phrase);
+    }
+  }
+
+  return Array.from(matches);
 }
 
 export function generateSpeakReply({
@@ -301,14 +354,22 @@ export function generateSpeakReply({
       ? "Try answering with one longer sentence."
       : "Nice start. Keep your verb tense consistent.";
 
+  const turnSignals = {
+    fluencyIssue: trimmed.split(/\s+/).length < 5,
+    grammarIssue: /goed/i.test(trimmed),
+    vocabOpportunity: trimmed.split(/\s+/).length < 10,
+  };
+  const coachLabel =
+    buildSpeakTurnCoaching({
+      microCoaching,
+      turnSignals,
+    })?.label ?? "Keep this move";
+
   return {
     aiResponseText,
     microCoaching,
-    turnSignals: {
-      fluencyIssue: trimmed.split(/\s+/).length < 5,
-      grammarIssue: /goed/i.test(trimmed),
-      vocabOpportunity: trimmed.split(/\s+/).length < 10,
-    },
+    coachLabel,
+    turnSignals,
   };
 }
 

@@ -5,6 +5,7 @@ import { setAuthSession, verifyPassword } from "@/server/auth";
 import { AppError, toErrorResponse } from "@/server/errors";
 import { ok, parseJson } from "@/server/http";
 import { prisma } from "@/server/prisma";
+import { UsageService } from "@/server/services/usage-service";
 
 const schema = z.object({
   email: z.string().email(),
@@ -26,6 +27,8 @@ export async function POST(request: Request) {
     if (!valid) {
       throw new AppError("VALIDATION_ERROR", "Invalid email or password.", 401);
     }
+
+    await UsageService.getOrCreateSubscription(user.id);
 
     await setAuthSession({
       userId: user.id,

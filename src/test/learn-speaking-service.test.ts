@@ -53,7 +53,7 @@ describe("learn speaking service", () => {
     await unlockSpeakingStep(user.id, unitSlug!);
 
     const missionView = await LearnSpeakingService.getMissionView(user.id, unitSlug!);
-    expect(missionView.plan).toBe("free");
+    expect(missionView.plan).toBe("pro");
     expect(missionView.mission.isBenchmark).toBe(false);
 
     const started = await LearnSpeakingService.startMission({

@@ -1,5 +1,6 @@
 import { toFile } from "openai/uploads";
 
+import { buildSpeakTurnCoaching, filterSpeakVocabulary } from "@/lib/speak";
 import { clamp } from "@/lib/utils";
 import { env } from "@/server/env";
 import { createLearnOpeningPrompt } from "@/server/learn-speaking-prompts";
@@ -34,6 +35,10 @@ export type ConversationContext = {
   successCriteria: string[];
   modelExample?: string | null;
   starterPrompt?: string | null;
+  learnerLevel?: string | null;
+  focusSkill?: string | null;
+  recommendationReason?: string | null;
+  activeTopic?: string | null;
   isBenchmark?: boolean;
 };
 
@@ -45,6 +50,7 @@ export type ConversationTurnLike = {
 export type ConversationReply = {
   aiResponseText: string;
   microCoaching: string;
+  coachLabel: string;
   turnSignals: {
     fluencyIssue: boolean;
     grammarIssue: boolean;
@@ -219,7 +225,7 @@ function createFallbackReview({
       text: turn.text,
       inlineCorrections: turn.inlineCorrections,
     })),
-    vocabulary: annotated.vocabulary.slice(0, 4),
+    vocabulary: filterSpeakVocabulary(annotated.vocabulary, 4),
   };
 }
 
@@ -313,6 +319,12 @@ function generateFallbackConversationReply({
     const nextPrompt = normalizeQuestion(stripImperativePrefix(nextPromptRaw));
     const learnerPoint = summarizeLearnerPoint(studentInput);
 
+    const turnSignals = {
+      fluencyIssue: learnerWordCount < 6,
+      grammarIssue: /\bgoed\b/i.test(studentInput),
+      vocabOpportunity: learnerWordCount < 14,
+    };
+
     return {
       aiResponseText:
         learnerWordCount < 6
@@ -322,11 +334,12 @@ function generateFallbackConversationReply({
             )
           : `That helps me understand you better. ${nextPrompt || "Can you give me one example?"}`,
       microCoaching: "",
-      turnSignals: {
-        fluencyIssue: learnerWordCount < 6,
-        grammarIssue: /\bgoed\b/i.test(studentInput),
-        vocabOpportunity: learnerWordCount < 14,
-      },
+      coachLabel:
+        buildSpeakTurnCoaching({
+          microCoaching: "",
+          turnSignals,
+        })?.label ?? "Keep this move",
+      turnSignals,
     };
   }
 
@@ -350,14 +363,21 @@ function generateFallbackConversationReply({
       ? `I heard "${learnerPoint}." Can you say a little more?`
       : `That helps. ${nextPrompt || "Can you give one more example?"}`;
 
+  const learnTurnSignals = {
+    fluencyIssue: learnerWordCount < 6,
+    grammarIssue: /\bgoed\b/i.test(studentInput),
+    vocabOpportunity: learnerWordCount < 14,
+  };
+
   return {
     aiResponseText,
     microCoaching: "",
-    turnSignals: {
-      fluencyIssue: learnerWordCount < 6,
-      grammarIssue: /\bgoed\b/i.test(studentInput),
-      vocabOpportunity: learnerWordCount < 14,
-    },
+    coachLabel:
+      buildSpeakTurnCoaching({
+        microCoaching: "",
+        turnSignals: learnTurnSignals,
+      })?.label ?? "Keep this move",
+    turnSignals: learnTurnSignals,
   };
 }
 
@@ -384,10 +404,15 @@ export function createOpeningPrompt(context: ConversationContext) {
     });
   }
 
-  return (
-    context.starterPrompt ??
-    `Let's begin. ${context.scenarioSetup || `Talk about ${context.scenarioTitle.toLowerCase()}.`}`
+  const introduction = context.introductionText?.trim() ?? "";
+  const question = normalizeQuestion(
+    context.openingQuestion?.trim() ||
+      context.starterPrompt?.trim() ||
+      context.scenarioSetup ||
+      `Talk about ${context.scenarioTitle.toLowerCase()}.`
   );
+
+  return [introduction, question].filter(Boolean).join(" ").trim();
 }
 
 export async function transcribeAudioInput({
@@ -438,6 +463,7 @@ export async function generateConversationReply({
     return {
       aiResponseText: fallback.aiResponseText,
       microCoaching: fallback.microCoaching,
+      coachLabel: fallback.coachLabel,
       turnSignals: fallback.turnSignals,
       aiAudioBase64: null,
       studentTranscriptText: studentInput,
@@ -480,9 +506,13 @@ export async function generateConversationReply({
       : [
           "You are ESL International Connect.",
           "Continue a short English-learning conversation in a warm, professional tone.",
-          "Keep each reply to 1-2 short sentences.",
+          "Sound like a real teacher, classmate, or conversation partner inside the scene, not a chatbot or worksheet.",
+          "Keep each reply to 1-2 short spoken sentences.",
           "Stay inside the scenario and adapt to the learner's level.",
+          "Model better English naturally inside your reply when useful by recasting or expanding the learner's idea.",
+          "Prefer natural recasts and follow-up prompts over explicit correction language.",
           "Use follow-up questions that help the learner show the target skill.",
+          "Do not mention scores, rubrics, evaluation, or coaching language while the conversation is live.",
           "Return JSON only with this shape:",
           '{"reply":"string","microCoaching":"string","turnSignals":{"fluencyIssue":false,"grammarIssue":false,"vocabOpportunity":false}}',
         ].join(" ");
@@ -515,6 +545,10 @@ export async function generateConversationReply({
               `Performance task: ${context.performanceTask ?? "n/a"}`,
               `Target phrases: ${context.targetPhrases.join(", ") || "n/a"}`,
               `Success criteria: ${context.successCriteria.join(", ") || "n/a"}`,
+              `Learner level: ${context.learnerLevel ?? "n/a"}`,
+              `Current focus skill: ${context.focusSkill ?? "n/a"}`,
+              `Active class topic: ${context.activeTopic ?? "n/a"}`,
+              `Why this session matters now: ${context.recommendationReason ?? "n/a"}`,
               `Suggested next follow-up: ${followUpHint}`,
               "Conversation so far:",
               transcriptBlock || "(no turns yet)",
@@ -544,18 +578,27 @@ export async function generateConversationReply({
         ? "Thanks. Can you tell me a little more about that?"
         : "Good start. Add one more detail so I can understand the situation better.");
 
+  const microCoaching =
+    parsed.microCoaching?.trim() ||
+    (context.surface === "learn" || context.surface === "assessment"
+      ? ""
+      : "Keep your answer clear and connected.");
+  const turnSignals = {
+    fluencyIssue: Boolean(parsed.turnSignals?.fluencyIssue),
+    grammarIssue: Boolean(parsed.turnSignals?.grammarIssue),
+    vocabOpportunity: Boolean(parsed.turnSignals?.vocabOpportunity),
+  };
+  const coachLabel =
+    buildSpeakTurnCoaching({
+      microCoaching,
+      turnSignals,
+    })?.label ?? "Keep this move";
+
   return {
     aiResponseText,
-    microCoaching:
-      parsed.microCoaching?.trim() ||
-      (context.surface === "learn" || context.surface === "assessment"
-        ? ""
-        : "Keep your answer clear and connected."),
-    turnSignals: {
-      fluencyIssue: Boolean(parsed.turnSignals?.fluencyIssue),
-      grammarIssue: Boolean(parsed.turnSignals?.grammarIssue),
-      vocabOpportunity: Boolean(parsed.turnSignals?.vocabOpportunity),
-    },
+    microCoaching,
+    coachLabel,
+    turnSignals,
     aiAudioBase64: includeAudio ? await synthesizeSpeech(aiResponseText) : null,
     studentTranscriptText: studentInput,
   };
@@ -595,6 +638,9 @@ export async function evaluateMissionTranscript({
               '{"status":"ready","score":78,"strength":"string","improvement":"string","pronunciationNote":"string or null","highlights":[{"turnIndex":1,"youSaid":"string","tryInstead":"string","why":"string"}],"vocabulary":[{"term":"string","definition":"string","translation":"string"}]}',
               "Use only these status values: ready, almost_there, practice_once_more.",
               "Return 2-3 highlights maximum.",
+              "Vocabulary must be reusable 2-6 word chunks, not isolated single words.",
+              "Prefer phrases the learner used well or should reuse next time.",
+              "Do not return names, broad topic labels, or generic standalone words.",
             ].join(" "),
           },
         ],
@@ -637,6 +683,10 @@ export async function evaluateMissionTranscript({
     interactionMode: context.interactionMode,
     context,
   });
+  const filteredVocabulary =
+    Array.isArray(parsed.vocabulary) && parsed.vocabulary.length > 0
+      ? filterSpeakVocabulary(parsed.vocabulary, 4)
+      : [];
 
   return {
     status:
@@ -661,8 +711,8 @@ export async function evaluateMissionTranscript({
         : fallback.highlights,
     turns: fallback.turns,
     vocabulary:
-      Array.isArray(parsed.vocabulary) && parsed.vocabulary.length > 0
-        ? parsed.vocabulary.slice(0, 4)
-        : fallback.vocabulary,
+      filteredVocabulary.length > 0
+        ? filteredVocabulary
+        : filterSpeakVocabulary(fallback.vocabulary, 4),
   };
 }

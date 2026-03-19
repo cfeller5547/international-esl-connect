@@ -32,6 +32,7 @@ Current core model:
 - `mini_mock` never changes level
 - curriculum MVP is English-only
 - onboarding and full-diagnostic placement interviews are voice-required and use OpenAI Realtime live audio with a one-tap continuous mic flow rather than browser TTS or per-turn recording
+- current preview-mode subscription rule auto-provisions all accounts on `pro`
 
 Current fixed curriculum system:
 - 4 levels:
@@ -61,14 +62,32 @@ Current Learn UX shape:
   - focused conversation
   - focused review
   - optional retry
-- Pro Learn speaking is voice-first and uses a shorter realtime voice path inside Learn
-- free Learn speaking is text-first and uses the same transcript-first conversation surface without live mic
+- preview mode currently means signed-in users land on the Pro Learn speaking path by default
+- the text-first Learn speaking path still exists as the fallback shape when voice is unavailable or when plan gating is re-enabled later
 - Learn speaking hides visible turn-count mechanics from the main conversation body
 
 Current Speak UX shape:
-- free users use text-first Speak with starter prompts
-- Pro voice Speak uses browser-mic realtime conversation backed by OpenAI Realtime
+- Speak launch is recommendation-led rather than setup-led
+- preview mode currently means signed-in users land on the Pro-capable Speak path by default
+- the text-first Speak path still exists as the fallback shape when voice is unavailable or when plan gating is re-enabled later
 - active voice sessions live on `/app/speak/session/:sessionId`
+- sessions open with a short mission brief before the first learner turn:
+  - role / scenario
+  - speaking goal
+  - target phrases
+  - why-now context
+- once the mission starts, the transcript is the dominant surface
+- once the session ends, Speak switches into a review-first mode instead of leaving the live transcript as the primary surface
+- completed sessions now show:
+  - completion summary card
+  - synthesized coach summary (`What to keep`, `Next focus`, `Key moments`)
+  - secondary expandable `Conversation snapshot`
+  - phrase bank items filtered toward reusable multi-word chunks
+- live coaching is subtle and transcript-native:
+  - one coach label per learner turn
+  - one concise coaching note per learner turn
+  - one minimal `Help me` action
+- Speak should teach mostly through natural recasts and level-aware follow-up questions, not loud correction chrome
 - realtime transcript snapshots sync back through the app before the session is completed
 - non-realtime fallback Speak panels are read-only for voice sessions so the app does not regress to per-turn recording UX
 - Learn voice missions use parallel Learn-scoped realtime routes under `/api/v1/learn/curriculum/speaking/:sessionId/*`
@@ -108,7 +127,7 @@ Do not casually change these:
 - curriculum level is driven by assessment, not by unit completion
 - reassessment can promote, never demote
 - `mini_mock` can never change `currentLevel`
-- fixed free-tier limits must stay aligned with docs
+- free-tier limits still exist in code and docs, but preview mode currently auto-upgrades all accounts to `pro`
 - semantic tokens must drive UI colors, not ad hoc raw palette usage
 
 ## 5. Key Code Landmarks
@@ -164,8 +183,10 @@ Do not casually change these:
 
 ### Speak
 - `src/app/app/speak/*`
+- `src/features/speak/speak-view-model.ts`
 - `src/features/speak/speak-realtime-session-panel.tsx`
 - `src/features/speak/speak-session-panel.tsx`
+- `src/lib/speak.ts`
 - `src/server/services/conversation-service.ts`
 - `src/server/services/speak-service.ts`
 

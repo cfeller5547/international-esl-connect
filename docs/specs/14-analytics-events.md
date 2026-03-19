@@ -168,27 +168,40 @@ Implementation note:
 
 1. `speak_landing_viewed`
    - trigger: speak landing view
-2. `speak_session_started`
+2. `speak_recommendation_viewed`
+   - trigger: recommendation-led Speak hero rendered
+   - properties: `mode`, `scenario_key`
+3. `speak_recommendation_started`
+   - trigger: user starts the recommended Speak session
+   - properties: `mode`, `scenario_key`
+4. `speak_session_started`
    - trigger: speak session start
    - properties: `mode`, `scenario_key`
-3. `speak_starter_selected`
+5. `speak_starter_selected`
    - trigger: free-speech starter chosen
    - properties: `starter_key`
-4. `speak_turn_submitted`
+6. `speak_turn_submitted`
    - trigger: student submits turn
    - properties: `turn_index`, `input_mode`
-5. `speak_session_completed`
+7. `speak_turn_coaching_shown`
+   - trigger: learner-turn coaching rendered after a turn lands
+   - properties: `input_mode`
+8. `speak_help_requested`
+   - trigger: learner opens the in-session `Help me` hint
+   - properties: `input_mode`
+9. `speak_session_completed`
    - trigger: session complete
    - properties: `mode`, `duration_seconds`, `turn_count`
-6. `voice_mode_upgrade_prompt_shown`
+10. `voice_mode_upgrade_prompt_shown`
    - trigger: free-tier user requests voice mode requiring upgrade
-7. `transcript_phrase_saved`
+11. `transcript_phrase_saved`
    - trigger: phrase saved from transcript review
    - properties: `session_id`
 
 Implementation note:
-- the current Pro voice path uses OpenAI Realtime in-browser, but it does not emit separate realtime-only analytics events yet.
+- the current Pro voice path uses OpenAI Realtime in-browser.
 - live voice continues to roll up into the existing `speak_session_started`, `speak_turn_submitted`, and `speak_session_completed` contract.
+- in-session coaching and `Help me` analytics apply to both text and voice sessions.
 
 ## 4.5 Progress and Reporting
 

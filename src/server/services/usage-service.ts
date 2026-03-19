@@ -62,13 +62,23 @@ export const UsageService = {
     });
 
     if (existing) {
-      return existing;
+      if (existing.plan === "pro" && existing.status === "active") {
+        return existing;
+      }
+
+      return prisma.subscription.update({
+        where: { id: existing.id },
+        data: {
+          plan: "pro",
+          status: "active",
+        },
+      });
     }
 
     return prisma.subscription.create({
       data: {
         userId,
-        plan: "free",
+        plan: "pro",
         status: "active",
       },
     });
@@ -190,4 +200,3 @@ export const UsageService = {
     });
   },
 };
-

@@ -60,9 +60,18 @@ Modes:
 - Free Speech sandbox
 - Guided scenario conversations
 
+Entry behavior:
+- Speak should open with one recommendation-led practice card rather than a configuration-first form.
+- The recommendation should be chosen from:
+  - latest report focus / weakest skill
+  - active syllabus or weekly topics
+  - current level and current Learn context
+  - fallback starter/scenario defaults
+- Alternate starters and scenarios remain available below the recommendation, but they are secondary.
+
 Plan behavior:
-- Free tier defaults to text-first conversation with optional AI voice playback.
-- Pro tier unlocks full live voice conversation input through the browser microphone.
+- Current preview mode provisions all signed-in accounts on Pro automatically.
+- Voice remains available by default while preview mode is active, with text fallback when voice is unavailable.
 - Active Pro voice sessions should feel like real-time back-and-forth, not clip upload plus delayed playback.
 - Voice review still happens after the session, not during the live exchange.
 
@@ -70,6 +79,27 @@ First-run behavior:
 - Free Speech must present starter prompts (not an empty input state).
 - One starter is preselected by default so users can begin in one tap.
 - Voice sessions should open with one explicit `Start live conversation` moment so the user understands when the mic becomes active.
+- Both text and voice sessions should begin with a short mission card:
+  - role / scenario
+  - one speaking goal
+  - 2-3 target phrases
+  - one short `why now` reason
+
+Session behavior:
+- Once the mission starts, the transcript becomes the dominant surface.
+- Speak should not use a persistent coaching sidebar or worksheet-style support rail during the live exchange.
+- Live coaching should be subtle and transcript-native:
+  - one short coach label per learner turn
+  - one concise coaching note per learner turn
+  - no numeric scores
+  - no large correction boxes during the live exchange
+- The AI should teach mostly through natural recasts, level-aware follow-up questions, and better modeled language inside the conversation.
+- One minimal `Help me` action can reveal a contextual hint without sending a turn or interrupting the conversation.
+- Once the session is completed, Speak should switch into a review-first state:
+  - show a concise completion summary before any transcript detail
+  - surface `What to keep`, `Next focus`, and a few key moments first
+  - keep the full transcript secondary and collapsible
+  - phrase saving should prioritize reusable multi-word chunks, not generic single words
 
 ### 2.4 Progress
 Purpose:
@@ -95,6 +125,7 @@ Purpose:
 Information architecture guardrail:
 - These utilities should stay out of the primary navigation.
 - They must remain reachable from a compact account/utility menu in the authenticated shell.
+- Billing currently communicates preview-mode access rather than pushing upgrade decisions, because all accounts are auto-provisioned on Pro for now.
 
 ## 3. Navigation UX Rules
 

@@ -1,33 +1,30 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Mic, PhoneOff, Radio, Sparkles } from "lucide-react";
+import { Lightbulb, Mic, PhoneOff, Radio } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-
-type TranscriptTurn = {
-  speaker: "ai" | "student";
-  text: string;
-};
-
-type TranscriptReview = {
-  turns: Array<{
-    turnIndex: number;
-    speaker: string;
-    text: string;
-    inlineCorrections: Array<{ span: string; suggestion: string; reason: string }>;
-  }>;
-  vocabulary: Array<{ term: string; definition: string; translation: string }>;
-};
+import {
+  SpeakCompletionCard,
+  SpeakReviewPanel,
+  SpeakTranscriptPane,
+} from "@/features/speak/speak-session-ui";
+import {
+  buildSpeakHelpPrompt,
+  getSpeakCounterpartLabel,
+  normalizeSpeakTurnSignals,
+  type SpeakMissionDetails,
+  type SpeakSessionReview,
+  type SpeakTranscriptTurn,
+} from "@/lib/speak";
+import { trackClientEvent } from "@/lib/client-analytics";
 
 type SpeakRealtimeSessionPanelProps = {
   sessionId: string;
-  initialTurns: TranscriptTurn[];
-  scenarioTitle: string;
-  scenarioSetup: string;
-  starterPrompt: string | null;
+  mission: SpeakMissionDetails;
+  initialTurns: SpeakTranscriptTurn[];
 };
 
 type LiveState =
@@ -43,7 +40,7 @@ type LiveState =
 function getStateCopy(state: LiveState) {
   switch (state) {
     case "connecting":
-      return "Connecting to live voice";
+      return "Connecting";
     case "ready":
       return "Live and ready";
     case "listening":
@@ -61,27 +58,17 @@ function getStateCopy(state: LiveState) {
   }
 }
 
-function normalizePhrase(value: string) {
-  return value.trim().toLowerCase();
-}
-
 export function SpeakRealtimeSessionPanel({
   sessionId,
+  mission,
   initialTurns,
-  scenarioTitle,
-  scenarioSetup,
-  starterPrompt,
 }: SpeakRealtimeSessionPanelProps) {
-  const [transcript, setTranscript] = useState<TranscriptTurn[]>(initialTurns);
+  const [transcript, setTranscript] = useState<SpeakTranscriptTurn[]>(initialTurns);
   const [state, setState] = useState<LiveState>("idle");
   const [error, setError] = useState<string | null>(null);
-  const [review, setReview] = useState<TranscriptReview | null>(null);
-  const [summary, setSummary] = useState<null | {
-    strengths: string[];
-    improvements: string[];
-  }>(null);
-  const [savedPhrases, setSavedPhrases] = useState<Set<string>>(new Set());
+  const [review, setReview] = useState<SpeakSessionReview | null>(null);
   const [finishing, setFinishing] = useState(false);
+  const [helpPrompt, setHelpPrompt] = useState<string | null>(null);
 
   const transcriptRef = useRef(transcript);
   const stateRef = useRef<LiveState>(state);
@@ -92,7 +79,7 @@ export function SpeakRealtimeSessionPanel({
   const syncTimeoutRef = useRef<number | null>(null);
   const lastSyncedSignatureRef = useRef("");
   const syncInFlightRef = useRef<Promise<void> | null>(null);
-  const pendingSyncRef = useRef<TranscriptTurn[] | null>(null);
+  const pendingSyncRef = useRef<SpeakTranscriptTurn[] | null>(null);
   const pendingSyncSignatureRef = useRef("");
   const sessionStartedAtRef = useRef<number | null>(null);
   const closingSessionRef = useRef(false);
@@ -126,29 +113,89 @@ export function SpeakRealtimeSessionPanel({
     () => transcript.filter((turn) => turn.speaker === "student").length,
     [transcript]
   );
+  const counterpartLabel = getSpeakCounterpartLabel(mission.counterpartRole);
 
-  const syncTranscript = useCallback(async (turns: TranscriptTurn[]) => {
-    const signature = JSON.stringify(turns);
-    if (signature === lastSyncedSignatureRef.current) {
-      return;
-    }
+  const applySyncedCoachings = useCallback(
+    (
+      coachings: Array<{
+        turnIndex: number;
+        microCoaching: string;
+        coachLabel: string;
+        turnSignals: {
+          fluencyIssue?: boolean;
+          grammarIssue?: boolean;
+          vocabOpportunity?: boolean;
+        };
+      }>
+    ) => {
+      if (coachings.length === 0) {
+        return;
+      }
 
-    const response = await fetch(`/api/v1/speak/session/${sessionId}/sync`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        turns,
-      }),
-    });
+      setTranscript((current) =>
+        current.map((turn) => {
+          const coaching = coachings.find((entry) => entry.turnIndex === turn.turnIndex);
 
-    if (!response.ok) {
-      throw new Error("Unable to sync the live transcript.");
-    }
+          if (!coaching || turn.speaker !== "student") {
+            return turn;
+          }
 
-    lastSyncedSignatureRef.current = signature;
-  }, [sessionId]);
+          return {
+            ...turn,
+            coaching: {
+              label: coaching.coachLabel,
+              note: coaching.microCoaching,
+              signals: normalizeSpeakTurnSignals(coaching.turnSignals),
+            },
+          };
+        })
+      );
+    },
+    []
+  );
+
+  const syncTranscript = useCallback(
+    async (turns: SpeakTranscriptTurn[]) => {
+      const signature = JSON.stringify(turns.map(({ speaker, text }) => ({ speaker, text })));
+      if (signature === lastSyncedSignatureRef.current) {
+        return;
+      }
+
+      const response = await fetch(`/api/v1/speak/session/${sessionId}/sync`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          turns: turns.map((turn) => ({
+            speaker: turn.speaker,
+            text: turn.text,
+          })),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Unable to sync the live transcript.");
+      }
+
+      const payload = (await response.json()) as {
+        studentCoachings?: Array<{
+          turnIndex: number;
+          microCoaching: string;
+          coachLabel: string;
+          turnSignals: {
+            fluencyIssue?: boolean;
+            grammarIssue?: boolean;
+            vocabOpportunity?: boolean;
+          };
+        }>;
+      };
+
+      applySyncedCoachings(payload.studentCoachings ?? []);
+      lastSyncedSignatureRef.current = signature;
+    },
+    [applySyncedCoachings, sessionId]
+  );
 
   const flushPendingSync = useCallback(async () => {
     const turns = pendingSyncRef.current;
@@ -181,22 +228,25 @@ export function SpeakRealtimeSessionPanel({
     }
   }, [syncTranscript]);
 
-  const queueTranscriptSync = useCallback((turns: TranscriptTurn[]) => {
-    const signature = JSON.stringify(turns);
-    if (
-      signature === lastSyncedSignatureRef.current ||
-      signature === pendingSyncSignatureRef.current
-    ) {
-      return;
-    }
+  const queueTranscriptSync = useCallback(
+    (turns: SpeakTranscriptTurn[]) => {
+      const signature = JSON.stringify(turns.map(({ speaker, text }) => ({ speaker, text })));
+      if (
+        signature === lastSyncedSignatureRef.current ||
+        signature === pendingSyncSignatureRef.current
+      ) {
+        return;
+      }
 
-    pendingSyncRef.current = turns.map((turn) => ({ ...turn }));
-    pendingSyncSignatureRef.current = signature;
+      pendingSyncRef.current = turns.map((turn) => ({ ...turn }));
+      pendingSyncSignatureRef.current = signature;
 
-    if (!syncInFlightRef.current) {
-      syncInFlightRef.current = flushPendingSync();
-    }
-  }, [flushPendingSync]);
+      if (!syncInFlightRef.current) {
+        syncInFlightRef.current = flushPendingSync();
+      }
+    },
+    [flushPendingSync]
+  );
 
   useEffect(() => {
     if (!["ready", "listening", "thinking", "speaking"].includes(state)) {
@@ -218,20 +268,29 @@ export function SpeakRealtimeSessionPanel({
         setState("error");
         setError(
           syncError instanceof Error
-          ? syncError.message
-          : "Unable to sync the live transcript."
+            ? syncError.message
+            : "Unable to sync the live transcript."
         );
       });
     }, 600);
   }, [queueTranscriptSync, state, transcript]);
 
-  function pushTurn(turn: TranscriptTurn) {
+  function pushTurn(turn: { speaker: "ai" | "student"; text: string }) {
     if (!turn.text.trim()) {
       return;
     }
 
+    setHelpPrompt(null);
     setTranscript((current) => {
-      const next = [...current, { speaker: turn.speaker, text: turn.text.trim() }];
+      const next = [
+        ...current,
+        {
+          turnIndex: current.length + 1,
+          speaker: turn.speaker,
+          text: turn.text.trim(),
+          coaching: null,
+        },
+      ];
       transcriptRef.current = next;
       return next;
     });
@@ -265,11 +324,10 @@ export function SpeakRealtimeSessionPanel({
   }
 
   function requestOpeningTurn() {
-    const firstQuestion = starterPrompt ?? scenarioSetup;
     sendRealtimeEvent({
       type: "response.create",
       response: {
-        instructions: `Greet the learner naturally, introduce the scenario "${scenarioTitle}", and ask the first clear opening question based on this prompt: ${firstQuestion}`,
+        instructions: `Open the conversation naturally using this opening line as your guide: ${mission.openingPrompt ?? mission.scenarioSetup}`,
       },
     });
   }
@@ -501,22 +559,13 @@ export function SpeakRealtimeSessionPanel({
         throw new Error("Unable to complete the live session.");
       }
 
-      const completionPayload = (await completionResponse.json()) as {
-        summary?: {
-          strengths?: string[];
-          improvements?: string[];
-        };
-      };
-      setSummary({
-        strengths: completionPayload.summary?.strengths ?? [],
-        improvements: completionPayload.summary?.improvements ?? [],
-      });
+      await completionResponse.json();
 
       const reviewResponse = await fetch(`/api/v1/speak/session/${sessionId}/transcript`);
       if (!reviewResponse.ok) {
         throw new Error("Unable to load transcript review.");
       }
-      setReview((await reviewResponse.json()) as TranscriptReview);
+      setReview((await reviewResponse.json()) as SpeakSessionReview);
 
       setState("review");
     } catch (finishError) {
@@ -531,240 +580,199 @@ export function SpeakRealtimeSessionPanel({
     }
   }
 
-  async function savePhrase(phraseText: string) {
-    const response = await fetch(`/api/v1/speak/session/${sessionId}/phrases`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+  function revealHelpPrompt() {
+    setHelpPrompt(
+      buildSpeakHelpPrompt({
+        mission,
+        latestAiTurn:
+          transcriptRef.current
+            .filter((turn) => turn.speaker === "ai")
+            .at(-1)?.text ?? null,
+        studentTurnCount,
+      })
+    );
+
+    trackClientEvent({
+      eventName: "speak_help_requested",
+      route: `/app/speak/session/${sessionId}`,
+      properties: {
+        input_mode: "voice",
       },
-      body: JSON.stringify({
-        phraseText,
-        translationText: phraseText,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error("Unable to save that phrase.");
-    }
-
-    setSavedPhrases((current) => {
-      const next = new Set(current);
-      next.add(normalizePhrase(phraseText));
-      return next;
     });
   }
 
+  const showMissionBrief = state === "idle" && transcript.length === 0 && !review;
+  const showActiveSession = !showMissionBrief && state !== "review";
+
   return (
     <div className="space-y-6">
-      <Card className="border-border/70 bg-card/95">
-        <CardHeader className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="space-y-2">
+      {showMissionBrief ? (
+        <Card className="border-border/70 bg-card/95 shadow-sm">
+          <CardHeader className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
               <Badge variant="outline" className="rounded-full px-3 py-1 text-xs uppercase">
                 Speak live
               </Badge>
-              <CardTitle className="text-3xl leading-tight">{scenarioTitle}</CardTitle>
-              <p className="max-w-3xl text-sm text-muted-foreground">{scenarioSetup}</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge
-                variant={state === "error" ? "destructive" : "outline"}
-                className="rounded-full px-3 py-1 text-xs"
-              >
+              <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs">
+                {counterpartLabel}
+              </Badge>
+              <Badge variant="outline" className="rounded-full px-3 py-1 text-xs">
                 <Radio className="mr-1 size-3.5" />
                 {getStateCopy(state)}
               </Badge>
-              <Button
-                variant="outline"
-                onClick={finishSession}
-                disabled={
-                  finishing ||
-                  studentTurnCount === 0 ||
-                  state === "connecting" ||
-                  state === "review"
-                }
-              >
-                <PhoneOff className="size-4" />
-                {finishing
-                  ? "Wrapping up..."
-                  : state === "review"
-                    ? "Session finished"
-                    : "Finish session"}
-              </Button>
             </div>
-          </div>
-
-          {starterPrompt ? (
-            <div className="rounded-3xl border border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-              Opening prompt: <span className="font-medium text-foreground">{starterPrompt}</span>
+            <div>
+              <CardTitle className="text-3xl leading-tight">{mission.scenarioTitle}</CardTitle>
+              <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{mission.scenarioSetup}</p>
             </div>
-          ) : null}
-        </CardHeader>
-
-        <CardContent className="space-y-4">
-          {state === "idle" ? (
-            <div className="rounded-[2rem] border border-dashed border-border/70 bg-muted/20 px-6 py-8">
-              <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-                <div className="space-y-2">
-                  <p className="text-lg font-semibold text-foreground">
-                    Start a real back-and-forth voice conversation
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="space-y-5 rounded-[2rem] border border-dashed border-border/70 bg-muted/20 px-6 py-8">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-[1.5rem] border border-border/70 bg-card/90 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                    Speaking goal
                   </p>
-                  <p className="max-w-2xl text-sm text-muted-foreground">
-                    The AI will speak back naturally, listen for the end of your turn, and
-                    keep the conversation moving without manual send buttons.
+                  <p className="mt-2 text-sm text-foreground">
+                    {mission.canDoStatement ?? mission.performanceTask}
                   </p>
                 </div>
-                <Button size="lg" onClick={startLiveConversation}>
-                  <Mic className="size-4" />
-                  Start live conversation
+                <div className="rounded-[1.5rem] border border-border/70 bg-card/90 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                    Why now
+                  </p>
+                  <p className="mt-2 text-sm text-foreground">
+                    {mission.recommendationReason ?? "Stay close to your current learning context."}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  Target phrases
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {mission.targetPhrases.slice(0, 3).map((phrase) => (
+                    <Badge key={phrase} variant="outline" className="rounded-full px-3 py-1">
+                      {phrase}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
+              {mission.openingPrompt ? (
+                <div className="rounded-[1.5rem] border border-border/70 bg-card/90 px-4 py-3 text-sm text-muted-foreground">
+                  Opening line: <span className="font-medium text-foreground">{mission.openingPrompt}</span>
+                </div>
+              ) : null}
+
+              <Button size="lg" onClick={startLiveConversation}>
+                <Mic className="size-4" />
+                Start live conversation
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {showActiveSession ? (
+        <Card className="border-border/70 bg-card/95 shadow-sm">
+          <CardHeader className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="outline" className="rounded-full px-3 py-1 text-xs uppercase">
+                    Speak live
+                  </Badge>
+                  <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs">
+                    {counterpartLabel}
+                  </Badge>
+                  <Badge
+                    variant={state === "error" ? "destructive" : "outline"}
+                    className="rounded-full px-3 py-1 text-xs"
+                  >
+                    <Radio className="mr-1 size-3.5" />
+                    {getStateCopy(state)}
+                  </Badge>
+                </div>
+                <div>
+                  <CardTitle className="text-3xl leading-tight">{mission.scenarioTitle}</CardTitle>
+                  <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+                    {mission.canDoStatement ?? mission.performanceTask}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={revealHelpPrompt}>
+                  <Lightbulb className="size-4" />
+                  Help me
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={finishSession}
+                  disabled={finishing || studentTurnCount === 0 || state === "connecting"}
+                >
+                  <PhoneOff className="size-4" />
+                  {finishing ? "Wrapping up..." : "Finish session"}
                 </Button>
               </div>
             </div>
-          ) : null}
+          </CardHeader>
 
-          <div className="max-h-[32rem] space-y-3 overflow-auto rounded-[2rem] border border-border/70 bg-muted/20 p-4">
-            {transcript.length === 0 && state !== "idle" ? (
-              <div className="rounded-3xl bg-card px-4 py-3 text-sm text-muted-foreground">
-                The session is live. The AI will greet you first.
-              </div>
-            ) : null}
-            {transcript.map((turn, index) => (
-              <div
-                key={`${turn.speaker}-${index}`}
-                className={`max-w-[85%] rounded-[1.5rem] px-4 py-3 text-sm shadow-sm ${
-                  turn.speaker === "student"
-                    ? "ml-auto bg-primary text-primary-foreground"
-                    : "bg-card text-foreground"
-                }`}
-              >
-                {turn.text}
-              </div>
-            ))}
-          </div>
+          <CardContent className="space-y-4">
+            <SpeakTranscriptPane turns={transcript} />
 
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-border/70 bg-muted/15 px-4 py-3">
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-foreground">
-                {state === "listening"
-                  ? "Speak naturally. The AI will answer when you pause."
-                  : state === "speaking"
-                    ? "The AI is responding out loud right now."
-                    : state === "thinking"
-                      ? "The AI is preparing the next spoken reply."
-                      : state === "review"
-                        ? "Review your session and save any useful phrases."
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.5rem] border border-border/70 bg-muted/15 px-4 py-3">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-foreground">
+                  {state === "listening"
+                    ? "Speak naturally. The AI will answer when you pause."
+                    : state === "speaking"
+                      ? "The AI is responding out loud right now."
+                      : state === "thinking"
+                        ? "The AI is preparing the next spoken reply."
                         : "Your microphone stays live for the conversation once connected."}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Student turns recorded: {studentTurnCount}
-              </p>
-            </div>
-            {state === "error" ? (
-              <Button variant="outline" onClick={startLiveConversation}>
-                Retry connection
-              </Button>
-            ) : null}
-          </div>
-
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        </CardContent>
-      </Card>
-
-      {review ? (
-        <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-          <Card className="border-border/70 bg-card/95">
-            <CardHeader className="space-y-3">
-              <Badge variant="outline" className="w-fit rounded-full px-3 py-1 text-xs uppercase">
-                Post-session review
-              </Badge>
-              <CardTitle className="text-2xl">See what to keep and what to refine</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {summary ? (
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="rounded-3xl border border-border/70 bg-muted/20 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                      What worked
-                    </p>
-                    <p className="mt-2 text-sm text-foreground">
-                      {summary.strengths[0] ?? "You stayed in the conversation and kept it moving."}
-                    </p>
-                  </div>
-                  <div className="rounded-3xl border border-border/70 bg-muted/20 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                      Next improvement
-                    </p>
-                    <p className="mt-2 text-sm text-foreground">
-                      {summary.improvements[0] ??
-                        "Try one more round and add slightly more detail to each answer."}
-                    </p>
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="space-y-4">
-                {review.turns.map((turn) => (
-                  <div key={turn.turnIndex} className="rounded-3xl border border-border/70 bg-muted/20 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                      {turn.speaker}
-                    </p>
-                    <p className="mt-2 text-sm text-foreground">{turn.text}</p>
-                    {turn.inlineCorrections.slice(0, 2).map((correction) => (
-                      <div
-                        key={`${turn.turnIndex}-${correction.span}`}
-                        className="mt-3 rounded-2xl bg-card px-3 py-2 text-sm text-muted-foreground"
-                      >
-                        <span className="font-medium text-foreground">Try:</span> {correction.suggestion}
-                        <span className="mx-2 text-muted-foreground/70">|</span>
-                        {correction.reason}
-                      </div>
-                    ))}
-                  </div>
-                ))}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Student turns recorded: {studentTurnCount}
+                </p>
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/70 bg-card/95">
-            <CardHeader className="space-y-3">
-              <Badge variant="outline" className="w-fit rounded-full px-3 py-1 text-xs uppercase">
-                Phrase bank
-              </Badge>
-              <CardTitle className="text-2xl">Save useful language from the session</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {review.vocabulary.map((item) => {
-                const isSaved = savedPhrases.has(normalizePhrase(item.term));
-
-                return (
-                  <button
-                    key={item.term}
-                    type="button"
-                    onClick={() => void savePhrase(item.term)}
-                    disabled={isSaved}
-                    className="w-full rounded-3xl border border-border/70 bg-muted/20 px-4 py-4 text-left transition hover:bg-muted/35 disabled:cursor-default disabled:opacity-70"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-semibold text-foreground">{item.term}</p>
-                        <p className="mt-1 text-sm text-muted-foreground">{item.definition}</p>
-                      </div>
-                      <Badge variant={isSaved ? "default" : "secondary"}>
-                        {isSaved ? "Saved" : "Save"}
-                      </Badge>
-                    </div>
-                  </button>
-                );
-              })}
-              {review.vocabulary.length === 0 ? (
-                <div className="rounded-3xl border border-dashed border-border/70 px-4 py-6 text-sm text-muted-foreground">
-                  <Sparkles className="mb-2 size-4" />
-                  No standout phrases were extracted from this round yet.
-                </div>
+              {state === "error" ? (
+                <Button variant="outline" onClick={startLiveConversation}>
+                  Retry connection
+                </Button>
               ) : null}
+            </div>
+
+            {helpPrompt ? (
+              <div className="rounded-[1.5rem] border border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+                {helpPrompt}
+              </div>
+            ) : null}
+
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {state === "review" ? (
+        review ? (
+          <>
+            <SpeakCompletionCard
+              mission={mission}
+              counterpartLabel={counterpartLabel}
+              review={review}
+              studentTurnCount={studentTurnCount}
+            />
+            <SpeakReviewPanel review={review} sessionId={sessionId} />
+          </>
+        ) : (
+          <Card className="border-border/70 bg-card/95 shadow-sm">
+            <CardContent className="px-6 py-5 text-sm text-muted-foreground">
+              Review is loading.
             </CardContent>
           </Card>
-        </div>
+        )
       ) : null}
     </div>
   );

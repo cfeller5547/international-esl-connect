@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Mic, Sparkles } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -13,64 +15,193 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { trackClientEvent } from "@/lib/client-analytics";
+import { getSpeakCounterpartLabel } from "@/lib/speak";
+import type { SpeakMissionPlan } from "@/features/speak/speak-view-model";
 
 type SpeakLaunchPanelProps = {
+  recommendation: SpeakMissionPlan;
   starters: Array<{ key: string; label: string; prompt: string }>;
   guidedScenarios: Array<{ key: string; title: string; description: string }>;
   voiceConfigured: boolean;
+  plan: "free" | "pro";
+};
+
+type StartPayload = {
+  mode: "free_speech" | "guided";
+  interactionMode: "text" | "voice";
+  starterKey: string | null;
+  scenarioKey: string | null;
 };
 
 export function SpeakLaunchPanel({
+  recommendation,
   starters,
   guidedScenarios,
   voiceConfigured,
+  plan,
 }: SpeakLaunchPanelProps) {
   const router = useRouter();
-  const [starterKey, setStarterKey] = useState(starters[0]?.key ?? "school_day");
-  const [scenarioKey, setScenarioKey] = useState(guidedScenarios[0]?.key ?? "class_discussion");
-  const [mode, setMode] = useState<"free_speech" | "guided">("free_speech");
-  const [interactionMode, setInteractionMode] = useState<"text" | "voice">("text");
+  const recommendedInteractionMode =
+    recommendation.recommendedInteractionMode === "voice" && voiceConfigured && plan === "pro"
+      ? "voice"
+      : "text";
+
+  const [mode, setMode] = useState<"free_speech" | "guided">(recommendation.mode);
+  const [interactionMode, setInteractionMode] = useState<"text" | "voice">(
+    recommendedInteractionMode
+  );
+  const [starterKey, setStarterKey] = useState(
+    recommendation.starterKey ?? starters[0]?.key ?? "school_day"
+  );
+  const [scenarioKey, setScenarioKey] = useState(
+    recommendation.scenarioKey ?? guidedScenarios[0]?.key ?? "class_discussion"
+  );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleStart() {
+  async function handleStart(payload: StartPayload, source: "recommended" | "manual") {
     setPending(true);
     setError(null);
+
+    if (source === "recommended") {
+      trackClientEvent({
+        eventName: "speak_recommendation_started",
+        route: "/app/speak",
+        properties: {
+          mode: payload.mode,
+          scenario_key: payload.scenarioKey ?? payload.starterKey,
+        },
+      });
+    }
 
     const response = await fetch("/api/v1/speak/session/start", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        mode,
-        interactionMode,
-        starterKey,
-        scenarioKey: mode === "guided" ? scenarioKey : null,
-      }),
+      body: JSON.stringify(payload),
     });
 
-    const payload = (await response.json()) as
-      | { error?: { message?: string } }
+    const responsePayload = (await response.json()) as
+      | { error?: { code?: string; message?: string } }
       | { sessionId?: string };
 
     if (!response.ok) {
-      const maybeError = "error" in payload ? payload.error : undefined;
-      setError(maybeError?.message ?? "Unable to start session.");
+      const maybeError = "error" in responsePayload ? responsePayload.error : undefined;
+
+      if (maybeError?.code === "VOICE_MODE_UPGRADE_REQUIRED") {
+        setInteractionMode("text");
+        setError("Voice is available on Pro. You can keep going with text on this device.");
+      } else {
+        setError(maybeError?.message ?? "Unable to start session.");
+      }
+
       setPending(false);
       return;
     }
 
-    router.push(`/app/speak/session/${(payload as { sessionId: string }).sessionId}`);
+    router.push(`/app/speak/session/${(responsePayload as { sessionId: string }).sessionId}`);
   }
 
+  const counterpartLabel = getSpeakCounterpartLabel(recommendation.mission.counterpartRole);
+
   return (
-    <div className="grid gap-4 sm:gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+    <div className="space-y-6">
       <Card className="border-border/70 bg-card/95">
-        <CardHeader>
-          <CardTitle className="text-xl">Start practice</CardTitle>
+        <CardHeader className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="rounded-full px-3 py-1 text-xs uppercase">
+              Recommended next
+            </Badge>
+            <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs">
+              {counterpartLabel}
+            </Badge>
+            <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs">
+              {recommendedInteractionMode === "voice" ? "Voice-first" : "Text-first"}
+            </Badge>
+          </div>
+          <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr] xl:items-end">
+            <div className="space-y-4">
+              <div className="space-y-3">
+                <CardTitle className="text-3xl leading-tight sm:text-4xl">
+                  {recommendation.title}
+                </CardTitle>
+                <p className="max-w-3xl text-base text-muted-foreground sm:text-lg">
+                  {recommendation.description}
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-3xl border border-border/70 bg-muted/20 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                    Speaking goal
+                  </p>
+                  <p className="mt-2 text-sm text-foreground">{recommendation.speakingGoal}</p>
+                </div>
+                <div className="rounded-3xl border border-border/70 bg-muted/20 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                    Why now
+                  </p>
+                  <p className="mt-2 text-sm text-foreground">{recommendation.whyNow}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 rounded-[2rem] border border-border/70 bg-muted/20 p-5">
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  Target phrases
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {recommendation.mission.targetPhrases.slice(0, 3).map((phrase) => (
+                    <Badge key={phrase} variant="outline" className="rounded-full px-3 py-1">
+                      {phrase}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+              <Button
+                size="lg"
+                className="w-full"
+                disabled={pending}
+                onClick={() =>
+                  void handleStart(
+                    {
+                      mode: recommendation.mode,
+                      interactionMode: recommendedInteractionMode,
+                      starterKey: recommendation.starterKey,
+                      scenarioKey: recommendation.scenarioKey,
+                    },
+                    "recommended"
+                  )
+                }
+              >
+                {pending ? "Starting..." : "Start this practice"}
+              </Button>
+              {recommendedInteractionMode === "voice" ? (
+                <p className="text-xs text-muted-foreground">
+                  Live voice keeps the conversation flowing without manual send buttons.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Text-first keeps the coaching accessible anywhere and still gives you live-style guidance.
+                </p>
+              )}
+            </div>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+      </Card>
+
+      <Card className="border-border/70 bg-card/95">
+        <CardHeader className="space-y-2">
+          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <Sparkles className="size-4 text-primary" />
+            Choose a different practice
+          </div>
+          <CardTitle className="text-2xl">Adjust the setup without losing the coaching</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <button
               type="button"
@@ -83,7 +214,7 @@ export function SpeakLaunchPanel({
             >
               <p className="font-semibold">Free speech</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Start from a guided prompt instead of a blank state.
+                Start from a real prompt and keep the conversation moving naturally.
               </p>
             </button>
             <button
@@ -95,7 +226,7 @@ export function SpeakLaunchPanel({
             >
               <p className="font-semibold">Guided scenario</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Practice a specific academic speaking situation.
+                Practice a specific academic speaking situation with a clear role and goal.
               </p>
             </button>
           </div>
@@ -112,10 +243,15 @@ export function SpeakLaunchPanel({
               <SelectContent>
                 <SelectItem value="text">Text-first</SelectItem>
                 <SelectItem value="voice" disabled={!voiceConfigured}>
-                  Voice {!voiceConfigured ? "(Unavailable)" : "(Pro)"}
+                  Voice {!voiceConfigured ? "(Unavailable)" : plan === "pro" ? "(Pro)" : "(Pro only)"}
                 </SelectItem>
               </SelectContent>
             </Select>
+            {interactionMode === "voice" && plan !== "pro" ? (
+              <p className="text-sm text-muted-foreground">
+                Voice practice is available on Pro. You can still use the same session in text mode right now.
+              </p>
+            ) : null}
           </div>
 
           {mode === "free_speech" ? (
@@ -165,23 +301,31 @@ export function SpeakLaunchPanel({
           )}
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
-          <Button size="lg" className="w-full" onClick={handleStart} disabled={pending}>
-            {pending ? "Starting..." : "Start practice"}
-          </Button>
-        </CardContent>
-      </Card>
 
-      <Card className="border-border/70 bg-card/95">
-        <CardHeader>
-          <CardTitle className="text-xl">What to expect</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4 text-sm text-muted-foreground">
-          <p>Free plans default to text-first speaking practice with starter prompts.</p>
-          <p>After each turn, you get one short improvement cue instead of a wall of corrections.</p>
-          <p>Completed sessions unlock transcript review and phrase saving.</p>
-          {!voiceConfigured ? (
-            <p>Voice mode appears automatically once OpenAI is configured on this environment.</p>
-          ) : null}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground">
+              The mission card and in-session coaching will adapt to this choice automatically.
+            </p>
+            <Button
+              size="lg"
+              variant="secondary"
+              disabled={pending}
+              onClick={() =>
+                void handleStart(
+                  {
+                    mode,
+                    interactionMode,
+                    starterKey: mode === "free_speech" ? starterKey : null,
+                    scenarioKey: mode === "guided" ? scenarioKey : null,
+                  },
+                  "manual"
+                )
+              }
+            >
+              {interactionMode === "voice" ? <Mic className="size-4" /> : null}
+              {pending ? "Starting..." : "Start custom practice"}
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

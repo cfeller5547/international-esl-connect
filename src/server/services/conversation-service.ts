@@ -3,6 +3,7 @@ import { prisma } from "@/server/prisma";
 import { env } from "@/server/env";
 import { Prisma } from "@/generated/prisma/client";
 import { serializeRealtimeClientSecret } from "@/server/realtime-client-secret";
+import { buildSpeakTurnCoaching, filterSpeakVocabulary, sanitizeSpeakPhraseTerm } from "@/lib/speak";
 
 import {
   createOpeningPrompt,
@@ -53,6 +54,17 @@ type RealtimeTranscriptTurnInput = {
   text: string;
 };
 
+type PersistedTurnCoaching = {
+  turnIndex: number;
+  microCoaching: string;
+  coachLabel: string;
+  turnSignals: {
+    fluencyIssue: boolean;
+    grammarIssue: boolean;
+    vocabOpportunity: boolean;
+  };
+};
+
 function normalizeTranscriptTurns(turns: RealtimeTranscriptTurnInput[]) {
   return turns
     .map((turn) => ({
@@ -60,6 +72,52 @@ function normalizeTranscriptTurns(turns: RealtimeTranscriptTurnInput[]) {
       text: turn.text.trim(),
     }))
     .filter((turn) => turn.text.length > 0);
+}
+
+function deriveRealtimeStudentCoaching({
+  studentText,
+  context,
+  turnIndex,
+}: {
+  studentText: string;
+  context: ConversationContext;
+  turnIndex: number;
+}): PersistedTurnCoaching {
+  const normalizedText = studentText.trim();
+  const wordCount = normalizedText.split(/\s+/).filter(Boolean).length;
+  const includesLowercaseI = /\bi\b/.test(normalizedText) && !/\bI\b/.test(normalizedText);
+  const usesTargetPhrase = context.targetPhrases.some((phrase) => {
+    const normalizedPhrase = phrase.replace(/\.\.\.$/, "").trim().toLowerCase();
+    return normalizedPhrase.length > 0 && normalizedText.toLowerCase().includes(normalizedPhrase);
+  });
+  const turnSignals = {
+    fluencyIssue: wordCount < 6,
+    grammarIssue: /\b(goed|wented|eated)\b/i.test(normalizedText) || includesLowercaseI,
+    vocabOpportunity: !usesTargetPhrase && wordCount < 14,
+  };
+
+  const microCoaching = turnSignals.grammarIssue
+    ? "Keep the sentence complete and check the verb form."
+    : turnSignals.fluencyIssue
+      ? "Add one more clear detail so the answer feels complete."
+      : turnSignals.vocabOpportunity
+        ? context.targetPhrases[0]
+          ? `Work in a phrase like "${context.targetPhrases[0]}" on the next answer.`
+          : "Use one stronger phrase from the topic on the next answer."
+        : context.successCriteria[0]
+          ? `Good. Keep moving toward this goal: ${context.successCriteria[0]}`
+          : "Good. Keep the next answer just as clear.";
+
+  return {
+    turnIndex,
+    microCoaching,
+    coachLabel:
+      buildSpeakTurnCoaching({
+        microCoaching,
+        turnSignals,
+      })?.label ?? "Keep this move",
+    turnSignals,
+  };
 }
 
 function createRealtimeInstructions(context: ConversationContext) {
@@ -97,12 +155,16 @@ function createRealtimeInstructions(context: ConversationContext) {
     "Sound like a real, warm, patient person having a spoken conversation, not like a test engine.",
     "Keep responses short and natural for audio, usually one or two sentences plus one follow-up question.",
     "Stay fully inside the current scenario and help the learner keep talking.",
+    "Naturally recast or model better English inside your reply when useful instead of explicitly correcting the learner.",
     "Do not give long evaluations or score explanations during the live conversation.",
     "If the learner struggles, simplify your language and gently rephrase instead of switching languages.",
     `Scenario title: ${context.scenarioTitle}.`,
     `Scenario setup: ${context.scenarioSetup}.`,
     `Can-do goal: ${context.canDoStatement ?? "Keep the conversation clear and useful."}`,
     `Performance task: ${context.performanceTask ?? "Respond naturally and keep the conversation moving."}`,
+    `Learner level: ${context.learnerLevel ?? "n/a"}.`,
+    `Current focus skill: ${context.focusSkill ?? "n/a"}.`,
+    `Why this session matters now: ${context.recommendationReason ?? "n/a"}.`,
     targetPhraseHint,
     `Follow-up style: ${followUpHints}`,
   ].join(" ");
@@ -147,6 +209,13 @@ function readContextFromSummaryPayload(
       : [],
     modelExample: typeof payload.modelExample === "string" ? payload.modelExample : null,
     starterPrompt: typeof payload.starterPrompt === "string" ? payload.starterPrompt : null,
+    learnerLevel: typeof payload.learnerLevel === "string" ? payload.learnerLevel : null,
+    focusSkill: typeof payload.focusSkill === "string" ? payload.focusSkill : null,
+    recommendationReason:
+      typeof payload.recommendationReason === "string"
+        ? payload.recommendationReason
+        : null,
+    activeTopic: typeof payload.activeTopic === "string" ? payload.activeTopic : null,
     isBenchmark: Boolean(payload.isBenchmark),
   };
 }
@@ -388,6 +457,27 @@ export const ConversationService = {
     }
 
     const normalizedTurns = normalizeTranscriptTurns(turns);
+    const context = readContextFromSummaryPayload(
+      session.summaryPayload as Record<string, unknown>,
+      session.surface as ConversationSurface,
+      (session.missionKind as ConversationMissionKind | null) ?? "guided",
+      session.interactionMode as "text" | "voice",
+      session.scenarioKey
+    );
+    const studentCoachings = normalizedTurns
+      .map((turn, index) =>
+        turn.speaker === "student"
+          ? deriveRealtimeStudentCoaching({
+              studentText: turn.text,
+              context,
+              turnIndex: index + 1,
+            })
+          : null
+      )
+      .filter((coaching): coaching is PersistedTurnCoaching => Boolean(coaching));
+    const coachingByTurnIndex = new Map(
+      studentCoachings.map((coaching) => [coaching.turnIndex, coaching])
+    );
     const existingStudentTurnCount = session.turns.filter(
       (turn) => turn.speaker === "student"
     ).length;
@@ -410,9 +500,17 @@ export const ConversationService = {
             speaker: turn.speaker,
             turnIndex: index + 1,
             transcriptText: turn.text,
-            metricsPayload: {
-              source: "realtime",
-            } as never,
+            metricsPayload:
+              turn.speaker === "student"
+                ? ({
+                    source: "realtime",
+                    microCoaching: coachingByTurnIndex.get(index + 1)?.microCoaching ?? null,
+                    coachLabel: coachingByTurnIndex.get(index + 1)?.coachLabel ?? null,
+                    turnSignals: coachingByTurnIndex.get(index + 1)?.turnSignals ?? null,
+                  } as never)
+                : ({
+                    source: "realtime",
+                  } as never),
           })),
         });
       }
@@ -426,6 +524,7 @@ export const ConversationService = {
       turnCount: normalizedTurns.length,
       studentTurnCount,
       newStudentTurns: Math.max(0, studentTurnCount - existingStudentTurnCount),
+      studentCoachings,
     };
   },
 
@@ -515,6 +614,24 @@ export const ConversationService = {
       includeAudio: session.interactionMode === "voice",
     });
 
+    await prisma.speakTurn.update({
+      where: {
+        speakSessionId_turnIndex: {
+          speakSessionId: session.id,
+          turnIndex: nextTurnIndex,
+        },
+      },
+      data: {
+        metricsPayload: {
+          durationSeconds,
+          transcribedFromAudio: Boolean(studentInput.audioDataUrl),
+          microCoaching: reply.microCoaching,
+          coachLabel: reply.coachLabel,
+          turnSignals: reply.turnSignals,
+        } as never,
+      },
+    });
+
     await prisma.speakTurn.create({
       data: {
         speakSessionId: session.id,
@@ -522,8 +639,7 @@ export const ConversationService = {
         turnIndex: nextTurnIndex + 1,
         transcriptText: reply.aiResponseText,
         metricsPayload: {
-          microCoaching: reply.microCoaching,
-          turnSignals: reply.turnSignals,
+          source: "assistant_reply",
         } as never,
       },
     });
@@ -623,8 +739,23 @@ export const ConversationService = {
     if (Array.isArray(evaluation.turns) && Array.isArray(evaluation.vocabulary)) {
       return {
         sessionId,
+        status:
+          evaluation.status === "ready" ||
+          evaluation.status === "almost_there" ||
+          evaluation.status === "practice_once_more"
+            ? evaluation.status
+            : "ready",
+        strength:
+          typeof evaluation.strength === "string"
+            ? evaluation.strength
+            : "You kept the conversation moving clearly.",
+        improvement:
+          typeof evaluation.improvement === "string"
+            ? evaluation.improvement
+            : "Add one more clear detail on your next round.",
+        highlights: Array.isArray(evaluation.highlights) ? evaluation.highlights : [],
         turns: evaluation.turns,
-        vocabulary: evaluation.vocabulary,
+        vocabulary: filterSpeakVocabulary(evaluation.vocabulary, 4),
       };
     }
 
@@ -644,8 +775,12 @@ export const ConversationService = {
 
     return {
       sessionId,
+      status: fallback.status,
+      strength: fallback.strength,
+      improvement: fallback.improvement,
+      highlights: fallback.highlights,
       turns: fallback.turns,
-      vocabulary: fallback.vocabulary,
+      vocabulary: filterSpeakVocabulary(fallback.vocabulary, 4),
     };
   },
 
@@ -660,6 +795,15 @@ export const ConversationService = {
     phraseText: string;
     translationText?: string;
   }) {
+    const normalizedPhrase = sanitizeSpeakPhraseTerm(phraseText);
+    if (!normalizedPhrase) {
+      throw new AppError(
+        "VALIDATION_ERROR",
+        "Save a short reusable phrase instead of a single word.",
+        400
+      );
+    }
+
     const session = await prisma.speakSession.findFirstOrThrow({
       where: {
         id: sessionId,
@@ -671,8 +815,8 @@ export const ConversationService = {
       data: {
         userId,
         sourceSpeakSessionId: sessionId,
-        phraseText,
-        translationText,
+        phraseText: normalizedPhrase,
+        translationText: translationText?.trim() || normalizedPhrase,
         contextPayload: {
           surface: session.surface,
           missionKind: session.missionKind,

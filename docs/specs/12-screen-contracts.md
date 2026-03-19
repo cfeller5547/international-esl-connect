@@ -255,27 +255,37 @@ This document translates product and UX principles into concrete, testable scree
 
 ### `/app/speak`
 - Goal: launch conversation practice quickly.
-- Primary CTA: `Start practice` (plan-aware default).
-- Secondary actions: scenario selector, resume recent session.
+- Primary CTA: `Start this practice` on one recommendation-led hero.
+- Secondary actions: manual scenario/starter selector and interaction-mode selector.
 - Required components:
-  - mode cards
-  - scenario list
+  - one recommendation-led hero with:
+    - recommended scenario/starter
+    - one speaking goal
+    - one short `why now` reason
+    - 2-3 target phrases
+  - mode cards for alternate setup
+  - starter/scenario list below the hero
   - clear interaction-mode selector (`Text-first`, `Voice (Pro)`)
-  - quick mic readiness cue when `Voice (Pro)` is selected
   - free-speech starter chips (at least 4 prompts)
-  - first-time default starter preselected to avoid blank state
+  - first-time default selection preselected to avoid blank state
 - Loading/empty/error:
-  - free tier defaults to text mode
-  - if voice requested but unavailable by plan, show upgrade prompt with text fallback
+  - preview mode auto-provisions signed-in accounts on Pro
+  - if voice is unavailable for environment or device reasons, fall back cleanly to text
 - Exit transition: route to `/app/speak/session/:sessionId`.
-- Instrumentation: `speak_landing_viewed`, `speak_starter_selected`, `speak_session_started`, `voice_mode_upgrade_prompt_shown`.
+- Instrumentation: `speak_landing_viewed`, `speak_recommendation_viewed`, `speak_recommendation_started`, `speak_starter_selected`, `speak_session_started`, `voice_mode_upgrade_prompt_shown`.
 
 ### `/app/speak/session/:sessionId`
-- Goal: complete conversation with live feedback.
+- Goal: complete conversation with live feedback, then land in a synthesized coach review.
 - Primary CTA: `Send` / `Finish session`.
-- Secondary actions: mic toggle, text fallback, end session.
+- Secondary actions: `Help me`, reconnect live voice if needed, end session.
 - Required components:
+  - pre-session mission card before the first learner turn:
+    - scenario / counterpart role
+    - one clear speaking goal
+    - 2-3 target phrases
+    - one short `why now` reason
   - shared transcript pane
+  - compact mission header after the session starts; no persistent coach sidebar
   - activity-state indicator (`Ready to start`, `Connecting`, `Listening`, `Thinking`, `Speaking`, `Session complete`, `Connection issue`)
   - text input controls for text-first sessions
   - live voice surface for active Pro voice sessions:
@@ -283,13 +293,24 @@ This document translates product and UX principles into concrete, testable scree
     - browser mic handoff
     - transcript that grows as the live session unfolds
     - one visible `Finish session` action
-  - post-session review with inline corrections and phrase-bank actions
+  - subtle per-turn coaching on learner turns only:
+    - one short coach label derived from turn signals
+    - one concise coaching note
+    - no numeric scores
+    - no large correction boxes during the live exchange
+  - one minimal `Help me` support action that reveals one contextual hint without sending a turn
+  - post-session completion mode:
+    - dedicated completion summary card
+    - synthesized coach summary (`What to keep`, `Next focus`, `Key moments`)
+    - transcript moved into a secondary expandable `Conversation snapshot`
+    - phrase bank actions biased toward reusable multi-word chunks, not isolated words
 - Loading/empty/error: resilient reconnect flow for temporary AI failures.
 - Voice rule:
   - active voice sessions should feel like real-time back-and-forth audio, not turn-by-turn upload
   - transcript sync must survive overlapping browser updates without dropping the session
-- Exit transition: post-session summary then recommend next Learn step.
-- Instrumentation: `speak_turn_submitted`, `speak_session_completed`, `transcript_phrase_saved`.
+  - coaching appears only after a learner turn lands in the transcript
+- Exit transition: completion summary first, then recommend next Learn step.
+- Instrumentation: `speak_turn_submitted`, `speak_turn_coaching_shown`, `speak_help_requested`, `speak_session_completed`, `transcript_phrase_saved`.
 
 ## 3.6 Progress
 
@@ -414,8 +435,11 @@ This document translates product and UX principles into concrete, testable scree
 
 ### `/app/more/billing`
 - Goal: manage subscription and payment state.
-- Primary CTA: `Upgrade` or `Manage subscription`.
-- Secondary actions: `Restore purchase` (if supported).
+- Primary CTA: `Continue`.
+- Secondary actions: none required during preview mode.
+- Required behavior:
+  - explain that all accounts are currently auto-provisioned on Pro
+  - avoid presenting a primary upsell decision while preview mode is active
 - Instrumentation: `billing_viewed`, `upgrade_started`, `upgrade_completed`.
 
 ### `/app/more/help`
@@ -432,6 +456,7 @@ This document translates product and UX principles into concrete, testable scree
 - Secondary action: `Not now`.
 - Must preserve `returnTo` target and resume exact interrupted context after upgrade.
 - Instrumentation: `paywall_shown`, `upgrade_return_to_task_succeeded`.
+- Preview-mode note: this overlay is not expected to appear while all accounts are auto-provisioned on Pro.
 
 ### Auth Interruption Overlay
 - Trigger: expired session during protected action.
