@@ -47,6 +47,7 @@ export default async function ProgressPage() {
             history={history}
             title="Progress over time"
             description="Follow your score path, spot the skills moving fastest, and open any report directly from the timeline."
+            showSelectedReportSummary={false}
           />
         ) : null}
 

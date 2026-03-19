@@ -203,7 +203,6 @@ Readability rule:
 - user should understand "what improved" in under 10 seconds.
 - Progress library should make overall movement understandable in under 10 seconds via:
   - one primary overall-score timeline
-  - one compact selected-report summary
   - six lightweight per-skill trend views
 
 Transcript learning layer:

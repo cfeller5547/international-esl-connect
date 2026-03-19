@@ -300,7 +300,6 @@ This document translates product and UX principles into concrete, testable scree
 - Scope rule: this route is report-centric; streak status does not appear here.
 - Required components:
   - overall score timeline
-  - selected report summary
   - six skill sparkline cards
   - report list
   - reassessment entry point

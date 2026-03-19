@@ -41,6 +41,7 @@ type ProgressInsightsPanelProps = {
   description?: string;
   showSkillTrends?: boolean;
   compact?: boolean;
+  showSelectedReportSummary?: boolean;
 };
 
 type TimelinePoint = ProgressHistoryPoint & {
@@ -211,6 +212,7 @@ export function ProgressInsightsPanel({
   description = "See how your overall score and skills change across saved reports.",
   showSkillTrends = true,
   compact = false,
+  showSelectedReportSummary = true,
 }: ProgressInsightsPanelProps) {
   const [referenceNow] = useState(() => new Date());
   const [range, setRange] = useState<ProgressRange>(() =>
@@ -348,7 +350,13 @@ export function ProgressInsightsPanel({
           </div>
         ) : null}
 
-        <div className={cn("grid gap-6", compact ? "xl:grid-cols-[1.3fr_0.7fr]" : "xl:grid-cols-[1.45fr_0.55fr]")}>
+        <div
+          className={cn(
+            "grid gap-6",
+            showSelectedReportSummary &&
+              (compact ? "xl:grid-cols-[1.3fr_0.7fr]" : "xl:grid-cols-[1.45fr_0.55fr]")
+          )}
+        >
           <div className="rounded-3xl border border-border/70 bg-background/60 px-4 py-4 sm:px-5">
             <div className={cn("w-full", compact ? "h-64" : "h-72")}>
               <ResponsiveContainer width="100%" height="100%">
@@ -415,62 +423,64 @@ export function ProgressInsightsPanel({
             </div>
           </div>
 
-          <div className="rounded-3xl border border-border/70 bg-background/70 px-5 py-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-secondary">
-              Selected report
-            </p>
-            {selectedPoint ? (
-              <div className="mt-4 space-y-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-xl font-semibold text-foreground">
-                      Score {selectedPoint.overallScore}
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {formatDate(selectedPoint.createdAt)} - {toTitleCase(selectedPoint.levelLabel)}
-                    </p>
+          {showSelectedReportSummary ? (
+            <div className="rounded-3xl border border-border/70 bg-background/70 px-5 py-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-secondary">
+                Selected report
+              </p>
+              {selectedPoint ? (
+                <div className="mt-4 space-y-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xl font-semibold text-foreground">
+                        Score {selectedPoint.overallScore}
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {formatDate(selectedPoint.createdAt)} - {toTitleCase(selectedPoint.levelLabel)}
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="rounded-full border-border/70 bg-card/80">
+                      {getReportTypeLabel(selectedPoint.reportType)}
+                    </Badge>
                   </div>
-                  <Badge variant="outline" className="rounded-full border-border/70 bg-card/80">
-                    {getReportTypeLabel(selectedPoint.reportType)}
-                  </Badge>
+
+                  {previousVisiblePoint ? (
+                    <div className="rounded-2xl bg-muted/30 px-4 py-3">
+                      <p className="text-sm text-muted-foreground">
+                        Compared with the previous visible report
+                      </p>
+                      <p className="mt-1 text-lg font-semibold text-foreground">
+                        {deltaLabel(selectedPoint.overallScore - previousVisiblePoint.overallScore)}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl bg-muted/30 px-4 py-3">
+                      <p className="text-sm text-muted-foreground">
+                        This is the first visible report in the current range.
+                      </p>
+                    </div>
+                  )}
+
+                  {selectedPoint.reportId !== currentReportId ? (
+                    <Button asChild className="w-full">
+                      <Link href={`/app/progress/reports/${selectedPoint.reportId}`}>
+                        Open selected report
+                      </Link>
+                    </Button>
+                  ) : (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Minus className="size-4" />
+                      Viewing this report
+                    </div>
+                  )}
                 </div>
-
-                {previousVisiblePoint ? (
-                  <div className="rounded-2xl bg-muted/30 px-4 py-3">
-                    <p className="text-sm text-muted-foreground">
-                      Compared with the previous visible report
-                    </p>
-                    <p className="mt-1 text-lg font-semibold text-foreground">
-                      {deltaLabel(selectedPoint.overallScore - previousVisiblePoint.overallScore)}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="rounded-2xl bg-muted/30 px-4 py-3">
-                    <p className="text-sm text-muted-foreground">
-                      This is the first visible report in the current range.
-                    </p>
-                  </div>
-                )}
-
-                {selectedPoint.reportId !== currentReportId ? (
-                  <Button asChild className="w-full">
-                    <Link href={`/app/progress/reports/${selectedPoint.reportId}`}>
-                      Open selected report
-                    </Link>
-                  </Button>
-                ) : (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Minus className="size-4" />
-                    Viewing this report
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="mt-4 rounded-2xl bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-                Save a report to unlock your timeline.
-              </div>
-            )}
-          </div>
+              ) : (
+                <div className="mt-4 rounded-2xl bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+                  Save a report to unlock your timeline.
+                </div>
+              )}
+            </div>
+          ) : null}
         </div>
 
         {showSkillTrends ? (
