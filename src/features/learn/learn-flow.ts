@@ -1,6 +1,7 @@
 export type LearnActivityType =
   | "lesson"
   | "practice"
+  | "game"
   | "speaking"
   | "writing"
   | "checkpoint";
@@ -30,6 +31,14 @@ export const LEARN_ACTIVITY_META: Record<LearnActivityType, ActivityMeta> = {
     learnerLabel: "practice",
     estimatedMinutes: 10,
     completionLabel: "Practice",
+  },
+  game: {
+    eyebrow: "Play",
+    label: "Game",
+    shortLabel: "Game",
+    learnerLabel: "unit game",
+    estimatedMinutes: 5,
+    completionLabel: "Game",
   },
   speaking: {
     eyebrow: "Apply",

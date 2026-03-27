@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CircleHelp, CreditCard, LogOut, Settings2, UserRound } from "lucide-react";
@@ -45,8 +45,13 @@ const ACCOUNT_LINKS = [
 
 export function AccountMenu() {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
   const [pendingLogout, setPendingLogout] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   async function handleLogout() {
     setPendingLogout(true);
@@ -55,6 +60,19 @@ export function AccountMenu() {
     });
     router.push("/login");
     router.refresh();
+  }
+
+  if (!mounted) {
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        className="rounded-full border-border/70 bg-background/90 px-4 shadow-[0_10px_20px_-18px_hsl(var(--foreground)/0.45)]"
+        type="button"
+      >
+        Account
+      </Button>
+    );
   }
 
   return (

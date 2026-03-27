@@ -5,6 +5,10 @@ import {
   isGenericLearnOpeningQuestion,
 } from "@/server/learn-speaking-prompts";
 import { env } from "@/server/env";
+import type {
+  MissionEvidenceTarget,
+  SpeakingMissionPayload,
+} from "@/server/learn-speaking-types";
 import { prisma } from "@/server/prisma";
 
 import { trackEvent } from "../analytics";
@@ -13,19 +17,6 @@ import type { MissionReview } from "../ai/openai-conversation";
 import { ConversationService } from "./conversation-service";
 import { CurriculumService } from "./curriculum-service";
 import { UsageService } from "./usage-service";
-
-type SpeakingMissionPayload = {
-  scenarioTitle: string;
-  scenarioSetup: string;
-  counterpartRole: string;
-  openingQuestion: string;
-  warmupPrompts: string[];
-  targetPhrases: string[];
-  followUpPrompts: string[];
-  successCriteria: string[];
-  modelExample: string;
-  isBenchmark: boolean;
-};
 
 function inferCounterpartRole(text: string) {
   const normalized = text.toLowerCase();
@@ -72,8 +63,48 @@ function inferOpeningQuestion({
   });
 }
 
-function getRequiredTurns(isBenchmark: boolean) {
-  return isBenchmark ? 4 : 3;
+function getRequiredTurns(payload: Pick<SpeakingMissionPayload, "requiredTurns" | "isBenchmark">) {
+  return typeof payload.requiredTurns === "number"
+    ? payload.requiredTurns
+    : payload.isBenchmark
+      ? 4
+      : 3;
+}
+
+function getMinimumFollowUpResponses(
+  payload: Pick<SpeakingMissionPayload, "minimumFollowUpResponses" | "isBenchmark">
+) {
+  return typeof payload.minimumFollowUpResponses === "number"
+    ? payload.minimumFollowUpResponses
+    : payload.isBenchmark
+      ? 1
+      : 1;
+}
+
+function countStudentTurns(turns: Array<{ speaker: "ai" | "student"; text: string }>) {
+  return turns.filter((turn) => turn.speaker === "student").length;
+}
+
+function countSubstantiveFollowUpResponses(
+  turns: Array<{ speaker: "ai" | "student"; text: string }>
+) {
+  return turns
+    .filter((turn) => turn.speaker === "student")
+    .slice(1)
+    .filter((turn) => turn.text.trim().split(/\s+/).filter(Boolean).length >= 5).length;
+}
+
+function canFinishMission(
+  turns: Array<{ speaker: "ai" | "student"; text: string }>,
+  payload: Pick<
+    SpeakingMissionPayload,
+    "requiredTurns" | "minimumFollowUpResponses" | "isBenchmark"
+  >
+) {
+  return (
+    countStudentTurns(turns) >= getRequiredTurns(payload) &&
+    countSubstantiveFollowUpResponses(turns) >= getMinimumFollowUpResponses(payload)
+  );
 }
 
 function getDeliveryMode(
@@ -136,6 +167,71 @@ function normalizePayload(
         ? payload.modelExample
         : fallback.performanceTask,
     isBenchmark: Boolean(payload.isBenchmark),
+    requiredTurns:
+      typeof payload.requiredTurns === "number"
+        ? payload.requiredTurns
+        : Boolean(payload.isBenchmark)
+          ? 4
+          : 3,
+    minimumFollowUpResponses:
+      typeof payload.minimumFollowUpResponses === "number"
+        ? payload.minimumFollowUpResponses
+        : 1,
+    evidenceTargets: Array.isArray(payload.evidenceTargets)
+      ? payload.evidenceTargets
+          .map((target) => {
+            const record = target as Record<string, unknown>;
+            const kind: "task" | "language" | "detail" | "follow_up" =
+              record.kind === "task" ||
+              record.kind === "language" ||
+              record.kind === "detail" ||
+              record.kind === "follow_up"
+                ? record.kind
+                : "task";
+            return {
+              key: String(record.key ?? ""),
+              label: String(record.label ?? ""),
+              kind,
+              cues: Array.isArray(record.cues) ? record.cues.map(String) : [],
+            } satisfies MissionEvidenceTarget;
+          })
+          .filter((target) => target.key.length > 0 && target.label.length > 0)
+      : [],
+    followUpObjectives: Array.isArray(payload.followUpObjectives)
+      ? payload.followUpObjectives.map(String)
+      : [],
+    benchmarkFocus: Array.isArray(payload.benchmarkFocus)
+      ? payload.benchmarkFocus.map(String)
+      : [],
+  };
+}
+
+function normalizeMissionReview(
+  review: MissionReview | null,
+  mission: SpeakingMissionPayload
+): MissionReview | null {
+  if (!review) {
+    return null;
+  }
+
+  if (review.evidenceSummary) {
+    return review;
+  }
+
+  return {
+    ...review,
+    evidenceSummary: {
+      observed: [],
+      missing: mission.evidenceTargets.map((target) => target.label),
+      nextFocus:
+        mission.evidenceTargets[0]?.label ??
+        mission.benchmarkFocus[0] ??
+        mission.successCriteria[0] ??
+        "Keep answering with one more clear detail.",
+      benchmarkFocus: mission.benchmarkFocus[0] ?? null,
+      followUpResponsesObserved: 0,
+      followUpResponsesRequired: mission.minimumFollowUpResponses,
+    },
   };
 }
 
@@ -233,10 +329,17 @@ export const LearnSpeakingService = {
       canDoStatement: unit.canDoStatement,
       performanceTask: unit.performanceTask,
     });
-    const requiredTurns = getRequiredTurns(mission.isBenchmark);
-
-    const savedReview = ((progress.responsePayload as Record<string, unknown>)?.missionReview ??
-      null) as MissionReview | null;
+    const savedReview = normalizeMissionReview(
+      ((progress.responsePayload as Record<string, unknown>)?.missionReview ?? null) as
+        | MissionReview
+        | null,
+      mission
+    );
+    const sessionTurns =
+      session?.turns.map((turn) => ({
+        speaker: turn.speaker as "ai" | "student",
+        text: turn.transcriptText,
+      })) ?? [];
 
     return {
       curriculum,
@@ -257,9 +360,8 @@ export const LearnSpeakingService = {
             startedAt: session.startedAt.toISOString(),
             completedAt: session.completedAt?.toISOString() ?? null,
             retryOfSessionId: session.retryOfSessionId,
-            canFinish:
-              session.turns.filter((turn) => turn.speaker === "student").length >= requiredTurns,
-            review: session.evaluationPayload as MissionReview,
+            canFinish: canFinishMission(sessionTurns, mission),
+            review: normalizeMissionReview(session.evaluationPayload as MissionReview, mission),
             turns: session.turns.map((turn) => ({
               turnIndex: turn.turnIndex,
               speaker: turn.speaker as "ai" | "student",
@@ -319,6 +421,11 @@ export const LearnSpeakingService = {
         successCriteria: mission.successCriteria,
         modelExample: mission.modelExample,
         isBenchmark: mission.isBenchmark,
+        requiredTurns: mission.requiredTurns,
+        minimumFollowUpResponses: mission.minimumFollowUpResponses,
+        evidenceTargets: mission.evidenceTargets,
+        followUpObjectives: mission.followUpObjectives,
+        benchmarkFocus: mission.benchmarkFocus,
       },
     });
 
@@ -377,15 +484,26 @@ export const LearnSpeakingService = {
       studentInput,
     });
     const session = await ConversationService.getSession(sessionId, userId);
-    const studentTurnCount =
-      session?.turns.filter((turn) => turn.speaker === "student").length ?? 0;
-    const requiredTurns = getRequiredTurns(session?.missionKind === "unit_benchmark");
+    const mission = normalizePayload(
+      (session?.summaryPayload as Record<string, unknown>) ?? {},
+      {
+        unitTitle: "Speaking mission",
+        scenario: "",
+        canDoStatement: "I can respond clearly and keep the conversation moving.",
+        performanceTask: "Complete the speaking mission.",
+      }
+    );
+    const sessionTurns =
+      session?.turns.map((turn) => ({
+        speaker: turn.speaker as "ai" | "student",
+        text: turn.transcriptText,
+      })) ?? [];
 
     return {
       aiResponseText: reply.aiResponseText,
       studentTranscriptText: reply.studentTranscriptText ?? null,
       deliveryMode: getDeliveryMode((session?.interactionMode as "text" | "voice") ?? "text"),
-      canFinish: studentTurnCount >= requiredTurns,
+      canFinish: canFinishMission(sessionTurns, mission),
     };
   },
 
@@ -431,11 +549,23 @@ export const LearnSpeakingService = {
       throw new AppError("NOT_FOUND", "Learn speaking mission not found.", 404);
     }
 
-    const requiredTurns = getRequiredTurns(session.missionKind === "unit_benchmark");
+    const mission = normalizePayload(
+      session.summaryPayload as Record<string, unknown>,
+      {
+        unitTitle: "Speaking mission",
+        scenario: "",
+        canDoStatement: "I can respond clearly and keep the conversation moving.",
+        performanceTask: "Complete the speaking mission.",
+      }
+    );
+    const currentTurns = turns.map((turn) => ({
+      speaker: turn.speaker,
+      text: turn.text,
+    }));
 
     return {
       studentTurnCount: sync.studentTurnCount,
-      canFinish: sync.studentTurnCount >= requiredTurns,
+      canFinish: canFinishMission(currentTurns, mission),
     };
   },
 
@@ -454,12 +584,21 @@ export const LearnSpeakingService = {
       throw new AppError("NOT_FOUND", "Learn speaking mission not found.", 404);
     }
 
-    const studentTurnCount = existingSession.turns.filter(
-      (turn) => turn.speaker === "student"
-    ).length;
-    const requiredTurns = getRequiredTurns(existingSession.missionKind === "unit_benchmark");
+    const mission = normalizePayload(
+      existingSession.summaryPayload as Record<string, unknown>,
+      {
+        unitTitle: "Speaking mission",
+        scenario: "",
+        canDoStatement: "I can respond clearly and keep the conversation moving.",
+        performanceTask: "Complete the speaking mission.",
+      }
+    );
+    const turns = existingSession.turns.map((turn) => ({
+      speaker: turn.speaker as "ai" | "student",
+      text: turn.transcriptText,
+    }));
 
-    if (studentTurnCount < requiredTurns) {
+    if (!canFinishMission(turns, mission)) {
       throw new AppError(
         "VALIDATION_ERROR",
         "Keep the conversation going a little longer before opening feedback.",
@@ -487,6 +626,11 @@ export const LearnSpeakingService = {
         delivery_mode: getDeliveryMode(session.interactionMode as "text" | "voice"),
         is_benchmark: session.missionKind === "unit_benchmark",
         score: completion.review.score,
+        evidence_covered_count: completion.review.evidenceSummary.observed.length,
+        evidence_missing_count: completion.review.evidenceSummary.missing.length,
+        follow_up_objectives_met:
+          completion.review.evidenceSummary.followUpResponsesObserved >=
+          completion.review.evidenceSummary.followUpResponsesRequired,
       },
     });
 

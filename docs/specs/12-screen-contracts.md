@@ -171,7 +171,7 @@ This document translates product and UX principles into concrete, testable scree
   - unit title and summary
   - can-do statement
   - unit progress summary
-  - activity checklist in fixed order
+  - activity checklist in fixed order (`lesson`, `practice`, `game`, `speaking`, `writing`, `checkpoint`)
   - performance task preview
 - Loading/empty/error: if unit is still locked, show explicit locked state and return path to Learn.
 - Exit transition: route to the first available `/app/learn/unit/:unitSlug/:activityType`.
@@ -179,12 +179,12 @@ This document translates product and UX principles into concrete, testable scree
 
 ### `/app/learn/unit/:unitSlug/:activityType`
 - Goal: complete the current required curriculum activity.
-- Allowed `activityType` values: `lesson`, `practice`, `speaking`, `writing`, `checkpoint`.
+- Allowed `activityType` values: `lesson`, `practice`, `game`, `speaking`, `writing`, `checkpoint`.
 - Primary CTA: `Continue`.
 - Secondary actions: `Back to roadmap`, optional `Unit overview`.
 - Required components:
   - shared activity shell with compressed unit context
-  - fixed progress indicator across the five required activities
+  - fixed progress indicator across the six required activities
   - visible step map / you-are-here treatment
   - collapsed unit-details section by default
   - one lesson overview or one current prompt visible at a time
@@ -195,6 +195,72 @@ This document translates product and UX principles into concrete, testable scree
   - if unit not finished, route to the next required activity
   - if unit finished, unlock next unit and route directly to its first activity after the completion transition
 - Instrumentation: `unit_activity_completed`, `unit_completed`.
+
+### `/app/learn/unit/:unitSlug/game`
+- Goal: complete the required game warm-up that bridges practice into speaking.
+- Primary CTA:
+  - `Start game` in brief
+  - one active stage control at a time in game
+  - `Continue to speaking` in summary
+- Secondary actions: `Back`, `Hear the target language`, optional replay of the hardest stages from summary.
+- Required components:
+  - brief state with:
+    - one clear reason the game matters for the current unit
+    - unit-linked vocabulary focus
+    - themed scene or map presentation linked to the authored payload
+    - one dominant `Start game` CTA
+  - game state with:
+    - compact in-flow progress strip with:
+      - back action
+      - unit title
+      - `Game`
+      - `Stage X of Y`
+      - slim progress bar
+      - attempt label
+    - one authored stage at a time
+    - stage count / progress treatment across the full game
+    - stage visuals driven by `theme`, `layoutVariant`, and presentation metadata
+    - distinct board treatment by stage kind (`assemble`, `spotlight`, `state_switch`, `priority_board`, `choice`, `match`, `sequence`, `map`, `voice_prompt`)
+    - no persistent large left explainer column during active play; stage context should live inside the board
+    - authored board title, helper text, and CTA copy for the active stage
+    - richer Stage 4 layout variants for the current `very_basic` and `basic` games, including `slot_strip`, `dialogue_pick`, `voice_focus`, `planner_dense`, `scene_focus`, and `map_focus`
+    - pointer-device drag-and-drop may enhance `assemble` and `priority_board`, but tap-first completion must remain fully supported
+    - voice-enabled stages must surface `Say it` and `Quick backup` together as equal-weight choices at the top of the stage
+    - voice controls only on stages where they materially help the learning moment
+    - structural fallback controls on stages that do not need voice
+    - one coaching note and at most one retry per stage
+    - compact resolved-state feedback before the next stage with:
+      - small success pulse
+      - one authored why-it-worked note
+      - one clear `Next stage` CTA
+  - summary state with:
+    - completion confirmation
+    - one strength pattern
+    - one next focus
+    - one authored bridge into speaking
+    - optional replay list for the hardest stages
+    - one dominant `Continue to speaking` CTA
+- Current authored scope:
+  - all four curriculum levels use authored Stage 3 games
+  - the current authored mechanic set is drawn from `assemble`, `spotlight`, `state_switch`, `priority_board`, `choice`, `match`, `sequence`, `map`, and `voice_prompt`
+- Loading/empty/error:
+  - if game is already completed, reopen in summary state using the saved completion review
+  - if mic access is denied or voice evaluation fails on a voice-enabled stage, switch to fallback on the same activity without losing progress
+  - if the unit or activity is locked, show the standard locked-state recovery path
+  - if scene/map presentation metadata is missing, degrade gracefully to the standard structural layout
+- Feedback rules:
+  - no visible numeric score
+  - no hard pass/fail gate
+  - coaching-first feedback only
+  - no separate Games tab or standalone game route
+- Exit transition:
+  - completing game routes into the existing activity-completion transition
+  - the next required step must be `speaking`
+- Instrumentation:
+  - `learn_game_started`
+  - `learn_game_retry_used`
+  - `learn_game_fallback_used`
+  - `learn_game_completed`
 
 ### `/app/learn/unit/:unitSlug/speaking`
 - Goal: complete the unit speaking mission inside Learn without leaving the curriculum flow.
@@ -226,11 +292,16 @@ This document translates product and UX principles into concrete, testable scree
     - one simple outcome label
     - one strength
     - one improvement target
+    - one compact evidence summary block
     - 2-3 highlighted transcript moments
     - optional full transcript
-    - phrase save actions
-    - retry CTA
+  - phrase save actions
+  - retry CTA
   - benchmark units (`3` and `6`) must use stronger benchmark-mode copy but stay inside Learn
+  - `very_basic` benchmark missions must hold feedback until the learner completes 4 turns and 1 substantive follow-up response
+  - `basic` benchmark missions must hold feedback until the learner completes 5 turns and 2 substantive follow-up responses
+  - `intermediate` benchmark missions must hold feedback until the learner completes 6 turns and 2 substantive follow-up responses
+  - `advanced` benchmark missions must hold feedback until the learner completes 7 turns and 3 substantive follow-up responses
 - Loading/empty/error:
   - if an active mission already exists, reopen in-progress state instead of restarting
   - if mic access is denied or voice is unavailable, preserve mission state and offer text fallback

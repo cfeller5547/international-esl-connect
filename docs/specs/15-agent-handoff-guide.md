@@ -42,12 +42,14 @@ Current fixed curriculum system:
   - `advanced`
 - 1 fixed curriculum per level
 - 6 units per curriculum
-- 5 required activities per unit:
+- 6 required activities per unit:
   - `lesson`
   - `practice`
+  - `game`
   - `speaking`
   - `writing`
   - `checkpoint`
+- all four curriculum levels are fully hand-authored across all six required activities
 
 Current Learn UX shape:
 - Learn landing emphasizes the current unit and next required step
@@ -57,11 +59,32 @@ Current Learn UX shape:
   - lesson overview
   - short quick check
 - activity completion shows a short transition state before routing forward
+- game flow is:
+  - brief
+  - focused game challenge
+  - focused summary
+- game is a required warm-up between practice and speaking
+- game uses richer authored payloads with `theme`, `assetRefs`, `layoutVariant`, stage presentation metadata, and authored summary copy
+- the current `very_basic`, `basic`, `intermediate`, and `advanced` games now use the richer Stage 3 game system:
+  - `assemble`
+  - `spotlight`
+  - `state_switch`
+  - `priority_board`
+  - plus the existing `choice`, `match`, `sequence`, `map`, and `voice_prompt` where they still fit the unit
+- voice is used only where it materially helps; the game remains completable through structural fallback when mic access or voice evaluation fails
+- preview mode currently means signed-in users land on the Pro game voice-capable path by default when voice is available
+- game feedback is coaching-first with no visible numeric score
+- there is no separate Games tab or standalone game route; game remains inside Learn
 - speaking flow is:
   - brief
   - focused conversation
   - focused review
   - optional retry
+- `very_basic` benchmark speaking missions now require 4 turns and 1 substantive follow-up response before feedback opens
+- `basic` benchmark speaking missions now require 5 turns and 2 substantive follow-up responses before feedback opens
+- `intermediate` benchmark speaking missions now require 6 turns and 2 substantive follow-up responses before feedback opens
+- `advanced` benchmark speaking missions now require 7 turns and 3 substantive follow-up responses before feedback opens
+- Learn speaking review now includes a compact evidence summary (`observed`, `missing`, `nextFocus`, optional benchmark focus)
 - preview mode currently means signed-in users land on the Pro Learn speaking path by default
 - the text-first Learn speaking path still exists as the fallback shape when voice is unavailable or when plan gating is re-enabled later
 - Learn speaking hides visible turn-count mechanics from the main conversation body
@@ -179,14 +202,17 @@ Do not casually change these:
 - `src/features/learn/lesson-player.tsx`
 - `src/features/learn/worksheet-player.tsx`
 - `src/features/learn/structured-response-activity.tsx`
+- `src/features/learn/learn-game-player.tsx`
 - `src/features/learn/learn-speaking-mission.tsx`
 - `src/features/learn/use-learn-realtime-conversation.ts`
 - `src/features/learn/checkpoint-player.tsx`
 - `src/features/learn/learn-activity-transition.tsx`
 - `src/features/learn/learn-flow.ts`
 - `src/server/services/curriculum-service.ts`
+- `src/server/services/learn-game-service.ts`
 - `src/server/services/learn-speaking-service.ts`
 - `src/server/curriculum-blueprint.ts`
+- `src/app/api/v1/learn/curriculum/game/evaluate/route.ts`
 
 ### Tools
 - `src/app/app/tools/*`

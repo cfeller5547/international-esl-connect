@@ -4,6 +4,10 @@ import { buildSpeakTurnCoaching, filterSpeakVocabulary } from "@/lib/speak";
 import { clamp } from "@/lib/utils";
 import { env } from "@/server/env";
 import { createLearnOpeningPrompt } from "@/server/learn-speaking-prompts";
+import type {
+  MissionEvidenceSummary,
+  MissionEvidenceTarget,
+} from "@/server/learn-speaking-types";
 import { openai } from "@/server/openai";
 
 import {
@@ -36,6 +40,11 @@ export type ConversationContext = {
   followUpPrompts: string[];
   successCriteria: string[];
   modelExample?: string | null;
+  evidenceTargets: MissionEvidenceTarget[];
+  followUpObjectives: string[];
+  benchmarkFocus: string[];
+  requiredTurns: number;
+  minimumFollowUpResponses: number;
   starterPrompt?: string | null;
   learnerLevel?: string | null;
   focusSkill?: string | null;
@@ -87,6 +96,7 @@ export type MissionReview = {
   strength: string;
   improvement: string;
   pronunciationNote: string | null;
+  evidenceSummary: MissionEvidenceSummary;
   highlights: MissionHighlight[];
   turns: MissionTurnReview[];
   vocabulary: Array<{
@@ -156,6 +166,165 @@ function getResponseText(response: unknown) {
   return nestedText;
 }
 
+function normalizeEvidenceText(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function tokenizeEvidenceText(value: string) {
+  return normalizeEvidenceText(value)
+    .split(" ")
+    .filter((token) => token.length >= 4);
+}
+
+function countSubstantiveFollowUpResponses(turns: ConversationTurnLike[]) {
+  return turns
+    .filter((turn) => turn.speaker === "student")
+    .slice(1)
+    .filter((turn) => turn.text.trim().split(/\s+/).filter(Boolean).length >= 5).length;
+}
+
+function hasComparisonSignal(text: string) {
+  return /\b(better|more|less|than|prefer|choice|drawback|advantage)\b/i.test(text);
+}
+
+function hasDetailSignal(text: string) {
+  return /\b(because|for example|later|after|before|near|with|at|in the|on the)\b/i.test(text);
+}
+
+function hasRebuttalSignal(text: string) {
+  return /\b(however|i would respond that|on the other hand|although|other side|objection|disagree)\b/i.test(
+    text
+  );
+}
+
+function hasTradeoffSignal(text: string) {
+  return /\b(however|but|tradeoff|drawback|limitation|weakness|assumption|counterpoint|problem|challenge|on the other hand)\b/i.test(
+    text
+  );
+}
+
+function hasPresentContinuousSignal(text: string) {
+  return /\b(am|is|are)\s+[a-z]+ing\b/i.test(text);
+}
+
+function coversEvidenceTarget({
+  target,
+  combinedText,
+  studentTurns,
+  followUpResponsesObserved,
+  minimumFollowUpResponses,
+}: {
+  target: MissionEvidenceTarget;
+  combinedText: string;
+  studentTurns: ConversationTurnLike[];
+  followUpResponsesObserved: number;
+  minimumFollowUpResponses: number;
+}) {
+  if (target.kind === "follow_up") {
+    return followUpResponsesObserved >= minimumFollowUpResponses;
+  }
+
+  const cueMatch = target.cues.some((cue) => {
+    const normalizedCue = normalizeEvidenceText(cue);
+    return normalizedCue.length > 0 && combinedText.includes(normalizedCue);
+  });
+
+  if (cueMatch) {
+    return true;
+  }
+
+  const normalizedLabel = normalizeEvidenceText(`${target.key} ${target.label}`);
+  const studentText = studentTurns.map((turn) => turn.text).join(" ");
+
+  if (target.kind === "detail") {
+    if (normalizedLabel.includes("rebuttal") || normalizedLabel.includes("objection")) {
+      return hasRebuttalSignal(studentText);
+    }
+
+    if (
+      normalizedLabel.includes("tradeoff") ||
+      normalizedLabel.includes("drawback") ||
+      normalizedLabel.includes("limitation") ||
+      normalizedLabel.includes("weakness") ||
+      normalizedLabel.includes("assumption") ||
+      normalizedLabel.includes("counterpoint")
+    ) {
+      return hasTradeoffSignal(studentText);
+    }
+
+    return hasDetailSignal(studentText);
+  }
+
+  if (target.kind === "language") {
+    if (normalizedLabel.includes("present continuous")) {
+      return hasPresentContinuousSignal(studentText);
+    }
+
+    if (normalizedLabel.includes("compare")) {
+      return hasComparisonSignal(studentText);
+    }
+  }
+
+  return false;
+}
+
+function evaluateMissionEvidence({
+  context,
+  turns,
+}: {
+  context: Pick<
+    ConversationContext,
+    | "evidenceTargets"
+    | "followUpObjectives"
+    | "benchmarkFocus"
+    | "minimumFollowUpResponses"
+    | "successCriteria"
+  >;
+  turns: ConversationTurnLike[];
+}) {
+  const studentTurns = turns.filter((turn) => turn.speaker === "student");
+  const combinedText = normalizeEvidenceText(studentTurns.map((turn) => turn.text).join(" "));
+  const followUpResponsesObserved = countSubstantiveFollowUpResponses(turns);
+  const coveredTargets: MissionEvidenceTarget[] = [];
+  const missingTargets: MissionEvidenceTarget[] = [];
+
+  for (const target of context.evidenceTargets) {
+    if (
+      coversEvidenceTarget({
+        target,
+        combinedText,
+        studentTurns,
+        followUpResponsesObserved,
+        minimumFollowUpResponses: context.minimumFollowUpResponses,
+      })
+    ) {
+      coveredTargets.push(target);
+    } else {
+      missingTargets.push(target);
+    }
+  }
+
+  const nextFocus =
+    missingTargets[0]?.label ??
+    context.followUpObjectives[0] ??
+    context.benchmarkFocus[0] ??
+    context.successCriteria[0] ??
+    "Keep answering with one more clear detail.";
+
+  return {
+    coveredTargets,
+    missingTargets,
+    summary: {
+      observed: coveredTargets.map((target) => target.label),
+      missing: missingTargets.map((target) => target.label),
+      nextFocus,
+      benchmarkFocus: context.benchmarkFocus[0] ?? null,
+      followUpResponsesObserved,
+      followUpResponsesRequired: context.minimumFollowUpResponses,
+    } satisfies MissionEvidenceSummary,
+  };
+}
+
 function createFallbackReview({
   turns,
   interactionMode,
@@ -169,18 +338,29 @@ function createFallbackReview({
   const studentTurns = turns.filter((turn) => turn.speaker === "student");
   const studentText = studentTurns.map((turn) => turn.text).join(" ").trim();
   const wordCount = studentText.split(/\s+/).filter(Boolean).length;
+  const evidence = evaluateMissionEvidence({ context, turns });
+  const coveredCount = evidence.summary.observed.length;
+  const missingCount = evidence.summary.missing.length;
   const score = clamp(
     Math.round(
-      wordCount * 5 +
-        Math.min(studentTurns.length, 5) * 8 +
-        Math.min(context.targetPhrases.length, 4) * 3
+      wordCount * 3 +
+        Math.min(studentTurns.length, 5) * 7 +
+        coveredCount * 12 -
+        Math.max(
+          0,
+          context.minimumFollowUpResponses - evidence.summary.followUpResponsesObserved
+        ) *
+          4
     ),
     48,
     context.isBenchmark ? 88 : 92
   );
 
   const status: MissionReview["status"] =
-    score >= (context.isBenchmark ? 74 : 70)
+    missingCount === 0 &&
+    evidence.summary.followUpResponsesObserved >= evidence.summary.followUpResponsesRequired
+      ? "ready"
+      : score >= (context.isBenchmark ? 74 : 70)
       ? "ready"
       : score >= 58
         ? "almost_there"
@@ -204,8 +384,11 @@ function createFallbackReview({
         tryInstead:
           context.targetPhrases[0] ??
           context.successCriteria[0] ??
-          "Use one more detail in your answer.",
-        why: "Aim for clearer, more connected language that fits the unit goal.",
+          evidence.summary.nextFocus,
+        why:
+          missingCount > 0
+            ? `This mission still needs clearer evidence of "${evidence.summary.nextFocus.toLowerCase()}".`
+            : "Aim for clearer, more connected language that fits the unit goal.",
       }));
 
   return {
@@ -217,16 +400,22 @@ function createFallbackReview({
           ? "You kept the conversation moving and sounded natural in places."
           : "You got the conversation started and stayed with the topic."
         : studentTurns.length >= 3
-          ? "You stayed in the conversation and answered with useful detail."
+          ? coveredCount > 0
+            ? `You clearly showed ${evidence.summary.observed[0]?.toLowerCase()}.`
+            : "You stayed in the conversation and answered with useful detail."
           : "You responded clearly enough to keep the scenario moving.",
     improvement:
       correction
         ? `Focus on ${correction.reason.toLowerCase()} in your next attempt.`
         : context.missionKind === "free_speech"
           ? "Next time, add one more clear detail when an answer feels short."
-          : "Use one more target phrase and make your answer a little more specific.",
+          : evidence.summary.followUpResponsesObserved <
+                evidence.summary.followUpResponsesRequired && context.isBenchmark
+            ? "Stay with the conversation longer and answer the follow-up questions with fresh detail."
+            : `Next time, focus on ${evidence.summary.nextFocus.toLowerCase()}.`,
     pronunciationNote:
       interactionMode === "voice" ? "Slow down slightly on key words for clearer delivery." : null,
+    evidenceSummary: evidence.summary,
     highlights: highlights.slice(0, 3),
     turns: annotated.turns.map((turn) => ({
       turnIndex: turn.turnIndex,
@@ -268,6 +457,56 @@ function stripImperativePrefix(value: string) {
     .replace(/^answer this question:\s*/i, "")
     .replace(/^say a little more about that\.?\s*/i, "")
     .trim();
+}
+
+export function selectFollowUpPrompt({
+  context,
+  studentTurnCount,
+  turns,
+  fallback,
+}: {
+  context: Pick<
+    ConversationContext,
+    | "followUpPrompts"
+    | "followUpObjectives"
+    | "evidenceTargets"
+    | "benchmarkFocus"
+    | "minimumFollowUpResponses"
+    | "successCriteria"
+  >;
+  studentTurnCount: number;
+  turns?: ConversationTurnLike[];
+  fallback: string;
+}) {
+  if (turns && context.followUpPrompts.length > 0) {
+    const evidence = evaluateMissionEvidence({ context, turns });
+    const primaryMissingTarget = evidence.missingTargets[0];
+
+    if (primaryMissingTarget && context.followUpObjectives.length > 0) {
+      const missingTargetTokens = tokenizeEvidenceText(
+        `${primaryMissingTarget.key} ${primaryMissingTarget.label}`
+      );
+      let bestIndex = -1;
+      let bestScore = 0;
+
+      context.followUpObjectives.forEach((objective, index) => {
+        const objectiveTokens = tokenizeEvidenceText(objective);
+        const score = objectiveTokens.filter((token) => missingTargetTokens.includes(token)).length;
+
+        if (score > bestScore && context.followUpPrompts[index]) {
+          bestScore = score;
+          bestIndex = index;
+        }
+      });
+
+      if (bestIndex >= 0) {
+        return context.followUpPrompts[bestIndex] ?? fallback;
+      }
+    }
+  }
+
+  const promptIndex = Math.max(0, studentTurnCount - 1);
+  return context.followUpPrompts[promptIndex] ?? context.followUpPrompts.at(-1) ?? fallback;
 }
 
 function summarizeLearnerPoint(text: string) {
@@ -320,11 +559,13 @@ function generateFallbackConversationReply({
 }) {
   if (context.surface === "assessment") {
     const learnerWordCount = studentInput.trim().split(/\s+/).filter(Boolean).length;
-    const learnerTurnCount = turns.filter((turn) => turn.speaker === "student").length + 1;
-    const nextPromptRaw =
-      context.followUpPrompts[learnerTurnCount] ??
-      context.followUpPrompts.at(-1) ??
-      "Can you tell me a little more about that?";
+    const learnerTurnCount = turns.filter((turn) => turn.speaker === "student").length;
+    const nextPromptRaw = selectFollowUpPrompt({
+      context,
+      studentTurnCount: learnerTurnCount,
+      turns,
+      fallback: "Can you tell me a little more about that?",
+    });
     const nextPrompt = normalizeQuestion(stripImperativePrefix(nextPromptRaw));
     const learnerPoint = summarizeLearnerPoint(studentInput);
 
@@ -362,11 +603,13 @@ function generateFallbackConversationReply({
   }
 
   const learnerWordCount = studentInput.trim().split(/\s+/).filter(Boolean).length;
-  const learnerTurnCount = turns.filter((turn) => turn.speaker === "student").length + 1;
-  const nextPromptRaw =
-    context.followUpPrompts[learnerTurnCount] ??
-    context.followUpPrompts.at(-1) ??
-    "Can you tell me one more detail?";
+  const learnerTurnCount = turns.filter((turn) => turn.speaker === "student").length;
+  const nextPromptRaw = selectFollowUpPrompt({
+    context,
+    studentTurnCount: learnerTurnCount,
+    turns,
+    fallback: "Can you tell me one more detail?",
+  });
   const nextPrompt = normalizeQuestion(stripImperativePrefix(nextPromptRaw));
   const learnerPoint = summarizeLearnerPoint(studentInput);
   const aiResponseText =
@@ -492,10 +735,12 @@ export async function generateConversationReply({
   const transcriptBlock = turns
     .map((turn, index) => `${index + 1}. ${turn.speaker.toUpperCase()}: ${turn.text}`)
     .join("\n");
-  const followUpHint =
-    context.followUpPrompts[turns.filter((turn) => turn.speaker === "student").length] ??
-    context.followUpPrompts.at(-1) ??
-    "Ask one short follow-up question that helps the learner continue.";
+  const followUpHint = selectFollowUpPrompt({
+    context,
+    studentTurnCount: turns.filter((turn) => turn.speaker === "student").length,
+    turns,
+    fallback: "Ask one short follow-up question that helps the learner continue.",
+  });
   const counterpartLabel = getCounterpartLabel(context);
   const systemText =
     context.surface === "learn"
@@ -579,6 +824,10 @@ export async function generateConversationReply({
               `Performance task: ${context.performanceTask ?? "n/a"}`,
               `Target phrases: ${context.targetPhrases.join(", ") || "n/a"}`,
               `Success criteria: ${context.successCriteria.join(", ") || "n/a"}`,
+              `Evidence targets: ${context.evidenceTargets.map((target) => target.label).join(" | ") || "n/a"}`,
+              `Follow-up objectives: ${context.followUpObjectives.join(" | ") || "n/a"}`,
+              `Benchmark focus: ${context.benchmarkFocus.join(" | ") || "n/a"}`,
+              `Model example: ${context.modelExample ?? "n/a"}`,
               `Learner level: ${context.learnerLevel ?? "n/a"}`,
               `Current focus skill: ${context.focusSkill ?? "n/a"}`,
               `Active class topic: ${context.activeTopic ?? "n/a"}`,
@@ -660,6 +909,7 @@ export async function evaluateMissionTranscript({
   const transcript = turns
     .map((turn, index) => `${index + 1}. ${turn.speaker.toUpperCase()}: ${turn.text}`)
     .join("\n");
+  const evidence = evaluateMissionEvidence({ context, turns });
 
   const response = await openai.responses.create({
     model: env.OPENAI_TEXT_MODEL,
@@ -675,6 +925,7 @@ export async function evaluateMissionTranscript({
               context.missionKind === "free_speech"
                 ? "For free-speech conversations, use lighter, more natural coaching language instead of task-heavy teacher language."
                 : "For guided scenarios, keep the feedback tied to the task and scenario.",
+              "Ground the feedback in the observed evidence and the missing evidence. Do not use generic praise.",
               "Return JSON only with this shape:",
               '{"status":"ready","score":78,"strength":"string","improvement":"string","pronunciationNote":"string or null","highlights":[{"turnIndex":1,"youSaid":"string","tryInstead":"string","why":"string"}],"vocabulary":[{"term":"string","definition":"string","translation":"string"}]}',
               "Use only these status values: ready, almost_there, practice_once_more.",
@@ -699,6 +950,10 @@ export async function evaluateMissionTranscript({
               `Performance task: ${context.performanceTask ?? "n/a"}`,
               `Target phrases: ${context.targetPhrases.join(", ") || "n/a"}`,
               `Success criteria: ${context.successCriteria.join(", ") || "n/a"}`,
+              `Evidence observed: ${evidence.summary.observed.join(" | ") || "n/a"}`,
+              `Evidence still missing: ${evidence.summary.missing.join(" | ") || "n/a"}`,
+              `Benchmark focus: ${context.benchmarkFocus.join(" | ") || "n/a"}`,
+              `Next focus: ${evidence.summary.nextFocus}`,
               `Interaction mode: ${context.interactionMode}`,
               "Transcript:",
               transcript,
@@ -746,6 +1001,7 @@ export async function evaluateMissionTranscript({
       typeof parsed.pronunciationNote === "string" || parsed.pronunciationNote === null
         ? parsed.pronunciationNote
         : fallback.pronunciationNote,
+    evidenceSummary: evidence.summary,
     highlights:
       Array.isArray(parsed.highlights) && parsed.highlights.length > 0
         ? parsed.highlights.slice(0, 3)

@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="220" y1="100" x2="1380" y2="820" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1B1130"/>
+      <stop offset="0.5" stop-color="#43205E"/>
+      <stop offset="1" stop-color="#7C3E5B"/>
+    </linearGradient>
+    <linearGradient id="table" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F4E7D2"/>
+      <stop offset="1" stop-color="#D5B58B"/>
+    </linearGradient>
+    <linearGradient id="snack1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFB14A"/>
+      <stop offset="1" stop-color="#FF7A59"/>
+    </linearGradient>
+    <linearGradient id="snack2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#52D6C5"/>
+      <stop offset="1" stop-color="#24A6D7"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <rect x="250" y="180" width="1100" height="540" rx="42" fill="#FFFFFF" fill-opacity=".06" stroke="#FFFFFF" stroke-opacity=".12"/>
+  <rect x="340" y="610" width="920" height="44" rx="22" fill="url(#table)"/>
+  <g transform="translate(420 280)">
+    <rect x="0" y="86" width="150" height="150" rx="28" fill="url(#snack1)"/>
+    <path d="M26 132h98M26 176h98" stroke="#FFF" stroke-width="18" stroke-linecap="round" stroke-opacity=".9"/>
+    <circle cx="248" cy="160" r="86" fill="url(#snack2)"/>
+    <circle cx="248" cy="160" r="42" fill="#FFF" fill-opacity=".22"/>
+    <rect x="388" y="70" width="172" height="176" rx="30" fill="#F8FAFF"/>
+    <path d="M420 116h108M420 156h108M420 196h72" stroke="#8A95A8" stroke-width="14" stroke-linecap="round"/>
+    <rect x="594" y="84" width="148" height="148" rx="34" fill="#FFCF5A"/>
+    <path d="M629 120h78M629 160h78" stroke="#FFF" stroke-width="18" stroke-linecap="round"/>
+    <g transform="translate(88 28)">
+      <circle cx="0" cy="0" r="22" fill="#FFCF5A"/>
+      <circle cx="46" cy="0" r="22" fill="#52D6C5"/>
+      <circle cx="92" cy="0" r="22" fill="#FF7A59"/>
+    </g>
+    <g transform="translate(470 0)">
+      <circle cx="0" cy="0" r="24" fill="#52D6C5"/>
+      <circle cx="46" cy="0" r="24" fill="#FF7A59"/>
+      <circle cx="92" cy="0" r="24" fill="#FFCF5A"/>
+    </g>
+  </g>
+  <g opacity=".55">
+    <path d="M370 700h140" stroke="#F5E9D7" stroke-width="10" stroke-linecap="round"/>
+    <path d="M1084 700h140" stroke="#F5E9D7" stroke-width="10" stroke-linecap="round"/>
+  </g>
+</svg>

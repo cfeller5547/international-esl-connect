@@ -1,5 +1,6 @@
 import { differenceInCalendarDays, subDays } from "date-fns";
 
+import { hydrateHomeworkSessionState } from "@/lib/homework-help";
 import { prisma } from "@/server/prisma";
 
 import { trackEvent } from "../analytics";
@@ -19,7 +20,11 @@ export const RecommendationService = {
         homeworkHelpSessions: {
           where: { status: "active" },
           orderBy: { createdAt: "desc" },
-          take: 1,
+          take: 5,
+          include: {
+            homeworkUpload: true,
+            steps: true,
+          },
         },
         homeworkUploads: {
           orderBy: { createdAt: "desc" },
@@ -41,7 +46,20 @@ export const RecommendationService = {
       });
     }
 
-    const activeHomeworkSession = user.homeworkHelpSessions[0];
+    const activeHomeworkSession = user.homeworkHelpSessions.find((session) => {
+      const parsedPayload = (session.homeworkUpload.parsedPayload ?? {}) as {
+        questions?: Array<{ index: number; promptText: string }>;
+      };
+      const sessionState = hydrateHomeworkSessionState({
+        questions: parsedPayload.questions ?? [],
+        savedState: session.sessionState,
+        steps: session.steps,
+      });
+
+      return sessionState.questionStates.some(
+        (questionState) => questionState.status !== "completed"
+      );
+    });
     if (activeHomeworkSession) {
       return this.persistSnapshot(userId, surface, {
         actionType: "resume_homework_help",

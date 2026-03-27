@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type RecordedAudio = {
   audioDataUrl: string;
@@ -30,47 +30,61 @@ export function useVoiceRecorder() {
   const chunksRef = useRef<Blob[]>([]);
   const startedAtRef = useRef<number | null>(null);
 
+  const [isSupported, setIsSupported] = useState(false);
   const [recording, setRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isSupported =
-    typeof window !== "undefined" &&
-    typeof navigator !== "undefined" &&
-    Boolean(navigator.mediaDevices?.getUserMedia) &&
-    typeof MediaRecorder !== "undefined";
+  useEffect(() => {
+    setIsSupported(
+      typeof window !== "undefined" &&
+        typeof navigator !== "undefined" &&
+        Boolean(navigator.mediaDevices?.getUserMedia) &&
+        typeof MediaRecorder !== "undefined"
+    );
+  }, []);
 
-  async function startRecording() {
+  const startRecording = useCallback(async () => {
     if (!isSupported) {
       setError("Voice recording is not supported in this browser.");
       return;
     }
 
     setError(null);
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-      ? "audio/webm;codecs=opus"
-      : "audio/webm";
 
-    const recorder = new MediaRecorder(stream, {
-      mimeType,
-    });
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : "audio/webm";
 
-    chunksRef.current = [];
-    recorderRef.current = recorder;
-    streamRef.current = stream;
-    startedAtRef.current = Date.now();
+      const recorder = new MediaRecorder(stream, {
+        mimeType,
+      });
 
-    recorder.addEventListener("dataavailable", (event) => {
-      if (event.data.size > 0) {
-        chunksRef.current.push(event.data);
-      }
-    });
+      chunksRef.current = [];
+      recorderRef.current = recorder;
+      streamRef.current = stream;
+      startedAtRef.current = Date.now();
 
-    recorder.start();
-    setRecording(true);
-  }
+      recorder.addEventListener("dataavailable", (event) => {
+        if (event.data.size > 0) {
+          chunksRef.current.push(event.data);
+        }
+      });
 
-  async function stopRecording(): Promise<RecordedAudio | null> {
+      recorder.start();
+      setRecording(true);
+    } catch (recordingError) {
+      const message =
+        recordingError instanceof Error
+          ? recordingError.message
+          : "Microphone access was not available.";
+      setError(message);
+      setRecording(false);
+    }
+  }, [isSupported]);
+
+  const stopRecording = useCallback(async (): Promise<RecordedAudio | null> => {
     const recorder = recorderRef.current;
     if (!recorder) {
       return null;
@@ -113,11 +127,11 @@ export function useVoiceRecorder() {
 
       recorder.stop();
     });
-  }
+  }, []);
 
-  function resetError() {
+  const resetError = useCallback(() => {
     setError(null);
-  }
+  }, []);
 
   return {
     isSupported,

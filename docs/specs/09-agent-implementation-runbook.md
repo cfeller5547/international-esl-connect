@@ -69,10 +69,16 @@ Deliver:
 - Home 3-tier layout with one dynamic primary CTA
 - persistent `Homework Help now` quick action on Home
 - canonical `currentLevel` persistence and level backfill from qualifying reports
-- fixed curriculum seed data: 4 English curricula, 6 units each, 5 required activities each
+- fixed curriculum seed data: 4 English curricula, 6 units each, 6 required activities each
 - Learn landing with assigned curriculum, current unlocked unit, activity progress, archived prior-level progress
 - deterministic recommendation priority logic with documented reason codes
-- unit activity chain via seamless Continue (`lesson` -> `practice` -> `speaking` -> `writing` -> `checkpoint`)
+- unit activity chain via seamless Continue (`lesson` -> `practice` -> `game` -> `speaking` -> `writing` -> `checkpoint`)
+- required Learn game activity in every unit:
+  - Stage 3 game uses richer authored payloads with `theme`, `assetRefs`, `layoutVariant`, stage presentation metadata, authored CTA labels, and authored summary copy
+  - current `very_basic`, `basic`, `intermediate`, and `advanced` games use the richer Stage 3 mechanic set, including `assemble`, `spotlight`, `state_switch`, `priority_board`, `choice`, `match`, `sequence`, `map`, and `voice_prompt` where they fit the unit
+  - voice is used only where it materially helps, with guaranteed non-voice fallback on voice-enabled stages
+  - coaching-first feedback with one retry and no visible numeric score
+  - game completion unlocks speaking
 - Tools landing with Homework Help and Test Prep Sprint
 - Homework Help inside Tools with upload and hint ladder
 - homework parse pipeline state handling (`extracting_text` -> `parsed/needs_review/failed`)
@@ -82,7 +88,7 @@ Deliver:
 - curriculum content seed so Learn flows are functional before teacher import
 
 Definition of done:
-- user can complete a curriculum unit continuously with inline progress updates
+- user can complete a curriculum unit continuously across all six required activities with inline progress updates
 - user can switch to Tools for homework and test prep without polluting Learn IA
 
 ## Milestone 4: Speak and Progress

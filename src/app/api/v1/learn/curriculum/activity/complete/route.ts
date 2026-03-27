@@ -7,7 +7,7 @@ import { CurriculumService } from "@/server/services/curriculum-service";
 
 const schema = z.object({
   unitSlug: z.string().min(1),
-  activityType: z.enum(["lesson", "practice", "speaking", "writing", "checkpoint"]),
+  activityType: z.enum(["lesson", "practice", "drill", "game", "speaking", "writing", "checkpoint"]),
   score: z.number().int().min(0).max(100),
   responsePayload: z.record(z.string(), z.unknown()).optional(),
 });
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     const result = await CurriculumService.completeUnitActivity({
       userId: user.id,
       unitSlug: payload.unitSlug,
-      activityType: payload.activityType,
+      activityType: payload.activityType === "drill" ? "game" : payload.activityType,
       score: payload.score,
       responsePayload: payload.responsePayload,
     });

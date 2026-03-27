@@ -21,6 +21,24 @@ async function unlockSpeakingStep(userId: string, unitSlug: string) {
     activityType: "practice",
     score: 100,
   });
+
+  await CurriculumService.completeUnitActivity({
+    userId,
+    unitSlug,
+    activityType: "game",
+    score: 100,
+    responsePayload: {
+      gameReview: {
+        gameId: `${unitSlug}-game`,
+        gameTitle: "Unit Game",
+        gameKind: "unit_challenge",
+        strength: "Automated game complete.",
+        nextFocus: "Keep the word stress clear.",
+        replayStageIds: [],
+        stages: [],
+      },
+    },
+  });
 }
 
 describe("learn speaking service", () => {
@@ -97,6 +115,7 @@ describe("learn speaking service", () => {
     expect(review.score).toBeGreaterThan(0);
     expect(review.highlights.length).toBeGreaterThan(0);
     expect(review.turns.some((turn) => turn.speaker === "student")).toBe(true);
+    expect(review.evidenceSummary.nextFocus.length).toBeGreaterThan(0);
 
     await CurriculumService.completeUnitActivity({
       userId: user.id,
@@ -114,7 +133,7 @@ describe("learn speaking service", () => {
     expect(updated.currentActivity?.activityType).toBe("writing");
   });
 
-  it("marks the third unit speaking mission as a benchmark", async () => {
+  it("uses lighter authored benchmark rules for the third Very Basic unit", async () => {
     const user = await prisma.user.create({
       data: {
         email: `learn-speaking-benchmark-${crypto.randomUUID()}@example.com`,
@@ -133,14 +152,26 @@ describe("learn speaking service", () => {
       const unitSlug = curriculum.currentUnit?.slug;
       expect(unitSlug).toBeTruthy();
 
-      for (const activity of ["lesson", "practice", "speaking", "writing", "checkpoint"] as const) {
+      for (const activity of ["lesson", "practice", "game", "speaking", "writing", "checkpoint"] as const) {
         await CurriculumService.completeUnitActivity({
           userId: user.id,
           unitSlug: unitSlug!,
           activityType: activity,
           score: 90,
           responsePayload:
-            activity === "speaking" || activity === "writing"
+            activity === "game"
+              ? {
+                  gameReview: {
+                    gameId: `${unitSlug}-game`,
+                    gameTitle: "Unit Game",
+                    gameKind: "unit_challenge",
+                    strength: "Automated game complete.",
+                    nextFocus: "Keep the word stress clear.",
+                    replayStageIds: [],
+                    stages: [],
+                  },
+                }
+              : activity === "speaking" || activity === "writing"
               ? { answer: "A complete enough sample response for automated testing." }
               : activity === "checkpoint"
                 ? { answers: { 0: "0", 1: "0" } }
@@ -160,7 +191,466 @@ describe("learn speaking service", () => {
 
     expect(missionView.unit.orderIndex).toBe(3);
     expect(missionView.mission.isBenchmark).toBe(true);
+    expect(missionView.mission.requiredTurns).toBe(4);
+    expect(missionView.mission.minimumFollowUpResponses).toBe(1);
+    expect(missionView.mission.evidenceTargets.length).toBeGreaterThanOrEqual(3);
+    expect(missionView.mission.benchmarkFocus.length).toBeGreaterThanOrEqual(2);
+
+    const started = await LearnSpeakingService.startMission({
+      userId: user.id,
+      unitSlug: curriculum.currentUnit!.slug,
+      interactionMode: "text",
+    });
+
+    await LearnSpeakingService.submitTurn({
+      userId: user.id,
+      sessionId: started.sessionId,
+      studentInput: {
+        text: "In the morning I wake up early and go to class.",
+      },
+    });
+    await LearnSpeakingService.submitTurn({
+      userId: user.id,
+      sessionId: started.sessionId,
+      studentInput: {
+        text: "After school I study and do homework.",
+      },
+    });
+    await LearnSpeakingService.submitTurn({
+      userId: user.id,
+      sessionId: started.sessionId,
+      studentInput: {
+        text: "In the evening I eat dinner at home.",
+      },
+    });
+
+    await expect(
+      LearnSpeakingService.completeMission({
+        userId: user.id,
+        unitSlug: curriculum.currentUnit!.slug,
+        sessionId: started.sessionId,
+      })
+    ).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+    });
+
+    await LearnSpeakingService.submitTurn({
+      userId: user.id,
+      sessionId: started.sessionId,
+      studentInput: {
+        text: "Before class I take the bus, and after school I do more homework.",
+      },
+    });
+
+    const review = await LearnSpeakingService.completeMission({
+      userId: user.id,
+      unitSlug: curriculum.currentUnit!.slug,
+      sessionId: started.sessionId,
+    });
+
+    expect(review.evidenceSummary.followUpResponsesObserved).toBeGreaterThanOrEqual(1);
+  }, 20000);
+
+  it("requires the Basic benchmark mission to carry across five turns and two follow-up answers", async () => {
+    const user = await prisma.user.create({
+      data: {
+        email: `learn-speaking-basic-benchmark-${crypto.randomUUID()}@example.com`,
+        passwordHash: "hashed",
+        ageBand: "age_16_18",
+        nativeLanguage: "english",
+        targetLanguage: "english",
+        schoolLevel: "high_school",
+        currentLevel: "basic",
+      },
+    });
+
+    let curriculum = await CurriculumService.getAssignedCurriculum(user.id);
+
+    for (let completedUnits = 0; completedUnits < 2; completedUnits += 1) {
+      const unitSlug = curriculum.currentUnit?.slug;
+      expect(unitSlug).toBeTruthy();
+
+      for (const activity of [
+        "lesson",
+        "practice",
+        "game",
+        "speaking",
+        "writing",
+        "checkpoint",
+      ] as const) {
+        await CurriculumService.completeUnitActivity({
+          userId: user.id,
+          unitSlug: unitSlug!,
+          activityType: activity,
+          score: 90,
+          responsePayload:
+            activity === "game"
+              ? {
+                  gameReview: {
+                    gameId: `${unitSlug}-game`,
+                    gameTitle: "Unit Game",
+                    gameKind: "unit_challenge",
+                    strength: "Automated game complete.",
+                    nextFocus: "Keep the word stress clear.",
+                    replayStageIds: [],
+                    stages: [],
+                  },
+                }
+              : activity === "speaking" || activity === "writing"
+                ? { answer: "A complete enough sample response for automated testing." }
+                : activity === "checkpoint"
+                  ? { answers: { 0: "0", 1: "0" } }
+                  : undefined,
+        });
+      }
+
+      curriculum = await CurriculumService.getAssignedCurriculum(user.id);
+    }
+
+    const unitSlug = curriculum.currentUnit!.slug;
+    await unlockSpeakingStep(user.id, unitSlug);
+
+    const missionView = await LearnSpeakingService.getMissionView(user.id, unitSlug);
+    expect(missionView.unit.orderIndex).toBe(3);
+    expect(missionView.mission.requiredTurns).toBe(5);
+    expect(missionView.mission.minimumFollowUpResponses).toBe(2);
+
+    const started = await LearnSpeakingService.startMission({
+      userId: user.id,
+      unitSlug,
+      interactionMode: "text",
+    });
+
+    await LearnSpeakingService.submitTurn({
+      userId: user.id,
+      sessionId: started.sessionId,
+      studentInput: {
+        text: "Right now, one student is working at the front table.",
+      },
+    });
+    await LearnSpeakingService.submitTurn({
+      userId: user.id,
+      sessionId: started.sessionId,
+      studentInput: {
+        text: "Another person is reading near the window.",
+      },
+    });
+    await LearnSpeakingService.submitTurn({
+      userId: user.id,
+      sessionId: started.sessionId,
+      studentInput: {
+        text: "In the back, two students are talking quietly.",
+      },
+    });
+    await LearnSpeakingService.submitTurn({
+      userId: user.id,
+      sessionId: started.sessionId,
+      studentInput: {
+        text: "Someone else is writing notes by the door.",
+      },
+    });
+
+    await expect(
+      LearnSpeakingService.completeMission({
+        userId: user.id,
+        unitSlug,
+        sessionId: started.sessionId,
+      })
+    ).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+    });
+
+    await LearnSpeakingService.submitTurn({
+      userId: user.id,
+      sessionId: started.sessionId,
+      studentInput: {
+        text: "Overall, the study space is busy because people are working in different parts of the room.",
+      },
+    });
+
+    const review = await LearnSpeakingService.completeMission({
+      userId: user.id,
+      unitSlug,
+      sessionId: started.sessionId,
+    });
+
+    expect(review.evidenceSummary.followUpResponsesObserved).toBeGreaterThanOrEqual(2);
   });
+
+  it("requires the Intermediate benchmark mission to carry across six turns and two follow-up answers", async () => {
+    const user = await prisma.user.create({
+      data: {
+        email: `learn-speaking-intermediate-benchmark-${crypto.randomUUID()}@example.com`,
+        passwordHash: "hashed",
+        ageBand: "age_16_18",
+        nativeLanguage: "english",
+        targetLanguage: "english",
+        schoolLevel: "high_school",
+        currentLevel: "intermediate",
+      },
+    });
+
+    let curriculum = await CurriculumService.getAssignedCurriculum(user.id);
+
+    for (let completedUnits = 0; completedUnits < 2; completedUnits += 1) {
+      const unitSlug = curriculum.currentUnit?.slug;
+      expect(unitSlug).toBeTruthy();
+
+      for (const activity of [
+        "lesson",
+        "practice",
+        "game",
+        "speaking",
+        "writing",
+        "checkpoint",
+      ] as const) {
+        await CurriculumService.completeUnitActivity({
+          userId: user.id,
+          unitSlug: unitSlug!,
+          activityType: activity,
+          score: 90,
+          responsePayload:
+            activity === "game"
+              ? {
+                  gameReview: {
+                    gameId: `${unitSlug}-game`,
+                    gameTitle: "Unit Game",
+                    gameKind: "unit_challenge",
+                    strength: "Automated game complete.",
+                    nextFocus: "Keep the recommendation clear.",
+                    replayStageIds: [],
+                    stages: [],
+                  },
+                }
+              : activity === "speaking" || activity === "writing"
+                ? { answer: "A complete enough sample response for automated testing." }
+                : activity === "checkpoint"
+                  ? { answers: { 0: "0", 1: "0" } }
+                  : undefined,
+        });
+      }
+
+      curriculum = await CurriculumService.getAssignedCurriculum(user.id);
+    }
+
+    const unitSlug = curriculum.currentUnit!.slug;
+    await unlockSpeakingStep(user.id, unitSlug);
+
+    const missionView = await LearnSpeakingService.getMissionView(user.id, unitSlug);
+    expect(missionView.unit.orderIndex).toBe(3);
+    expect(missionView.mission.isBenchmark).toBe(true);
+    expect(missionView.mission.requiredTurns).toBe(6);
+    expect(missionView.mission.minimumFollowUpResponses).toBe(2);
+
+    const started = await LearnSpeakingService.startMission({
+      userId: user.id,
+      unitSlug,
+      interactionMode: "text",
+    });
+
+    await LearnSpeakingService.submitTurn({
+      userId: user.id,
+      sessionId: started.sessionId,
+      studentInput: {
+        text: "We need to raise money for the class trip, and I think we should do a weekend car wash.",
+      },
+    });
+    await LearnSpeakingService.submitTurn({
+      userId: user.id,
+      sessionId: started.sessionId,
+      studentInput: {
+        text: "Another option is a bake sale, but the car wash is better because more people can help.",
+      },
+    });
+    await LearnSpeakingService.submitTurn({
+      userId: user.id,
+      sessionId: started.sessionId,
+      studentInput: {
+        text: "It may raise money faster, especially if parents bring their cars too.",
+      },
+    });
+    await LearnSpeakingService.submitTurn({
+      userId: user.id,
+      sessionId: started.sessionId,
+      studentInput: {
+        text: "The bake sale is easier to organize, but it might earn less money for the group.",
+      },
+    });
+    await LearnSpeakingService.submitTurn({
+      userId: user.id,
+      sessionId: started.sessionId,
+      studentInput: {
+        text: "I would still choose the car wash because it gives the class a clearer final plan.",
+      },
+    });
+
+    await expect(
+      LearnSpeakingService.completeMission({
+        userId: user.id,
+        unitSlug,
+        sessionId: started.sessionId,
+      })
+    ).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+    });
+
+    await LearnSpeakingService.submitTurn({
+      userId: user.id,
+      sessionId: started.sessionId,
+      studentInput: {
+        text: "If the weather becomes a problem, we could move it to Sunday and keep the same plan.",
+      },
+    });
+
+    const review = await LearnSpeakingService.completeMission({
+      userId: user.id,
+      unitSlug,
+      sessionId: started.sessionId,
+    });
+
+    expect(review.evidenceSummary.followUpResponsesObserved).toBeGreaterThanOrEqual(2);
+  }, 20000);
+
+  it("requires the Advanced benchmark mission to carry across seven turns and three follow-up answers", async () => {
+    const user = await prisma.user.create({
+      data: {
+        email: `learn-speaking-advanced-benchmark-${crypto.randomUUID()}@example.com`,
+        passwordHash: "hashed",
+        ageBand: "age_16_18",
+        nativeLanguage: "english",
+        targetLanguage: "english",
+        schoolLevel: "high_school",
+        currentLevel: "advanced",
+      },
+    });
+
+    let curriculum = await CurriculumService.getAssignedCurriculum(user.id);
+
+    for (let completedUnits = 0; completedUnits < 2; completedUnits += 1) {
+      const unitSlug = curriculum.currentUnit?.slug;
+      expect(unitSlug).toBeTruthy();
+
+      for (const activity of [
+        "lesson",
+        "practice",
+        "game",
+        "speaking",
+        "writing",
+        "checkpoint",
+      ] as const) {
+        await CurriculumService.completeUnitActivity({
+          userId: user.id,
+          unitSlug: unitSlug!,
+          activityType: activity,
+          score: 90,
+          responsePayload:
+            activity === "game"
+              ? {
+                  gameReview: {
+                    gameId: `${unitSlug}-game`,
+                    gameTitle: "Unit Game",
+                    gameKind: "unit_challenge",
+                    strength: "Automated game complete.",
+                    nextFocus: "Keep the rebuttal steady.",
+                    replayStageIds: [],
+                    stages: [],
+                  },
+                }
+              : activity === "speaking" || activity === "writing"
+                ? { answer: "A complete enough sample response for automated testing." }
+                : activity === "checkpoint"
+                  ? { answers: { 0: "0", 1: "0" } }
+                  : undefined,
+        });
+      }
+
+      curriculum = await CurriculumService.getAssignedCurriculum(user.id);
+    }
+
+    const unitSlug = curriculum.currentUnit!.slug;
+    await unlockSpeakingStep(user.id, unitSlug);
+
+    const missionView = await LearnSpeakingService.getMissionView(user.id, unitSlug);
+    expect(missionView.unit.orderIndex).toBe(3);
+    expect(missionView.mission.isBenchmark).toBe(true);
+    expect(missionView.mission.requiredTurns).toBe(7);
+    expect(missionView.mission.minimumFollowUpResponses).toBe(3);
+
+    const started = await LearnSpeakingService.startMission({
+      userId: user.id,
+      unitSlug,
+      interactionMode: "text",
+    });
+
+    await LearnSpeakingService.submitTurn({
+      userId: user.id,
+      sessionId: started.sessionId,
+      studentInput: {
+        text: "I believe homework should be reduced in lower grades because too much of it can hurt balance and sleep.",
+      },
+    });
+    await LearnSpeakingService.submitTurn({
+      userId: user.id,
+      sessionId: started.sessionId,
+      studentInput: {
+        text: "My main reason is that students still need time to rest and participate in activities outside school.",
+      },
+    });
+    await LearnSpeakingService.submitTurn({
+      userId: user.id,
+      sessionId: started.sessionId,
+      studentInput: {
+        text: "Some people worry this could reduce academic rigor, and I understand that concern.",
+      },
+    });
+    await LearnSpeakingService.submitTurn({
+      userId: user.id,
+      sessionId: started.sessionId,
+      studentInput: {
+        text: "However, I would respond that strong in-class practice can matter more than a large amount of homework after school.",
+      },
+    });
+    await LearnSpeakingService.submitTurn({
+      userId: user.id,
+      sessionId: started.sessionId,
+      studentInput: {
+        text: "If someone disagrees, I would explain that quality and balance can support learning more effectively than volume alone.",
+      },
+    });
+    await LearnSpeakingService.submitTurn({
+      userId: user.id,
+      sessionId: started.sessionId,
+      studentInput: {
+        text: "That is why I would still keep the position even after the objection.",
+      },
+    });
+
+    await expect(
+      LearnSpeakingService.completeMission({
+        userId: user.id,
+        unitSlug,
+        sessionId: started.sessionId,
+      })
+    ).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+    });
+
+    await LearnSpeakingService.submitTurn({
+      userId: user.id,
+      sessionId: started.sessionId,
+      studentInput: {
+        text: "A reduced workload in lower grades can still protect standards if classroom practice stays focused and intentional.",
+      },
+    });
+
+    const review = await LearnSpeakingService.completeMission({
+      userId: user.id,
+      unitSlug,
+      sessionId: started.sessionId,
+    });
+
+    expect(review.evidenceSummary.followUpResponsesObserved).toBeGreaterThanOrEqual(3);
+  }, 20000);
 
   it("supports Learn realtime transcript syncing for voice sessions", async () => {
     const user = await prisma.user.create({

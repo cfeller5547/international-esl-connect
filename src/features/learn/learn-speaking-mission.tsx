@@ -42,6 +42,14 @@ type Review = {
   strength: string;
   improvement: string;
   pronunciationNote: string | null;
+  evidenceSummary: {
+    observed: string[];
+    missing: string[];
+    nextFocus: string;
+    benchmarkFocus: string | null;
+    followUpResponsesObserved: number;
+    followUpResponsesRequired: number;
+  };
   highlights: Array<{
     turnIndex: number;
     youSaid: string;
@@ -76,7 +84,7 @@ type SessionView = {
     speaker: "ai" | "student";
     text: string;
   }>;
-  review?: Review;
+  review?: Review | null;
 };
 
 type StartMissionResponse = {
@@ -105,6 +113,9 @@ type LearnSpeakingMissionProps = {
     successCriteria: string[];
     modelExample: string;
     isBenchmark: boolean;
+    requiredTurns: number;
+    minimumFollowUpResponses: number;
+    benchmarkFocus: string[];
   };
   plan: "free" | "pro";
   voiceEnabled: boolean;
@@ -138,6 +149,13 @@ function reviewToneClasses(status: Review["status"]) {
 
 function normalizePhrase(value: string) {
   return value.trim().toLowerCase();
+}
+
+function countSubstantiveFollowUpResponses(turns: ConversationTurn[]) {
+  return turns
+    .filter((turn) => turn.speaker === "student")
+    .slice(1)
+    .filter((turn) => turn.text.trim().split(/\s+/).filter(Boolean).length >= 5).length;
 }
 
 function getCounterpartLabel(counterpartRole: string) {
@@ -263,12 +281,18 @@ export function LearnSpeakingMission({
   const [savedPhrases, setSavedPhrases] = useState<string[]>([]);
   const counterpartLabel = getCounterpartLabel(mission.counterpartRole);
   const isVoiceSession = deliveryMode === "realtime_voice";
-  const requiredTurns = mission.isBenchmark ? 4 : 3;
+  const requiredTurns = mission.requiredTurns;
   const studentTurnCount = useMemo(
     () => turns.filter((turn) => turn.speaker === "student").length,
     [turns]
   );
-  const canFinish = studentTurnCount >= requiredTurns;
+  const substantiveFollowUps = useMemo(
+    () => countSubstantiveFollowUpResponses(turns),
+    [turns]
+  );
+  const canFinish =
+    studentTurnCount >= requiredTurns &&
+    substantiveFollowUps >= mission.minimumFollowUpResponses;
   const statusCue = getStatusCue({
     canFinish,
     studentTurnCount,
@@ -560,6 +584,16 @@ export function LearnSpeakingMission({
                 </p>
                 <p className="mt-2 text-sm leading-7 text-foreground">{canDoStatement}</p>
               </div>
+              {mission.isBenchmark && mission.benchmarkFocus.length > 0 ? (
+                <div className="rounded-[1.5rem] border border-primary/15 bg-primary/5 px-5 py-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-secondary">
+                    Hold the idea longer
+                  </p>
+                  <p className="mt-2 text-sm leading-7 text-foreground">
+                    {mission.benchmarkFocus[0]}
+                  </p>
+                </div>
+              ) : null}
             </div>
 
             <div className="space-y-3">
@@ -764,7 +798,9 @@ export function LearnSpeakingMission({
                 <p className="text-sm text-muted-foreground">
                   {canFinish
                     ? "You can wrap up now or add one more thought before you open feedback."
-                    : "Answer naturally and keep the scene moving."}
+                    : mission.isBenchmark && mission.minimumFollowUpResponses > 0
+                      ? "Answer naturally, then stay with the follow-up questions long enough to prove the skill."
+                      : "Answer naturally and keep the scene moving."}
                 </p>
               </div>
 
@@ -930,6 +966,32 @@ export function LearnSpeakingMission({
                 <p className="mt-3 text-sm leading-7 text-foreground">{review.improvement}</p>
               </div>
             </div>
+
+            {(review.evidenceSummary.observed.length > 0 || review.evidenceSummary.benchmarkFocus) ? (
+              <div className="rounded-[1.6rem] border border-border/70 bg-background/75 px-5 py-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-secondary">
+                  Evidence from this conversation
+                </p>
+                {review.evidenceSummary.observed.length > 0 ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {review.evidenceSummary.observed.map((item) => (
+                      <Badge key={item} variant="outline" className="rounded-full px-3 py-1">
+                        {item}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
+                <p className="mt-3 text-sm leading-7 text-muted-foreground">
+                  Next focus: <span className="text-foreground">{review.evidenceSummary.nextFocus}</span>
+                </p>
+                {review.evidenceSummary.benchmarkFocus ? (
+                  <p className="mt-2 text-sm leading-7 text-muted-foreground">
+                    Benchmark focus:{" "}
+                    <span className="text-foreground">{review.evidenceSummary.benchmarkFocus}</span>
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
 
             {review.pronunciationNote ? (
               <div className="rounded-[1.6rem] border border-border/70 bg-muted/10 px-5 py-5">

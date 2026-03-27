@@ -46,12 +46,36 @@ Pass condition:
 4. Open Learn and verify only the assigned curriculum is shown.
 5. Verify the current unlocked unit and one next required activity are clear.
 6. Complete the current activity and continue automatically into the next required unit activity.
-7. Complete all five required activities and verify the next unit unlocks immediately.
+7. Complete all six required activities and verify the next unit unlocks immediately.
 
 Pass condition:
 - no forced return to hub between chain steps
 
-## 3.2.1 Content Source Precedence
+## 3.2.1 Learn Game Activity
+
+1. Open `/app/learn/unit/:unitSlug/game` after completing the unit practice step.
+2. Verify the screen opens in `Brief` with the unit-linked vocabulary focus, richer themed scene/map presentation, and one dominant `Start game` CTA.
+3. Start the game and verify the UI progresses through `Brief` -> `Game` -> `Summary`.
+4. On a Pro account with mic access available, complete the voice-helpful stage(s) in voice mode and verify each such stage returns one coaching note with at most one retry.
+5. Deny mic access or simulate voice-evaluation failure on a voice-enabled stage and verify the game switches to fallback without losing completion progress.
+6. Verify fallback uses the same authored stage items, keeps the game moving, and preserves the richer scene/map layout.
+7. Verify the current `very_basic`, `basic`, `intermediate`, and `advanced` games use authored Stage 3 mechanics rather than falling back to repeated plain multiple choice or the generic game scaffold.
+8. Verify `Map Route`, `Scene Scan`, `Weather Switch`, and `Deadline Dash` visibly behave like their names imply.
+9. Verify active play uses the compact in-flow game strip rather than the large Learn unit header, while the richer unit header still appears in `Brief` and `Summary`.
+10. Verify `Name Tag Mixer` Stage 2 no longer renders a large mostly empty board and instead uses a tighter reply-pick layout.
+11. Verify the stage CTA copy is authored for the current board and does not fall back to generic text like `Check stage`.
+12. Verify a correct first-pass result never shows `Retry` in the stage header or result state.
+13. Verify voice-enabled stages show `Say it` and `Quick backup` together and that backup remains usable without losing progress.
+14. Verify the summary shows completion confirmation, one authored strength pattern, one authored next focus, one authored bridge into speaking, and a dominant `Continue to speaking` CTA.
+15. Complete the underlying game activity and verify `speaking` unlocks immediately.
+16. Confirm no visible numeric score or pass/fail threshold is shown anywhere in the game flow.
+17. Confirm there is no separate Games tab or standalone game route outside `/app/learn/unit/:unitSlug/game`.
+
+Pass condition:
+- game feels like a required Learn warm-up, not a detached game surface
+- learners can always complete game even when voice is unavailable
+
+## 3.2.2 Content Source Precedence
 
 1. Seed both teacher-provided and placeholder items for same topic.
 2. Request Learn recommendation for that topic.
@@ -62,7 +86,7 @@ Pass condition:
 Pass condition:
 - recommendation order enforces `teacher_provided` before `placeholder`
 
-## 3.2.2 Recommendation Rule Determinism
+## 3.2.3 Recommendation Rule Determinism
 
 1. Set up user with active homework session.
 2. Request Home primary action and verify `resume_homework_help`.
@@ -73,7 +97,7 @@ Pass condition:
 Pass condition:
 - reason codes follow documented priority order without ambiguity
 
-## 3.2.3 Curriculum Level and Promotion
+## 3.2.4 Curriculum Level and Promotion
 
 1. Seed a learner with no `currentLevel` and a legacy qualifying report labeled `foundation`.
 2. Load Learn and verify `currentLevel` backfills to `very_basic`.
@@ -87,7 +111,7 @@ Pass condition:
 Pass condition:
 - level assignment is deterministic and upward-only
 
-## 3.2.4 Learn Speaking Missions
+## 3.2.5 Learn Speaking Missions
 
 1. Open `/app/learn/unit/:unitSlug/speaking` on a free account.
 2. Verify the speaking activity opens in `Brief` with scenario, goal, and text-first start path.
@@ -103,15 +127,36 @@ Pass condition:
 12. Save a phrase from the Learn review and verify it persists to the shared phrase bank.
 13. Retry the same mission and verify the new session links back to the prior attempt cleanly.
 14. Open unit `3` or `6` in any curriculum and verify the speaking mission renders benchmark-mode copy and requires the longer turn count.
-15. Confirm mission completion alone does not change `currentLevel` and does not create a Progress report entry.
-16. On a Pro account, verify the speaking activity opens voice-first with a single `Start conversation` CTA.
-17. On a Pro account, start the Learn voice mission and verify the page opens a bounded live voice conversation inside Learn rather than the full Speak session shell.
-18. On a Pro account, confirm transcript snapshots sync while the Learn voice conversation is active and that `See feedback` becomes available after the hidden participation threshold is met.
-19. On a Pro account, confirm mic-denied or unavailable cases fall back cleanly to text without losing mission state.
+15. Open `very_basic` unit `3` or `6` and verify the speaking mission does not unlock feedback until the learner reaches 4 turns and answers at least 1 substantive follow-up question.
+16. Open `basic` unit `3` or `6` and verify the speaking mission does not unlock feedback until the learner reaches 5 turns and answers at least 2 substantive follow-up questions.
+17. Verify all four levels use authored lesson/practice/game/writing/checkpoint content instead of the shared generic scaffold strings.
+18. Open `intermediate` unit `3` or `6` and verify the speaking mission does not unlock feedback until the learner reaches 6 turns and answers at least 2 substantive follow-up questions.
+19. Open `advanced` unit `3` or `6` and verify the speaking mission does not unlock feedback until the learner reaches 7 turns and answers at least 3 substantive follow-up questions.
+20. Verify all six `intermediate` and all six `advanced` speaking missions include authored evidence targets, follow-up objectives, and benchmark focus where appropriate.
+21. Verify Learn speaking review includes an evidence summary with observed evidence, missing evidence, and one next focus.
+22. Confirm mission completion alone does not change `currentLevel` and does not create a Progress report entry.
+23. On a Pro account, verify the speaking activity opens voice-first with a single `Start conversation` CTA.
+24. On a Pro account, start the Learn voice mission and verify the page opens a bounded live voice conversation inside Learn rather than the full Speak session shell.
+25. On a Pro account, confirm transcript snapshots sync while the Learn voice conversation is active and that `See feedback` becomes available after the hidden participation threshold is met.
+26. On a Pro account, confirm mic-denied or unavailable cases fall back cleanly to text without losing mission state.
+27. Attempt to open `/app/learn/unit/:unitSlug/speaking` before completing game and verify the standard locked-state recovery path is shown.
 
 Pass condition:
 - speaking missions feel like one bounded curriculum task, not a generic Speak detour
 - review stays focused and actionable
+
+## 3.2.6 Learn Game Migration and Backfill
+
+1. Seed a learner with no curriculum progress and verify every unit now includes a locked or unlocked `game` activity row.
+2. Seed a learner mid-unit before `practice` completion and verify the next required step remains unchanged until `practice` is done.
+3. Seed a learner with `speaking`, `writing`, or `checkpoint` already completed under the old five-step contract but with no game completion.
+4. Run the progress reconciliation/bootstrap path and verify the learner is routed back to the missing `game` step as the earliest incomplete required activity.
+5. Verify the later historical completions remain stored and visible after reconciliation.
+6. Verify the unit remains incomplete until game is completed, even when later activities were already completed historically.
+7. Complete the missing game and verify the unit and next-unit progression recover cleanly under the six-step contract.
+
+Pass condition:
+- the game backfill is retroactive without wiping historical downstream progress
 
 ## 3.3 Homework Help
 

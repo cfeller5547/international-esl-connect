@@ -4,7 +4,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { prisma } from "@/server/prisma";
 import { bootstrapDatabase } from "@/server/bootstrap-data";
-import { CurriculumService } from "@/server/services/curriculum-service";
+import {
+  CurriculumService,
+  reconcileCurriculumProgressForUser,
+} from "@/server/services/curriculum-service";
 
 describe("curriculum service", () => {
   beforeAll(async () => {
@@ -59,7 +62,7 @@ describe("curriculum service", () => {
     expect(curriculum.currentActivity?.activityType).toBe("lesson");
   });
 
-  it("requires all five activities and unlocks the next unit sequentially", async () => {
+  it("requires all six activities and unlocks the next unit sequentially", async () => {
     const user = await prisma.user.create({
       data: {
         email: `curriculum-unlock-${crypto.randomUUID()}@example.com`,
@@ -93,6 +96,28 @@ describe("curriculum service", () => {
       activityType: "practice",
       score: 84,
     });
+    updated = await CurriculumService.getAssignedCurriculum(user.id);
+    expect(updated.currentActivity?.activityType).toBe("game");
+    expect(updated.currentActivity?.href).toBe(`/app/learn/unit/${unitSlug!}/game`);
+    await CurriculumService.completeUnitActivity({
+      userId: user.id,
+      unitSlug: unitSlug!,
+      activityType: "game",
+      score: 81,
+      responsePayload: {
+        gameReview: {
+          gameId: "basic-1-game",
+          gameTitle: "Unit Game",
+          gameKind: "unit_challenge",
+          strength: "You held the target moves clearly.",
+          nextFocus: "Keep the same structure steady.",
+          replayStageIds: [],
+          stages: [],
+        },
+      },
+    });
+    updated = await CurriculumService.getAssignedCurriculum(user.id);
+    expect(updated.currentActivity?.activityType).toBe("speaking");
     await CurriculumService.completeUnitActivity({
       userId: user.id,
       unitSlug: unitSlug!,
@@ -128,7 +153,7 @@ describe("curriculum service", () => {
       `/app/learn/unit/${completed.units[1]?.slug}/lesson`
     );
     expect(checkpointResult.nextAction.stepIndex).toBe(1);
-    expect(checkpointResult.nextAction.totalSteps).toBe(5);
+    expect(checkpointResult.nextAction.totalSteps).toBe(6);
   });
 
   it("promotes immediately and never demotes on lower reassessment scores", async () => {
@@ -189,7 +214,19 @@ describe("curriculum service", () => {
 
     while (view.currentUnit && view.currentActivity) {
       const responsePayload =
-        view.currentActivity.activityType === "speaking" ||
+        view.currentActivity.activityType === "game"
+          ? {
+              gameReview: {
+                gameId: "auto-game",
+                gameTitle: "Automated Unit Game",
+                gameKind: "unit_challenge",
+                strength: "Automated test game complete.",
+                nextFocus: "Keep the rhythm clean.",
+                replayStageIds: [],
+                stages: [],
+              },
+            }
+          : view.currentActivity.activityType === "speaking" ||
         view.currentActivity.activityType === "writing"
           ? { answer: "This is a strong enough sample response for automated testing." }
           : view.currentActivity.activityType === "checkpoint"
@@ -212,5 +249,96 @@ describe("curriculum service", () => {
     expect(view.currentUnit).toBeNull();
     expect(view.currentActivity).toBeNull();
     expect(nextAction.targetUrl).toBe("/app/learn");
+  }, 20000);
+
+  it("routes learners back to game when older progress skipped it", async () => {
+    const user = await prisma.user.create({
+      data: {
+        email: `curriculum-game-migration-${crypto.randomUUID()}@example.com`,
+        passwordHash: "hashed",
+        ageBand: "age_16_18",
+        nativeLanguage: "english",
+        targetLanguage: "english",
+        schoolLevel: "high_school",
+        currentLevel: "basic",
+      },
+    });
+
+    const curriculum = await CurriculumService.getAssignedCurriculum(user.id);
+    const unit = curriculum.currentUnit!;
+
+    await CurriculumService.completeUnitActivity({
+      userId: user.id,
+      unitSlug: unit.slug,
+      activityType: "lesson",
+      score: 90,
+    });
+    await CurriculumService.completeUnitActivity({
+      userId: user.id,
+      unitSlug: unit.slug,
+      activityType: "practice",
+      score: 90,
+    });
+
+    const speaking = unit.activities.find((activity) => activity.activityType === "speaking")!;
+    const writing = unit.activities.find((activity) => activity.activityType === "writing")!;
+    const checkpoint = unit.activities.find((activity) => activity.activityType === "checkpoint")!;
+
+    await prisma.userUnitActivityProgress.update({
+      where: {
+        userId_activityId: {
+          userId: user.id,
+          activityId: speaking.id,
+        },
+      },
+      data: {
+        status: "completed",
+        score: 86,
+        completedAt: new Date(),
+      },
+    });
+    await prisma.userUnitActivityProgress.update({
+      where: {
+        userId_activityId: {
+          userId: user.id,
+          activityId: writing.id,
+        },
+      },
+      data: {
+        status: "completed",
+        score: 85,
+        completedAt: new Date(),
+      },
+    });
+    await prisma.userUnitActivityProgress.update({
+      where: {
+        userId_activityId: {
+          userId: user.id,
+          activityId: checkpoint.id,
+        },
+      },
+      data: {
+        status: "completed",
+        score: 100,
+        completedAt: new Date(),
+      },
+    });
+
+    await reconcileCurriculumProgressForUser(user.id);
+
+    const refreshed = await CurriculumService.getAssignedCurriculum(user.id);
+    const refreshedUnit = refreshed.units.find((entry) => entry.slug === unit.slug)!;
+    const refreshedGame = refreshedUnit.activities.find((entry) => entry.activityType === "game")!;
+
+    expect(refreshed.currentUnit?.slug).toBe(unit.slug);
+    expect(refreshed.currentActivity?.activityType).toBe("game");
+    expect(refreshedGame.status).toBe("unlocked");
+    expect(
+      refreshedUnit.activities.find((entry) => entry.activityType === "speaking")?.status
+    ).toBe("completed");
+    expect(
+      refreshedUnit.activities.find((entry) => entry.activityType === "checkpoint")?.status
+    ).toBe("completed");
+    expect(refreshedUnit.status).toBe("unlocked");
   });
 });

@@ -9,6 +9,7 @@ import {
 } from "@/lib/speak";
 import { createOpeningPrompt } from "@/server/ai/openai-conversation";
 import { getCurrentUser } from "@/server/auth";
+import type { MissionEvidenceTarget } from "@/server/learn-speaking-types";
 import { prisma } from "@/server/prisma";
 
 export default async function SpeakSessionPage({
@@ -114,6 +115,38 @@ export default async function SpeakSessionPage({
       successCriteria: Array.isArray(summaryPayload.successCriteria)
         ? summaryPayload.successCriteria.map(String)
         : [],
+      evidenceTargets: Array.isArray(summaryPayload.evidenceTargets)
+        ? summaryPayload.evidenceTargets
+            .map((target) => {
+              const record = target as Record<string, unknown>;
+              const kind: "task" | "language" | "detail" | "follow_up" =
+                record.kind === "task" ||
+                record.kind === "language" ||
+                record.kind === "detail" ||
+                record.kind === "follow_up"
+                  ? record.kind
+                  : "task";
+              return {
+                key: String(record.key ?? ""),
+                label: String(record.label ?? ""),
+                kind,
+                cues: Array.isArray(record.cues) ? record.cues.map(String) : [],
+              } satisfies MissionEvidenceTarget;
+            })
+            .filter((target) => target.key.length > 0 && target.label.length > 0)
+        : [],
+      followUpObjectives: Array.isArray(summaryPayload.followUpObjectives)
+        ? summaryPayload.followUpObjectives.map(String)
+        : [],
+      benchmarkFocus: Array.isArray(summaryPayload.benchmarkFocus)
+        ? summaryPayload.benchmarkFocus.map(String)
+        : [],
+      requiredTurns:
+        typeof summaryPayload.requiredTurns === "number" ? summaryPayload.requiredTurns : 3,
+      minimumFollowUpResponses:
+        typeof summaryPayload.minimumFollowUpResponses === "number"
+          ? summaryPayload.minimumFollowUpResponses
+          : 0,
       starterPrompt:
         typeof summaryPayload.starterPrompt === "string"
           ? summaryPayload.starterPrompt

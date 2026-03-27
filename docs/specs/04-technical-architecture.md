@@ -180,10 +180,18 @@ Required output fields from `RecommendationService`:
 3. Learn executes the selected curriculum activity
 4. activity completion updates unit and curriculum progress
 5. auto-transition to the next required activity in the unit
-6. completing the checkpoint unlocks the next unit
+6. completing all six required activities (`lesson` -> `practice` -> `game` -> `speaking` -> `writing` -> `checkpoint`) unlocks the next unit
 7. inline progress update emitted
 
-### 9.2.1 Learn Speaking Mission Flow
+### 9.2.1 Learn Game Flow
+1. Learn loads the game route for `/app/learn/unit/:unitSlug/game`
+2. `LearnGameService` resolves the authored game payload and current game progress for the unit, including `theme`, `assetRefs`, `layoutVariant`, stage presentation metadata, and authored summary copy
+3. browser starts with the authored stage sequence ready, with voice enabled only on stages where it materially helps and fallback available on voice-enabled stages when mic access or voice evaluation is unavailable
+4. `POST /api/v1/learn/curriculum/game/evaluate` returns coaching-first feedback, retry eligibility, fallback guidance, and per-stage evaluation state
+5. final game completion persists `response_payload.gameReview` through `/api/v1/learn/curriculum/activity/complete`
+6. `CurriculumService` recomputes progression so the speaking step unlocks immediately after game completion
+
+### 9.2.2 Learn Speaking Mission Flow
 1. Learn loads mission view for `/app/learn/unit/:unitSlug/speaking`
 2. `LearnSpeakingService` resolves the unit speaking payload and latest linked session
 3. `ConversationService` starts or resumes a shared conversation session with `surface = learn`
@@ -195,7 +203,7 @@ Required output fields from `RecommendationService`:
 9. the review is persisted on the linked unit activity progress row
 10. final curriculum completion still flows through `CurriculumService`
 
-### 9.2.2 Speak Realtime Voice Flow
+### 9.2.3 Speak Realtime Voice Flow
 1. user starts a Speak session with `interactionMode = voice`
 2. `SpeakService` creates the session without seeding a fake first turn
 3. session page requests a short-lived realtime client secret from `/api/v1/speak/session/:sessionId/realtime`
@@ -215,19 +223,25 @@ Required output fields from `RecommendationService`:
 ## 10. Homework Parse Pipeline Contract (MVP)
 
 Upload parsing stages:
-1. file normalization and type validation
-2. text extraction:
+1. one flexible intake accepts screenshot, photo, PDF, pasted text, or mixed homework structures
+2. file normalization and type validation
+3. text extraction:
    - native text extraction for text PDFs
    - AI vision/OCR extraction for image PDFs, screenshots, and photos
-3. AI-assisted question segmentation and classification
-4. structured question enrichment for coaching:
+4. AI-assisted question segmentation and classification
+5. internal content-shape inference:
+   - `single_question`
+   - `multi_question`
+   - `passage_plus_questions`
+   - `mixed_or_unclear`
+6. structured question enrichment for coaching:
    - focus skill
    - answer format
    - success criteria
    - plan steps
    - common pitfalls
-5. parse confidence scoring and sanity checks
-6. structured payload persistence (`parsed_payload`)
+7. parse confidence scoring and sanity checks
+8. structured payload persistence (`parsed_payload`)
 
 Parse status model:
 - `uploaded`
@@ -238,11 +252,17 @@ Parse status model:
 - `failed`
 
 Fallback behavior:
-- if confidence below threshold, mark `needs_review` and show manual question edit UI path
+- if confidence below threshold, mark `needs_review` and show a lightweight review path
+- Phase 1 review scope is:
+  - edit detected question text
+  - delete bad questions
+  - confirm the parse
+- low-confidence parses should warn, not hard-block, unless zero usable questions are detected
 
 ## 11. Homework Coaching Loop Contract (MVP)
 
 Once a homework session starts, coaching is question-scoped and action-based rather than open-ended chat.
+The UI should adapt to the inferred content shape rather than forcing separate user-facing modes.
 
 Supported coaching actions:
 - `explain`: paraphrase what the question is asking without solving it
@@ -257,6 +277,13 @@ Required coaching guardrails:
 - only `submit` may advance question progress
 - `check` may mark a draft as ready to submit without auto-advancing
 - if parsing fails, preserve upload and allow retry or text paste fallback
+- Homework Help session state must persist on the existing session record so refresh/resume restores:
+  - latest draft per detected question
+  - current active question
+  - hint depth used
+  - per-question status
+  - recommended next action
+- completion must be based on all detected questions being completed, not on submitting the final array index
 
 ## 11. Cross-Cutting Concerns
 

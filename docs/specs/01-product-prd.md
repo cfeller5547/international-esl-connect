@@ -37,16 +37,31 @@ Data model note:
 - Home as a coach-briefing surface with one dynamic primary CTA
 - Home persistent "Homework Help now" quick action for urgent use
 - Learn with one assigned fixed curriculum based on `currentLevel`
-- sequential unit unlocks and required unit activities (`lesson`, `practice`, `speaking`, `writing`, `checkpoint`)
+- sequential unit unlocks and required unit activities (`lesson`, `practice`, `game`, `speaking`, `writing`, `checkpoint`)
+- required Learn game activity in every unit:
+  - Stage 3 game uses richer authored payloads with `theme`, `assetRefs`, `layoutVariant`, stage presentation metadata, and authored summary copy
+  - current `very_basic`, `basic`, `intermediate`, and `advanced` games use authored Stage 3 mechanics drawn from `assemble`, `spotlight`, `state_switch`, `priority_board`, `choice`, `match`, `sequence`, `map`, and `voice_prompt` where they fit the unit
+  - voice is used only where it materially helps, with guaranteed non-voice fallback
+  - game uses coaching-first feedback with no visible numeric score
+  - game completion unlocks `speaking`
 - Learn speaking activity as a structured `Speaking Mission`:
   - prep
   - short guided conversation
   - focused transcript review
   - optional retry
+- all four curriculum levels are fully hand-authored across all six required Learn activities
 - unit speaking missions support:
   - default account access currently includes the Pro voice path in preview mode
   - text fallback remains available when voice is unavailable
 - units `3` and `6` in each curriculum act as stronger speaking benchmarks inside Learn without affecting level assignment
+- units `3` and `6` in all four curriculum levels are evidence-aware benchmark missions:
+  - benchmark review is feedback-only
+  - benchmark completion never changes `currentLevel`
+  - benchmark follow-ups are driven by missing task evidence rather than static prompt rotation
+  - `very_basic` benchmark missions require 4 learner turns and 1 substantive follow-up response before feedback unlocks
+  - `basic` benchmark missions require 5 learner turns and 2 substantive follow-up responses before feedback unlocks
+  - `intermediate` benchmark missions require 6 learner turns and 2 substantive follow-up responses before feedback unlocks
+  - `advanced` benchmark missions require 7 learner turns and 3 substantive follow-up responses before feedback unlocks
 - Teacher-provided lesson content pipeline (lessons, worksheets, videos) as canonical source
 - Placeholder content library for pre-content MVP bootstrap
 - Homework Help inside Tools
@@ -82,6 +97,7 @@ Top-level app pillars:
 
 Rule:
 - Learn is curriculum-only.
+- No separate Games tab or standalone game route is introduced; game remains a required step inside the existing Learn unit flow.
 - Homework Help and Test Prep Sprint are top-level tools inside `Tools`.
 - Profile, Settings, Billing, and Help live in a compact account/utility menu rather than the primary nav.
 
@@ -99,7 +115,7 @@ Rule:
 1. Home primary CTA
 2. Compact support strip clarifies current focus and learning rhythm
 3. Urgent path available anytime via `Homework Help now`
-4. Learn unit activity chain (`lesson` -> `practice` -> `speaking mission` -> `writing` -> `checkpoint`)
+4. Learn unit activity chain (`lesson` -> `practice` -> `game` -> `speaking mission` -> `writing` -> `checkpoint`)
 5. Inline progress update + celebration moment
 6. Optional Progress deep dive and share card generation
 

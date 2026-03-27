@@ -65,6 +65,7 @@ Role mapping:
 
 Navigation hierarchy:
 - `Learn` should only surface the assigned curriculum and its next required activity.
+- There is no separate Games tab or standalone game area outside Learn.
 - `Tools` should house Homework Help and Test Prep Sprint.
 - Profile, Settings, Billing, and Help should stay in the account menu, not the primary nav.
 
@@ -134,6 +135,35 @@ Avoid equal visual weight between overall trend and per-skill detail.
 - Display live transcript where possible
 - Show clear listening/speaking states
 - Handle mic permission denial gracefully
+
+### 6.1 Learn Game Treatment
+
+- The Learn game step should feel more authored and visually distinct than the rest of the curriculum flow.
+- Use the game `theme` and `layoutVariant` to drive a stronger visual hierarchy, not just a different title.
+- Surface authored board metadata so the game reads like a designed learning moment, not a plain quiz card.
+- During active play, the game should use a compact in-flow progress strip instead of the full large Learn activity header.
+- Keep the richer unit header only for the game `brief` and `summary` phases.
+- The current `very_basic`, `basic`, `intermediate`, and `advanced` games should rely primarily on tap-first mechanics:
+  - `assemble`
+  - `spotlight`
+  - `state_switch`
+  - `priority_board`
+- The current `very_basic` and `basic` games should use richer Stage 4 layout variants where appropriate:
+  - `slot_strip`
+  - `dialogue_pick`
+  - `voice_focus`
+  - `planner_dense`
+  - `scene_focus`
+  - `map_focus`
+- On pointer devices, slot-and-board stages may add drag-and-drop as an enhancement, but tap/select must remain the canonical path for touch, keyboard, and accessibility coverage.
+- Do not let every game collapse back to a repeated `quiz card + CTA` rhythm. The board, helper copy, and interaction should change with the game kind.
+- Keep the dominant action clear even when the visual treatment is richer.
+- Use voice only on stages where it materially helps the learning task; do not force voice chrome across every stage.
+- On voice-enabled game stages, `Say it` and `Quick backup` should both be visible at the top of the board. Backup must not look like a degraded path.
+- Stage-complete feedback should feel resolved and specific:
+  - compact success pulse
+  - one short coaching note
+  - one clear next-stage CTA
 
 ## 7. Home Screen Hierarchy Contract
 

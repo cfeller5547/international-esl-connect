@@ -1,5 +1,6 @@
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/server/prisma";
+import { reconcileCurriculumProgressForUser } from "@/server/services/curriculum-service";
 
 import {
   CURRICULUM_BLUEPRINTS,
@@ -173,6 +174,42 @@ const LEGACY_CONTENT_ITEMS: Prisma.ContentItemCreateInput[] = [
 
 let bootstrapPromise: Promise<void> | null = null;
 let bootstrapComplete = false;
+
+async function moveExistingActivityOrderIndexes(unitId: string) {
+  const existing = await prisma.curriculumUnitActivity.findMany({
+    where: { unitId },
+    select: {
+      id: true,
+      activityType: true,
+      orderIndex: true,
+    },
+  });
+
+  const temporaryOrderIndex: Partial<Record<string, number>> = {
+    speaking: 13,
+    writing: 14,
+    checkpoint: 15,
+  };
+
+  for (const entry of existing) {
+    const temporaryIndex = temporaryOrderIndex[entry.activityType];
+
+    if (!temporaryIndex) {
+      continue;
+    }
+
+    if (entry.orderIndex >= 10) {
+      continue;
+    }
+
+    await prisma.curriculumUnitActivity.update({
+      where: { id: entry.id },
+      data: {
+        orderIndex: temporaryIndex,
+      },
+    });
+  }
+}
 
 function curriculumSkillTags(level: string) {
   if (level === "very_basic") {
@@ -385,6 +422,8 @@ async function upsertCurricula() {
         },
       });
 
+      await moveExistingActivityOrderIndexes(unitId);
+
       const activityRows = [
         {
           type: "lesson",
@@ -407,6 +446,13 @@ async function upsertCurricula() {
           },
         },
         {
+          type: "game",
+          title: "Game",
+          description: `Play the unit game before you move into speaking.`,
+          contentItemId: null,
+          payload: unit.game,
+        },
+        {
           type: "speaking",
           title: "Speaking Mission",
           description: unit.speakingMission.isBenchmark
@@ -425,6 +471,11 @@ async function upsertCurricula() {
             successCriteria: unit.speakingMission.successCriteria,
             modelExample: unit.speakingMission.modelExample,
             isBenchmark: unit.speakingMission.isBenchmark,
+            requiredTurns: unit.speakingMission.requiredTurns,
+            minimumFollowUpResponses: unit.speakingMission.minimumFollowUpResponses,
+            evidenceTargets: unit.speakingMission.evidenceTargets,
+            followUpObjectives: unit.speakingMission.followUpObjectives,
+            benchmarkFocus: unit.speakingMission.benchmarkFocus,
           },
         },
         {
@@ -482,6 +533,107 @@ async function upsertCurricula() {
   }
 }
 
+async function backfillDrillContractToGame() {
+  await prisma.curriculumUnitActivity.updateMany({
+    where: { activityType: "drill" },
+    data: {
+      activityType: "game",
+      title: "Game",
+      description: "Play the unit game before you move into speaking.",
+    },
+  });
+
+  await prisma.activityAttempt.updateMany({
+    where: { activityType: "drill" },
+    data: {
+      activityType: "game",
+    },
+  });
+
+  const progressRows = await prisma.userUnitActivityProgress.findMany({
+    where: {
+      responsePayload: {
+        not: Prisma.AnyNull,
+      },
+    },
+    select: {
+      id: true,
+      responsePayload: true,
+    },
+  });
+
+  for (const row of progressRows) {
+    const payload = row.responsePayload as Record<string, unknown> | null;
+
+    if (!payload || !payload.drillReview || payload.gameReview) {
+      continue;
+    }
+
+    await prisma.userUnitActivityProgress.update({
+      where: { id: row.id },
+      data: {
+        responsePayload: {
+          ...payload,
+          gameReview: payload.drillReview,
+        } as never,
+      },
+    });
+  }
+}
+
+async function backfillGameActivityProgress() {
+  const unitProgressRows = await prisma.userUnitProgress.findMany({
+    include: {
+      unit: {
+        include: {
+          activities: {
+            orderBy: { orderIndex: "asc" },
+          },
+        },
+      },
+      activityProgress: true,
+    },
+  });
+
+  const touchedUsers = new Set<string>();
+
+  for (const unitProgress of unitProgressRows) {
+    for (const activity of unitProgress.unit.activities) {
+      const hasProgress = unitProgress.activityProgress.some(
+        (entry) => entry.activityId === activity.id
+      );
+
+      if (hasProgress) {
+        continue;
+      }
+
+      await prisma.userUnitActivityProgress.upsert({
+        where: {
+          userId_activityId: {
+            userId: unitProgress.userId,
+            activityId: activity.id,
+          },
+        },
+        update: {
+          unitProgressId: unitProgress.id,
+        },
+        create: {
+          userId: unitProgress.userId,
+          unitProgressId: unitProgress.id,
+          activityId: activity.id,
+          status: "locked",
+        },
+      });
+    }
+
+    touchedUsers.add(unitProgress.userId);
+  }
+
+  for (const userId of touchedUsers) {
+    await reconcileCurriculumProgressForUser(userId);
+  }
+}
+
 async function backfillCurrentLevels() {
   const users = await prisma.user.findMany({
     where: {
@@ -527,8 +679,10 @@ export async function bootstrapDatabase() {
   bootstrapPromise = (async () => {
     await ensureLegacyContent();
     await upsertCurriculumContent();
+    await backfillDrillContractToGame();
     await upsertCurricula();
     await backfillCurrentLevels();
+    await backfillGameActivityProgress();
     bootstrapComplete = true;
   })();
 

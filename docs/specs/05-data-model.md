@@ -143,7 +143,7 @@ Rule:
 ### `curriculum_unit_activities`
 - `id` (uuid, pk)
 - `unit_id` (fk curriculum_units.id)
-- `activity_type` (`lesson` | `practice` | `speaking` | `writing` | `checkpoint`)
+- `activity_type` (`lesson` | `practice` | `game` | `speaking` | `writing` | `checkpoint`)
 - `title`
 - `description`
 - `order_index`
@@ -163,13 +163,43 @@ Speaking activity payload contract:
 - `model_example`
 - `is_benchmark`
 
+Game activity payload contract:
+- `gameId`
+- `gameTitle`
+- `gameKind`
+- `theme`
+- `layoutVariant`
+- `assetRefs` (jsonb array of asset metadata or references)
+- `summary`
+  - `strength`
+  - `nextFocus`
+  - `bridgeToSpeaking`
+- `introText`
+- `stages[]`
+  - `id`
+  - `kind` (`assemble` | `spotlight` | `state_switch` | `priority_board` | `choice` | `match` | `sequence` | `map` | `voice_prompt`)
+  - `presentationMetadata` (optional jsonb):
+    - `layoutVariant`
+    - `assetRef`
+    - `boardTitle`
+    - `helperLabel`
+    - `helperText`
+    - `callToAction`
+    - optional positioned scene/map metadata such as `connections` or authored hotspot data
+  - stage-specific fields
+- `completionRule`
+  - `requiredStageCount`
+  - `maxRetriesPerStage`
+- voice should be used only on stages where it materially helps; structural stages must remain completable without it
+
 Rule:
-- every unit must have exactly five required activities in this fixed order:
+- every unit must have exactly six required activities in this fixed order:
   1. `lesson`
   2. `practice`
-  3. `speaking`
-  4. `writing`
-  5. `checkpoint`
+  3. `game`
+  4. `speaking`
+  5. `writing`
+  6. `checkpoint`
 
 ### `user_curriculum_progress`
 - `id` (uuid, pk)
@@ -208,6 +238,7 @@ Rules:
 - users may have archived progress for prior curricula after promotion.
 - only one curriculum progress row may be active per user at a time.
 - promotion switches the active curriculum immediately and preserves earlier curriculum history.
+- `response_payload` may persist activity-specific completion summaries such as `gameReview` for the Learn game activity and transcript review payloads for Learn speaking.
 
 ### `content_items`
 - `id` (uuid, pk)
@@ -246,7 +277,7 @@ Rules:
 - `learn_session_id` (nullable fk)
 - `activity_type` (string)
   - legacy values include `lesson`, `worksheet`, `speaking_apply`, `daily_challenge`
-  - curriculum completions also write activity attempts using `lesson`, `practice`, `speaking`, `writing`, `checkpoint`
+  - curriculum completions also write activity attempts using `lesson`, `practice`, `game`, `speaking`, `writing`, `checkpoint`
 - `content_id` (nullable fk content_items.id)
 - `score` (nullable int)
 - `status`
@@ -425,6 +456,9 @@ Rules:
 17. Learn speaking mission retries must link back to the original session via `retry_of_session_id`.
 18. Learn speaking reviews are persisted on `user_unit_activity_progress.response_payload` so completed speaking steps can reopen directly into review state.
 19. Units `3` and `6` in each 6-unit curriculum are authored with `is_benchmark = true` on the speaking activity payload.
+20. Learn speaking payloads may also carry benchmark/evidence metadata such as `required_turns`, `minimum_follow_up_responses`, `evidence_targets`, `follow_up_objectives`, and `benchmark_focus`.
+21. All four curriculum levels are now fully hand-authored rather than relying on the shared scaffold generators for lesson, practice, game, writing, and checkpoint content.
+22. `very_basic` benchmark speaking payloads use `required_turns = 4` and `minimum_follow_up_responses = 1`, `basic` uses `required_turns = 5` and `minimum_follow_up_responses = 2`, `intermediate` uses `required_turns = 6` and `minimum_follow_up_responses = 2`, and `advanced` uses `required_turns = 7` and `minimum_follow_up_responses = 3`.
 
 ## 4. Retention and Cleanup
 

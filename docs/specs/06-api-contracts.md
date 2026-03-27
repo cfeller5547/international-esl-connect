@@ -371,9 +371,9 @@ Response:
   },
   "currentActivity": {
     "id": "uuid",
-    "activityType": "practice",
-    "title": "Practice Past Events",
-    "href": "/app/learn/unit/basic-past-events-and-weekend-stories/practice"
+    "activityType": "game",
+    "title": "Unit Game",
+    "href": "/app/learn/unit/basic-past-events-and-weekend-stories/game"
   },
   "units": [
     {
@@ -385,6 +385,7 @@ Response:
       "activities": [
         { "activityType": "lesson", "status": "completed", "href": "/app/learn/unit/basic-habits-and-routines-in-more-detail/lesson" },
         { "activityType": "practice", "status": "completed", "href": "/app/learn/unit/basic-habits-and-routines-in-more-detail/practice" },
+        { "activityType": "game", "status": "completed", "href": "/app/learn/unit/basic-habits-and-routines-in-more-detail/game" },
         { "activityType": "speaking", "status": "completed", "href": "/app/learn/unit/basic-habits-and-routines-in-more-detail/speaking" },
         { "activityType": "writing", "status": "completed", "href": "/app/learn/unit/basic-habits-and-routines-in-more-detail/writing" },
         { "activityType": "checkpoint", "status": "completed", "href": "/app/learn/unit/basic-habits-and-routines-in-more-detail/checkpoint" }
@@ -402,21 +403,125 @@ Response:
 }
 ```
 
+Rules:
+- each unit exposes six required ordered activities: `lesson`, `practice`, `game`, `speaking`, `writing`, `checkpoint`
+- clients should use `orderIndex` from the activity payloads and activity list length to render step position
+- `game` is required for unit completion and for unlocking `speaking`
+
 ### `POST /api/v1/learn/curriculum/activity/complete`
 Request:
 ```json
 {
   "unitSlug": "basic-past-events-and-weekend-stories",
-  "activityType": "practice",
-  "score": 88,
+  "activityType": "game",
+  "score": 86,
   "responsePayload": {
-    "answers": ["sample"]
+    "gameReview": {
+      "gameId": "basic-2-game",
+      "gameTitle": "Story Chain",
+      "gameKind": "story_chain",
+      "strength": "Your story now has a clear order and a real ending reaction.",
+      "nextFocus": "Keep one time marker in the line so the listener hears where the story is moving.",
+      "bridgeToSpeaking": "Use the same start-middle-end flow when you tell the weekend story in speaking.",
+      "replayStageIds": ["basic-2-game-sequence", "basic-2-game-voice"],
+      "stages": [
+        {
+          "stageId": "basic-2-game-sequence",
+          "stageKind": "sequence",
+          "stageTitle": "Build the story panels",
+          "outcome": "strong",
+          "coachNote": "Good. The day now moves in a clear order.",
+          "transcriptText": null,
+          "resolvedInputMode": null
+        }
+      ]
+    }
   }
 }
 ```
 
+Behavior:
+- marks the activity complete
+- unlocks the next required activity in the unit or the next unit when all six required activities are complete
+- updates the active curriculum progress summary
+- returns explicit next-step metadata so the client can render a completion transition before navigation
+
+Response:
+```json
+{
+  "nextActionHref": "/app/learn/unit/basic-past-events-and-weekend-stories/speaking",
+  "unitCompleted": false,
+  "nextAction": {
+    "href": "/app/learn/unit/basic-past-events-and-weekend-stories/speaking",
+    "label": "Continue to speaking",
+    "title": "Speaking application",
+    "description": "Use the unit language in your own words.",
+    "unitTitle": "Past Events and Weekend Stories",
+    "activityType": "speaking",
+    "stepIndex": 4,
+    "totalSteps": 6
+  }
+}
+```
+
+### `POST /api/v1/learn/curriculum/game/evaluate`
+Evaluates one Learn game stage and returns coaching-first feedback. This route is used by the required Learn game activity and does not replace final activity completion.
+
+Request:
+```json
+{
+  "unitSlug": "very-basic-introductions-and-personal-information",
+  "stageId": "very_basic-1-game-assemble",
+  "attemptNumber": 1,
+  "answer": {
+    "assembleAssignments": [
+      { "slotId": "greeting", "optionId": "opt-hi" },
+      { "slotId": "name", "optionId": "opt-ana" },
+      { "slotId": "country", "optionId": "opt-brazil" },
+      { "slotId": "question", "optionId": "opt-question" }
+    ]
+  }
+}
+```
+
+Voice request example:
+```json
+{
+  "unitSlug": "very-basic-introductions-and-personal-information",
+  "stageId": "very_basic-1-game-voice",
+  "inputMode": "voice",
+  "attemptNumber": 1,
+  "answer": {
+    "audioDataUrl": "data:audio/webm;base64,...",
+    "audioMimeType": "audio/webm"
+  }
+}
+```
+
+Response:
+```json
+{
+  "stageId": "very_basic-1-game-assemble",
+  "stageKind": "assemble",
+  "stageTitle": "Build the name tag",
+  "resolvedInputMode": null,
+  "transcriptText": null,
+  "outcome": "strong",
+  "coachNote": "Good. The intro badge is complete and ready to use.",
+  "retryAllowed": false,
+  "fallbackRecommended": false
+}
+```
+
+Rules:
+- `game` is required before `speaking`
+- Learn game payloads may include `assemble`, `spotlight`, `state_switch`, `priority_board`, `choice`, `match`, `sequence`, `map`, and `voice_prompt` stages plus `theme`, `assetRefs`, `layoutVariant`, stage presentation metadata, and authored summary copy
+- voice should be used only on stages where it materially helps the learning moment
+- feedback is coaching-first and must not be treated as a visible numeric score gate
+- if voice evaluation is unavailable, the API may return `resolvedInputMode = fallback` and `fallbackRecommended = true` so the client can continue without losing progress
+
 ### `POST /api/v1/learn/curriculum/speaking/start`
-Starts or retries the scenario-bound Learn speaking mission for the current unit.
+Starts or retries the scenario-bound Learn speaking mission for the current unit after the required game is complete.
 
 Request:
 ```json
@@ -536,6 +641,14 @@ Response:
   "strength": "You stayed in the scenario and added useful detail.",
   "improvement": "Use one more sequencing phrase in your next attempt.",
   "pronunciationNote": null,
+  "evidenceSummary": {
+    "observed": ["Summarize the main idea clearly"],
+    "missing": ["Include one supporting detail"],
+    "nextFocus": "Include one supporting detail",
+    "benchmarkFocus": null,
+    "followUpResponsesObserved": 1,
+    "followUpResponsesRequired": 0
+  },
   "highlights": [
     {
       "turnIndex": 3,
@@ -565,32 +678,12 @@ Response:
 Rules:
 - mission completion unlocks review, not the next curriculum activity by itself
 - final speaking activity completion still occurs through `/api/v1/learn/curriculum/activity/complete`
-- benchmark missions use the same contract but may require 4 learner turns instead of 3
+- speaking mission payloads may include `requiredTurns`, `minimumFollowUpResponses`, `evidenceTargets`, `followUpObjectives`, and `benchmarkFocus`
+- `very_basic` benchmark missions require 4 learner turns and 1 substantive follow-up response before feedback unlocks
+- `basic` benchmark missions require 5 learner turns and 2 substantive follow-up responses before feedback unlocks
+- `intermediate` benchmark missions require 6 learner turns and 2 substantive follow-up responses before feedback unlocks
+- `advanced` benchmark missions require 7 learner turns and 3 substantive follow-up responses before feedback unlocks
 - calling `complete` before the hidden participation threshold is met must return a validation error
-
-Behavior:
-- marks the activity complete
-- unlocks the next activity in the unit or the next unit when the unit is finished
-- updates the active curriculum progress summary
-- returns explicit next-step metadata so the client can render a completion transition before navigation
-
-Response:
-```json
-{
-  "nextActionHref": "/app/learn/unit/basic-past-events-and-weekend-stories/speaking",
-  "unitCompleted": false,
-  "nextAction": {
-    "href": "/app/learn/unit/basic-past-events-and-weekend-stories/speaking",
-    "label": "Continue to speaking",
-    "title": "Speaking application",
-    "description": "Use the unit language in your own words.",
-    "unitTitle": "Past Events and Weekend Stories",
-    "activityType": "speaking",
-    "stepIndex": 3,
-    "totalSteps": 5
-  }
-}
-```
 
 ### `PUT /api/v1/context/topics`
 Request:

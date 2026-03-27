@@ -62,6 +62,11 @@ function buildContext(interactionMode: "text" | "voice"): ConversationContext {
     followUpPrompts: [...FULL_DIAGNOSTIC_CONVERSATION.followUpPrompts],
     successCriteria: [...FULL_DIAGNOSTIC_CONVERSATION.successCriteria],
     modelExample: FULL_DIAGNOSTIC_CONVERSATION.modelExample,
+    evidenceTargets: [],
+    followUpObjectives: [],
+    benchmarkFocus: [],
+    requiredTurns: 3,
+    minimumFollowUpResponses: 0,
     starterPrompt: FULL_DIAGNOSTIC_CONVERSATION.openingTurn,
   };
 }

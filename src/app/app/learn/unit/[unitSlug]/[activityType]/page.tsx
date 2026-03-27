@@ -1,7 +1,8 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { CheckpointPlayer } from "@/features/learn/checkpoint-player";
 import { LearnActivityShell } from "@/features/learn/learn-activity-shell";
+import { LearnGamePlayer } from "@/features/learn/learn-game-player";
 import { LearnSpeakingMission } from "@/features/learn/learn-speaking-mission";
 import { LessonPlayer } from "@/features/learn/lesson-player";
 import { StructuredResponseActivity } from "@/features/learn/structured-response-activity";
@@ -11,6 +12,7 @@ import { getCurrentUser } from "@/server/auth";
 import { trackEvent } from "@/server/analytics";
 import { ContentService } from "@/server/services/content-service";
 import { CurriculumService } from "@/server/services/curriculum-service";
+import { LearnGameService } from "@/server/services/learn-game-service";
 import { LearnSpeakingService } from "@/server/services/learn-speaking-service";
 
 const COMPLETION_ENDPOINT = "/api/v1/learn/curriculum/activity/complete";
@@ -27,14 +29,18 @@ export default async function CurriculumActivityPage({
     return null;
   }
 
-  if (!["lesson", "practice", "speaking", "writing", "checkpoint"].includes(activityType)) {
+  if (activityType === "drill") {
+    redirect(`/app/learn/unit/${unitSlug}/game`);
+  }
+
+  if (!["lesson", "practice", "game", "speaking", "writing", "checkpoint"].includes(activityType)) {
     notFound();
   }
 
   const { curriculum, unit, activity } = await CurriculumService.getUnitActivity(
     user.id,
     unitSlug,
-    activityType as "lesson" | "practice" | "speaking" | "writing" | "checkpoint"
+    activityType as "lesson" | "practice" | "game" | "speaking" | "writing" | "checkpoint"
   );
 
   await trackEvent({
@@ -150,6 +156,36 @@ export default async function CurriculumActivityPage({
           }}
         />
       </LearnActivityShell>
+    );
+  }
+
+  if (activity.activityType === "game") {
+    const gameView = await LearnGameService.getGameView(user.id, unitSlug);
+
+    return (
+      <PageShell className="px-0 py-0">
+        <LearnGamePlayer
+          unitSlug={unitSlug}
+          unitTitle={unit.title}
+          curriculumTitle={curriculum.curriculum.title}
+          unitOrder={unit.orderIndex}
+          canDoStatement={unit.canDoStatement}
+          activities={unit.activities.map((entry) => ({
+            id: entry.id,
+            activityType: entry.activityType,
+            orderIndex: entry.orderIndex,
+            status: entry.status as "locked" | "unlocked" | "completed",
+          }))}
+          game={gameView.game}
+          voiceEnabled={gameView.voiceEnabled}
+          progressStatus={gameView.progressStatus as "locked" | "unlocked" | "completed"}
+          savedReview={gameView.savedReview}
+          completionEndpoint={COMPLETION_ENDPOINT}
+          fallbackHref="/app/learn"
+          nextHref={nextUnitActivity?.href ?? "/app/learn"}
+          nextLabel={nextUnitActivity ? `Continue to ${nextUnitActivity.activityType}` : "Return to Learn"}
+        />
+      </PageShell>
     );
   }
 

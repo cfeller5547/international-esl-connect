@@ -37,6 +37,7 @@ Structure:
 - each unit uses the same activity pattern:
   - lesson
   - practice
+  - game
   - speaking mission
   - writing
   - checkpoint
@@ -47,10 +48,30 @@ Content sourcing behavior:
 - Learn landing should emphasize the current unit and next step, not render all units with equal visual weight.
 - Unit overview remains available as an optional detail/review route, not a required stop before activity execution.
 - Speaking missions stay inside Learn and are scenario-bound to the unit can-do goal.
+- Learn game is a required curriculum warm-up inside Learn, not a separate game surface.
+- Stage 3 game uses a richer authored unit challenge with `theme`, `assetRefs`, `layoutVariant`, stage presentation metadata, authored CTA labels, and authored summary bridge copy.
+- The current `very_basic`, `basic`, `intermediate`, and `advanced` games should feel distinct by mechanic, not just by art:
+  - `assemble`
+  - `spotlight`
+  - `state_switch`
+  - `priority_board`
+  - plus the existing `choice`, `match`, `sequence`, `map`, and `voice_prompt` primitives where they still fit
+- Voice is used only on stages where it materially helps, and all voice-enabled stages must fall back cleanly when mic access or voice evaluation is unavailable.
+- There is no separate Games tab or standalone game route; the game remains inside the existing Learn unit flow.
+- Game feedback must stay coaching-first:
+  - one quick note
+  - one retry when needed
+  - no visible numeric score
 - Learn speaking should feel like a mini conversation experience, not a worksheet step with a mic attached.
 - The first counterpart turn must be a concrete scene opener that makes sense on its own, not an abstract prompt such as `Can you answer that in your own words?`.
 - Each unit speaking mission must include authored phrase support, authored follow-up directions, and a real model answer rather than generic placeholder scaffolding.
 - Units `3` and `6` use stronger benchmark-mode speaking missions, but those benchmark results stay inside Learn and do not affect `currentLevel` or create Progress entries.
+- All four curriculum levels are fully hand-authored across lesson, practice, game, speaking, writing, and checkpoint.
+- Benchmark missions across all four levels are evidence-aware: the runtime pushes toward missing task evidence, not just the next canned follow-up.
+- `Very Basic` benchmark missions require 4 turns and 1 substantive follow-up response before feedback unlocks.
+- `Basic` benchmark missions require 5 turns and 2 substantive follow-up responses before feedback unlocks.
+- `Intermediate` benchmark missions require 6 turns and 2 substantive follow-up responses before feedback unlocks.
+- `Advanced` benchmark missions require 7 turns and 3 substantive follow-up responses before feedback unlocks.
 
 ### 2.3 Speak
 Purpose:
@@ -172,6 +193,14 @@ After a lesson:
   - `Brief`
   - `Conversation`
   - `Feedback`
+- The Learn game activity uses three user-facing states:
+  - `Brief`
+  - `Game`
+  - `Summary`
+- Game should feel like a short, authored warm-up between practice and speaking, not like a separate arcade mode.
+- Game should use richer scene/map presentation when available so the step feels intentionally designed, not generic.
+- Voice should appear only where it materially helps the learning moment; structural fallback remains the default safety net and must not lose progress.
+- Completing game unlocks speaking; game quality is not score-gated.
 - Pro users enter the speaking brief in voice-first mode by default with one primary CTA: `Start conversation`.
 - Starting a Pro Learn mission opens a shorter, curriculum-bound live voice conversation inside Learn; it is smaller and more bounded than Speak.
 - Free users enter the speaking brief in text-first mode by default and continue in a transcript-first chat surface with optional coach playback.

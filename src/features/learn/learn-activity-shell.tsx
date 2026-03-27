@@ -50,6 +50,8 @@ type LearnActivityShellProps = {
   activities: ActivityItem[];
   children: ReactNode;
   upcomingAction?: UpcomingAction;
+  contentWidth?: "default" | "wide";
+  showContext?: boolean;
 };
 
 function ActivityStatusIcon({
@@ -87,6 +89,8 @@ export function LearnActivityShell({
   activities,
   children,
   upcomingAction,
+  contentWidth = "default",
+  showContext = true,
 }: LearnActivityShellProps) {
   const activityMeta = LEARN_ACTIVITY_META[activityType];
   const stepSummary = getUnitStepSummary(activities, activityType);
@@ -161,75 +165,81 @@ export function LearnActivityShell({
                 })}
             </div>
 
-            <Accordion type="single" collapsible>
-              <AccordionItem value="details" className="border-none">
-                <AccordionTrigger className="py-1 text-sm font-semibold text-foreground hover:no-underline">
-                  Need context?
-                </AccordionTrigger>
-                <AccordionContent className="pt-3">
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-[1.35rem] border border-border/70 bg-background/70 px-4 py-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-secondary">
-                        Performance task
-                      </p>
-                      <p className="mt-2 text-sm text-muted-foreground">{performanceTask}</p>
-                    </div>
-
-                    <div className="rounded-[1.35rem] border border-border/70 bg-background/70 px-4 py-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-secondary">
-                        Next step
-                      </p>
-                      {upcomingAction ? (
-                        <div className="mt-2 space-y-2">
-                          <p className="text-sm font-medium text-foreground">{upcomingAction.title}</p>
-                          <p className="text-sm text-muted-foreground">{upcomingAction.description}</p>
-                          {upcomingAction.href ? (
-                            <Link
-                              href={upcomingAction.href}
-                              className="inline-flex items-center gap-2 text-sm font-semibold text-primary"
-                            >
-                              {upcomingAction.label}
-                              <ArrowRight className="size-4" />
-                            </Link>
-                          ) : (
-                            <p className="inline-flex items-center gap-2 text-sm font-semibold text-primary">
-                              {upcomingAction.label}
-                              <ArrowRight className="size-4" />
-                            </p>
-                          )}
-                        </div>
-                      ) : nextActivity ? (
-                        <div className="mt-2 space-y-2">
-                          <p className="text-sm font-medium text-foreground">{nextActivity.title}</p>
-                          <p className="text-sm text-muted-foreground">{nextActivity.description}</p>
-                        </div>
-                      ) : (
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          Completing this step will unlock your next milestone.
+            {showContext ? (
+              <Accordion type="single" collapsible>
+                <AccordionItem value="details" className="border-none">
+                  <AccordionTrigger className="py-1 text-sm font-semibold text-foreground hover:no-underline">
+                    Need context?
+                  </AccordionTrigger>
+                  <AccordionContent className="pt-3">
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-[1.35rem] border border-border/70 bg-background/70 px-4 py-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-secondary">
+                          Performance task
                         </p>
-                      )}
-                    </div>
+                        <p className="mt-2 text-sm text-muted-foreground">{performanceTask}</p>
+                      </div>
 
-                    <div className="rounded-[1.35rem] border border-border/70 bg-background/70 px-4 py-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-secondary">
-                        More
-                      </p>
-                      <Link
-                        href={`/app/learn/unit/${unitSlug}`}
-                        className="mt-2 inline-flex items-center gap-2 text-sm font-semibold text-primary"
-                      >
-                        Open unit overview
-                        <ArrowRight className="size-4" />
-                      </Link>
+                      <div className="rounded-[1.35rem] border border-border/70 bg-background/70 px-4 py-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-secondary">
+                          Next step
+                        </p>
+                        {upcomingAction ? (
+                          <div className="mt-2 space-y-2">
+                            <p className="text-sm font-medium text-foreground">{upcomingAction.title}</p>
+                            <p className="text-sm text-muted-foreground">{upcomingAction.description}</p>
+                            {upcomingAction.href ? (
+                              <Link
+                                href={upcomingAction.href}
+                                className="inline-flex items-center gap-2 text-sm font-semibold text-primary"
+                              >
+                                {upcomingAction.label}
+                                <ArrowRight className="size-4" />
+                              </Link>
+                            ) : (
+                              <p className="inline-flex items-center gap-2 text-sm font-semibold text-primary">
+                                {upcomingAction.label}
+                                <ArrowRight className="size-4" />
+                              </p>
+                            )}
+                          </div>
+                        ) : nextActivity ? (
+                          <div className="mt-2 space-y-2">
+                            <p className="text-sm font-medium text-foreground">{nextActivity.title}</p>
+                            <p className="text-sm text-muted-foreground">{nextActivity.description}</p>
+                          </div>
+                        ) : (
+                          <p className="mt-2 text-sm text-muted-foreground">
+                            Completing this step will unlock your next milestone.
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="rounded-[1.35rem] border border-border/70 bg-background/70 px-4 py-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-secondary">
+                          More
+                        </p>
+                        <Link
+                          href={`/app/learn/unit/${unitSlug}`}
+                          className="mt-2 inline-flex items-center gap-2 text-sm font-semibold text-primary"
+                        >
+                          Open unit overview
+                          <ArrowRight className="size-4" />
+                        </Link>
+                      </div>
                     </div>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            ) : null}
           </CardContent>
         </Card>
 
-        <div className="mx-auto w-full max-w-3xl">{children}</div>
+        <div
+          className={`mx-auto w-full ${contentWidth === "wide" ? "max-w-4xl" : "max-w-3xl"}`}
+        >
+          {children}
+        </div>
       </div>
     </PageShell>
   );

@@ -3,6 +3,7 @@ import { prisma } from "@/server/prisma";
 import { env } from "@/server/env";
 import { Prisma } from "@/generated/prisma/client";
 import { serializeRealtimeClientSecret } from "@/server/realtime-client-secret";
+import type { MissionEvidenceTarget } from "@/server/learn-speaking-types";
 import { buildSpeakTurnCoaching, filterSpeakVocabulary, sanitizeSpeakPhraseTerm } from "@/lib/speak";
 
 import {
@@ -127,10 +128,21 @@ function createRealtimeInstructions(context: ConversationContext) {
     context.followUpPrompts.length > 0
       ? context.followUpPrompts.join(" | ")
       : "Ask one natural follow-up question at a time that keeps the learner talking.";
+  const evidenceHints =
+    context.evidenceTargets.length > 0
+      ? `Evidence priorities: ${context.evidenceTargets.map((target) => target.label).join(" | ")}.`
+      : "";
+  const benchmarkHints =
+    context.benchmarkFocus.length > 0
+      ? `Benchmark focus: ${context.benchmarkFocus.join(" | ")}.`
+      : "";
   const targetPhraseHint =
     context.targetPhrases.length > 0
       ? `Work these phrases in naturally when they fit: ${context.targetPhrases.join(", ")}.`
       : "Favor natural, everyday English over formal lecture language.";
+  const modelExampleHint = context.modelExample?.trim()
+    ? `Match the level and specificity of this example when it fits naturally: ${context.modelExample}.`
+    : "";
 
   if (context.surface === "learn") {
     const counterpartRole = context.counterpartRole ?? "conversation partner";
@@ -148,6 +160,9 @@ function createRealtimeInstructions(context: ConversationContext) {
       `Can-do goal: ${context.canDoStatement ?? "Keep the conversation clear and useful."}`,
       `Performance task: ${context.performanceTask ?? "Respond naturally and keep the conversation moving."}`,
       targetPhraseHint,
+      modelExampleHint,
+      evidenceHints,
+      benchmarkHints,
       `Follow-up style: ${followUpHints}`,
     ].join(" ");
   }
@@ -170,6 +185,8 @@ function createRealtimeInstructions(context: ConversationContext) {
       `Active class topic: ${context.activeTopic ?? "n/a"}.`,
       `Context hint: ${context.contextHint ?? "n/a"}.`,
       targetPhraseHint,
+      modelExampleHint,
+      evidenceHints,
       `Follow-up style: ${followUpHints}`,
     ].join(" ");
   }
@@ -190,6 +207,9 @@ function createRealtimeInstructions(context: ConversationContext) {
     `Current focus skill: ${context.focusSkill ?? "n/a"}.`,
     `Why this session matters now: ${context.recommendationReason ?? "n/a"}.`,
     targetPhraseHint,
+    modelExampleHint,
+    evidenceHints,
+    benchmarkHints,
     `Follow-up style: ${followUpHints}`,
   ].join(" ");
 }
@@ -234,6 +254,42 @@ function readContextFromSummaryPayload(
       ? payload.successCriteria.map(String)
       : [],
     modelExample: typeof payload.modelExample === "string" ? payload.modelExample : null,
+    evidenceTargets: Array.isArray(payload.evidenceTargets)
+      ? payload.evidenceTargets
+          .map((target) => {
+            const record = target as Record<string, unknown>;
+            const kind: "task" | "language" | "detail" | "follow_up" =
+              record.kind === "task" ||
+              record.kind === "language" ||
+              record.kind === "detail" ||
+              record.kind === "follow_up"
+                ? record.kind
+                : "task";
+            return {
+              key: String(record.key ?? ""),
+              label: String(record.label ?? ""),
+              kind,
+              cues: Array.isArray(record.cues) ? record.cues.map(String) : [],
+            } satisfies MissionEvidenceTarget;
+          })
+          .filter((target) => target.key.length > 0 && target.label.length > 0)
+      : [],
+    followUpObjectives: Array.isArray(payload.followUpObjectives)
+      ? payload.followUpObjectives.map(String)
+      : [],
+    benchmarkFocus: Array.isArray(payload.benchmarkFocus)
+      ? payload.benchmarkFocus.map(String)
+      : [],
+    requiredTurns:
+      typeof payload.requiredTurns === "number"
+        ? payload.requiredTurns
+        : Boolean(payload.isBenchmark)
+          ? 4
+          : 3,
+    minimumFollowUpResponses:
+      typeof payload.minimumFollowUpResponses === "number"
+        ? payload.minimumFollowUpResponses
+        : 1,
     starterPrompt: typeof payload.starterPrompt === "string" ? payload.starterPrompt : null,
     learnerLevel: typeof payload.learnerLevel === "string" ? payload.learnerLevel : null,
     focusSkill: typeof payload.focusSkill === "string" ? payload.focusSkill : null,

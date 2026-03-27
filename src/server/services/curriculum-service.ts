@@ -12,6 +12,33 @@ import { trackEvent } from "../analytics";
 type ActivityStatus = "locked" | "unlocked" | "completed";
 type UnitStatus = "locked" | "unlocked" | "completed";
 
+function determineGameCompletionPath(responsePayload: Record<string, unknown> | undefined) {
+  const review = responsePayload?.gameReview as
+    | {
+        stages?: Array<{ resolvedInputMode?: "voice" | "fallback" | null }>;
+      }
+    | undefined;
+  const inputModes = new Set(
+    (review?.stages ?? [])
+      .map((stage) => stage.resolvedInputMode)
+      .filter((mode): mode is "voice" | "fallback" => Boolean(mode))
+  );
+
+  if (inputModes.has("voice") && inputModes.has("fallback")) {
+    return "mixed";
+  }
+
+  if (inputModes.has("voice")) {
+    return "voice";
+  }
+
+  if (inputModes.has("fallback")) {
+    return "fallback";
+  }
+
+  return "structural";
+}
+
 export type CurriculumActivityView = {
   id: string;
   activityType: UnitActivityType;
@@ -81,7 +108,7 @@ export type UnitActivityCompletionResult = {
 };
 
 function activityHref(unitSlug: string, activityType: string) {
-  return `/app/learn/unit/${unitSlug}/${activityType}`;
+  return `/app/learn/unit/${unitSlug}/${activityType === "drill" ? "game" : activityType}`;
 }
 
 function toActivityStatus(value: string | null | undefined): ActivityStatus {
@@ -118,6 +145,176 @@ function findNextUnitAndActivity(units: CurriculumUnitView[]) {
     unit: null,
     activity: null,
   };
+}
+
+async function ensureUserActivityProgressRows(userId: string, curriculumId?: string) {
+  const unitProgressRows = await prisma.userUnitProgress.findMany({
+    where: {
+      userId,
+      ...(curriculumId ? { curriculumId } : {}),
+    },
+    include: {
+      unit: {
+        include: {
+          activities: {
+            orderBy: { orderIndex: "asc" },
+          },
+        },
+      },
+      activityProgress: true,
+    },
+  });
+
+  for (const unitProgress of unitProgressRows) {
+    for (const activity of unitProgress.unit.activities) {
+      const existingProgress = unitProgress.activityProgress.find(
+        (entry) => entry.activityId === activity.id
+      );
+
+      if (existingProgress) {
+        continue;
+      }
+
+      await prisma.userUnitActivityProgress.upsert({
+        where: {
+          userId_activityId: {
+            userId,
+            activityId: activity.id,
+          },
+        },
+        update: {
+          unitProgressId: unitProgress.id,
+        },
+        create: {
+          userId,
+          unitProgressId: unitProgress.id,
+          activityId: activity.id,
+          status: "locked",
+        },
+      });
+    }
+  }
+}
+
+export async function reconcileCurriculumProgressForUser(userId: string) {
+  await ensureUserActivityProgressRows(userId);
+
+  const curriculumProgressRows = await prisma.userCurriculumProgress.findMany({
+    where: { userId },
+    orderBy: { startedAt: "asc" },
+  });
+
+  for (const curriculumProgress of curriculumProgressRows) {
+    const unitProgressRows = await prisma.userUnitProgress.findMany({
+      where: {
+        userId,
+        curriculumId: curriculumProgress.curriculumId,
+      },
+      include: {
+        unit: {
+          include: {
+            activities: {
+              orderBy: { orderIndex: "asc" },
+            },
+          },
+        },
+        activityProgress: true,
+      },
+    });
+
+    const orderedUnits = unitProgressRows
+      .slice()
+      .sort((left, right) => left.unit.orderIndex - right.unit.orderIndex);
+
+    const firstIncompleteUnit = orderedUnits.find((unitProgress) =>
+      unitProgress.unit.activities.some((activity) => {
+        const activityProgress = unitProgress.activityProgress.find(
+          (entry) => entry.activityId === activity.id
+        );
+
+        return activityProgress?.status !== "completed";
+      })
+    );
+
+    const firstIncompleteActivityId =
+      firstIncompleteUnit?.unit.activities.find((activity) => {
+        const activityProgress = firstIncompleteUnit.activityProgress.find(
+          (entry) => entry.activityId === activity.id
+        );
+
+        return activityProgress?.status !== "completed";
+      })?.id ?? null;
+
+    for (const unitProgress of orderedUnits) {
+      const allActivitiesCompleted = unitProgress.unit.activities.every((activity) => {
+        const activityProgress = unitProgress.activityProgress.find(
+          (entry) => entry.activityId === activity.id
+        );
+
+        return activityProgress?.status === "completed";
+      });
+
+      const desiredUnitStatus: UnitStatus = allActivitiesCompleted
+        ? "completed"
+        : firstIncompleteUnit?.id === unitProgress.id
+          ? "unlocked"
+          : "locked";
+
+      await prisma.userUnitProgress.update({
+        where: { id: unitProgress.id },
+        data: {
+          status: desiredUnitStatus,
+          unlockedAt:
+            desiredUnitStatus === "locked" ? null : unitProgress.unlockedAt ?? new Date(),
+          completedAt:
+            desiredUnitStatus === "completed"
+              ? unitProgress.completedAt ?? new Date()
+              : null,
+        },
+      });
+
+      for (const activity of unitProgress.unit.activities) {
+        const activityProgress = unitProgress.activityProgress.find(
+          (entry) => entry.activityId === activity.id
+        );
+
+        if (!activityProgress) {
+          continue;
+        }
+
+        const desiredActivityStatus: ActivityStatus =
+          activityProgress.status === "completed"
+            ? "completed"
+            : activity.id === firstIncompleteActivityId
+              ? "unlocked"
+              : "locked";
+
+        if (activityProgress.status === desiredActivityStatus) {
+          continue;
+        }
+
+        await prisma.userUnitActivityProgress.update({
+          where: { id: activityProgress.id },
+          data: {
+            status: desiredActivityStatus,
+          },
+        });
+      }
+    }
+
+    const lastUnit = orderedUnits.at(-1);
+
+    await prisma.userCurriculumProgress.update({
+      where: { id: curriculumProgress.id },
+      data: {
+        currentUnitId: firstIncompleteUnit?.unitId ?? lastUnit?.unitId ?? null,
+        completedAt:
+          firstIncompleteUnit === undefined
+            ? curriculumProgress.completedAt ?? new Date()
+            : null,
+      },
+    });
+  }
 }
 
 async function createProgressRecords(userId: string, curriculumId: string) {
@@ -300,6 +497,7 @@ async function resolveCurrentLevel(userId: string): Promise<CurriculumLevel> {
 async function ensureAssignedProgress(userId: string) {
   const level = await resolveCurrentLevel(userId);
   const curriculumId = await setActiveCurriculum(userId, level);
+  await reconcileCurriculumProgressForUser(userId);
 
   const activeProgress = await prisma.userCurriculumProgress.findUniqueOrThrow({
     where: {
@@ -439,35 +637,6 @@ async function getCurriculumGraph(userId: string) {
     }),
   } satisfies AssignedCurriculumView;
 }
-
-function nextActivityForUnit(unit: {
-  activities: Array<{
-    id: string;
-    orderIndex: number;
-    activityType: string;
-    title: string;
-    description: string;
-  }>;
-}, currentActivityId: string) {
-  const ordered = [...unit.activities].sort((a, b) => a.orderIndex - b.orderIndex);
-  const index = ordered.findIndex((activity) => activity.id === currentActivityId);
-  if (index === -1) {
-    return null;
-  }
-
-  return ordered[index + 1] ?? null;
-}
-
-function nextUnitForCurriculum(units: Array<{ id: string; orderIndex: number }>, currentUnitId: string) {
-  const ordered = [...units].sort((a, b) => a.orderIndex - b.orderIndex);
-  const index = ordered.findIndex((unit) => unit.id === currentUnitId);
-  if (index === -1) {
-    return null;
-  }
-
-  return ordered[index + 1] ?? null;
-}
-
 export const CurriculumService = {
   async getAssignedCurriculum(userId: string) {
     return getCurriculumGraph(userId);
@@ -565,15 +734,6 @@ export const CurriculumService = {
       },
     });
 
-    const unitProgress = await prisma.userUnitProgress.findUniqueOrThrow({
-      where: {
-        userId_unitId: {
-          userId,
-          unitId: dbUnit.id,
-        },
-      },
-    });
-
     const activityProgress = await prisma.userUnitActivityProgress.findUniqueOrThrow({
       where: {
         userId_activityId: {
@@ -630,52 +790,37 @@ export const CurriculumService = {
       },
     });
 
-    const nextActivity = nextActivityForUnit(dbUnit, unitData.activity.id);
-
-    if (nextActivity) {
-      await prisma.userUnitActivityProgress.update({
-        where: {
-          userId_activityId: {
-            userId,
-            activityId: nextActivity.id,
-          },
-        },
-        data: {
-          status: "unlocked",
+    if (activityType === "game") {
+      const gamePayload = unitData.activity.payload as Record<string, unknown>;
+      await trackEvent({
+        eventName: "learn_game_completed",
+        route: activityHref(unitSlug, activityType),
+        userId,
+        properties: {
+          unit_slug: unitSlug,
+          score,
+          game_kind:
+            typeof gamePayload.gameKind === "string" ? gamePayload.gameKind : "unit_challenge",
+          layout_variant:
+            typeof gamePayload.layoutVariant === "string"
+              ? gamePayload.layoutVariant
+              : "generic",
+          completion_path: determineGameCompletionPath(responsePayload),
         },
       });
     }
 
     const remainingRequired = await prisma.userUnitActivityProgress.count({
       where: {
-        unitProgressId: unitProgress.id,
+        unitProgressId: activityProgress.unitProgressId,
         status: { not: "completed" },
       },
     });
 
-    let nextActionHref = activityHref(unitSlug, activityType);
     let unitCompleted = false;
-    let nextAction: UnitActivityCompletionResult["nextAction"] = {
-      href: nextActionHref,
-      label: "Return to Learn",
-      title: "Return to your roadmap",
-      description: "Review your curriculum roadmap and choose your next step.",
-      unitTitle: unitData.unit.title,
-      activityType: null,
-      stepIndex: null,
-      totalSteps: null,
-    };
 
     if (remainingRequired === 0) {
       unitCompleted = true;
-
-      await prisma.userUnitProgress.update({
-        where: { id: unitProgress.id },
-        data: {
-          status: "completed",
-          completedAt: now,
-        },
-      });
 
       await trackEvent({
         eventName: "unit_completed",
@@ -685,112 +830,50 @@ export const CurriculumService = {
           unit_slug: unitSlug,
         },
       });
+    }
 
-      const nextUnit = nextUnitForCurriculum(dbUnit.curriculum.units, dbUnit.id);
+    await reconcileCurriculumProgressForUser(userId);
 
-      if (nextUnit) {
-        const nextUnitRecord = await prisma.curriculumUnit.findUniqueOrThrow({
-          where: { id: nextUnit.id },
-          include: {
-            activities: {
-              orderBy: { orderIndex: "asc" },
-            },
-          },
-        });
+    const refreshed = await getCurriculumGraph(userId);
+    const nextUnit = refreshed.currentUnit;
+    const nextActivity = refreshed.currentActivity;
+    const nextActionHref = nextActivity?.href ?? "/app/learn";
 
-        await prisma.userUnitProgress.update({
-          where: {
-            userId_unitId: {
-              userId,
-              unitId: nextUnit.id,
-            },
-          },
-          data: {
-            status: "unlocked",
-            unlockedAt: now,
-          },
-        });
+    let nextAction: UnitActivityCompletionResult["nextAction"];
 
-        const nextUnitFirstActivity = nextUnitRecord.activities[0];
-
-        if (nextUnitFirstActivity) {
-          await prisma.userUnitActivityProgress.update({
-            where: {
-              userId_activityId: {
-                userId,
-                activityId: nextUnitFirstActivity.id,
-              },
-            },
-            data: {
-              status: "unlocked",
-            },
-          });
-
-          nextActionHref = activityHref(
-            nextUnitRecord.slug,
-            nextUnitFirstActivity.activityType
-          );
-          nextAction = {
-            href: nextActionHref,
-            label: "Start next unit",
-            title: nextUnitFirstActivity.title,
-            description: `${nextUnitRecord.title} is now unlocked and ready to begin.`,
-            unitTitle: nextUnitRecord.title,
-            activityType: nextUnitFirstActivity.activityType as UnitActivityType,
-            stepIndex: nextUnitFirstActivity.orderIndex,
-            totalSteps: nextUnitRecord.activities.length,
-          };
-        } else {
-          nextActionHref = "/app/learn";
-        }
-
-        await prisma.userCurriculumProgress.updateMany({
-          where: {
-            userId,
-            curriculumId: dbUnit.curriculum.id,
-            isActive: true,
-          },
-          data: {
-            currentUnitId: nextUnit.id,
-          },
-        });
-      } else {
-        await prisma.userCurriculumProgress.updateMany({
-          where: {
-            userId,
-            curriculumId: dbUnit.curriculum.id,
-            isActive: true,
-          },
-          data: {
-            completedAt: now,
-            currentUnitId: dbUnit.id,
-          },
-        });
-
-        nextActionHref = "/app/learn";
-        nextAction = {
-          href: nextActionHref,
-          label: "Return to Learn",
-          title: "Curriculum milestone complete",
-          description:
-            "You have completed every required unit in your active curriculum. Review your roadmap while you wait for reassessment.",
-          unitTitle: unitData.unit.title,
-          activityType: null,
-          stepIndex: null,
-          totalSteps: null,
-        };
-      }
-    } else if (nextActivity) {
-      nextActionHref = activityHref(unitSlug, nextActivity.activityType);
+    if (!nextUnit || !nextActivity) {
+      nextAction = {
+        href: nextActionHref,
+        label: "Return to Learn",
+        title: "Curriculum milestone complete",
+        description:
+          "You have completed every required unit in your active curriculum. Review your roadmap while you wait for reassessment.",
+        unitTitle: unitData.unit.title,
+        activityType: null,
+        stepIndex: null,
+        totalSteps: null,
+      };
+    } else if (unitCompleted && nextUnit.slug !== unitSlug) {
+      nextAction = {
+        href: nextActionHref,
+        label: "Start next unit",
+        title: nextActivity.title,
+        description: `${nextUnit.title} is now unlocked and ready to begin.`,
+        unitTitle: nextUnit.title,
+        activityType: nextActivity.activityType,
+        stepIndex: nextActivity.orderIndex,
+        totalSteps: nextUnit.activities.length,
+      };
+    } else {
       nextAction = {
         href: nextActionHref,
         label: `Continue to ${nextActivity.activityType}`,
         title: nextActivity.title,
         description: nextActivity.description,
-        unitTitle: unitData.unit.title,
-        activityType: nextActivity.activityType as UnitActivityType,
+        unitTitle: nextUnit.title,
+        activityType: nextActivity.activityType,
         stepIndex: nextActivity.orderIndex,
-        totalSteps: dbUnit.activities.length,
+        totalSteps: nextUnit.activities.length,
       };
     }
 
