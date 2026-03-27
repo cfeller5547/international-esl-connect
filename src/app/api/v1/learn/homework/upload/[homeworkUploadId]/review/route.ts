@@ -1,11 +1,23 @@
+import { z } from "zod";
+
+import { getHomeworkConfidenceState } from "@/lib/homework-help";
 import { getCurrentUser } from "@/server/auth";
 import { AppError, toErrorResponse } from "@/server/errors";
-import { ok } from "@/server/http";
+import { ok, parseJson } from "@/server/http";
 import { HomeworkHelpService } from "@/server/services/homework-help-service";
-import { getHomeworkConfidenceState } from "@/lib/homework-help";
 
-export async function GET(
-  _: Request,
+const schema = z.object({
+  questions: z
+    .array(
+      z.object({
+        promptText: z.string().trim().min(1),
+      })
+    )
+    .min(1),
+});
+
+export async function PATCH(
+  request: Request,
   { params }: { params: Promise<{ homeworkUploadId: string }> }
 ) {
   try {
@@ -15,7 +27,12 @@ export async function GET(
     }
 
     const { homeworkUploadId } = await params;
-    const upload = await HomeworkHelpService.getUpload(homeworkUploadId, user.id);
+    const payload = await parseJson(request, schema);
+    const upload = await HomeworkHelpService.reviewUpload({
+      userId: user.id,
+      homeworkUploadId,
+      questions: payload.questions,
+    });
     const parsedPayload = upload.parsedPayload as {
       assignmentTitle?: string;
       assignmentSummary?: string;
@@ -28,10 +45,6 @@ export async function GET(
       questions?: unknown[];
     };
     const questionCount = parsedPayload.questions?.length ?? 0;
-    const confidenceState = getHomeworkConfidenceState({
-      status: upload.status,
-      questionCount,
-    });
 
     return ok({
       homeworkUploadId: upload.id,
@@ -39,7 +52,10 @@ export async function GET(
       detectedQuestionCount: questionCount,
       parseConfidence: upload.parseConfidence,
       requiresReview: upload.status === "needs_review",
-      confidenceState,
+      confidenceState: getHomeworkConfidenceState({
+        status: upload.status,
+        questionCount,
+      }),
       errorCode: upload.errorCode,
       assignmentTitle: parsedPayload.assignmentTitle ?? null,
       assignmentSummary: parsedPayload.assignmentSummary ?? null,

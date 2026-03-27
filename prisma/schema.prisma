@@ -597,6 +597,7 @@ model HomeworkHelpSession {
   userId           String                    @map("user_id") @db.Uuid
   homeworkUploadId String                    @map("homework_upload_id") @db.Uuid
   status           String
+  sessionState     Json                      @default("{}") @map("session_state")
   createdAt        DateTime                  @default(now()) @map("created_at")
   completedAt      DateTime?                 @map("completed_at")
   user             User                      @relation(fields: [userId], references: [id], onDelete: Cascade)

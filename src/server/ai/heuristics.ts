@@ -431,7 +431,7 @@ export function parseHomeworkText(text: string) {
     .map((line) => line.trim())
     .filter(Boolean);
 
-  const questions = rawLines
+  const numberedQuestions = rawLines
     .filter((line) => /^\d+[\).\s]/.test(line))
     .map((line, index) => ({
       index: index + 1,
@@ -439,10 +439,34 @@ export function parseHomeworkText(text: string) {
       questionType: inferQuestionType(line),
     }));
 
+  const fallbackPrompt = rawLines.join(" ").trim();
+  const looksLikeSingleQuestion =
+    fallbackPrompt.length > 0 &&
+    (fallbackPrompt.includes("?") ||
+      /\b(explain|describe|compare|write|solve|show|identify|define|choose|read|answer|summarize)\b/i.test(
+        fallbackPrompt
+      )) &&
+    rawLines.length <= 8;
+
+  const questions =
+    numberedQuestions.length > 0
+      ? numberedQuestions
+      : looksLikeSingleQuestion
+        ? [
+            {
+              index: 1,
+              promptText: fallbackPrompt,
+              questionType: inferQuestionType(fallbackPrompt),
+            },
+          ]
+        : [];
+
   const parseConfidence =
     questions.length === 0
       ? 0.3
-      : Math.min(0.95, 0.55 + questions.length * 0.08 + Math.min(text.length, 1200) / 5000);
+      : numberedQuestions.length > 0
+        ? Math.min(0.95, 0.55 + questions.length * 0.08 + Math.min(text.length, 1200) / 5000)
+        : Math.min(0.9, 0.74 + Math.min(text.length, 500) / 2500);
 
   return {
     questions,

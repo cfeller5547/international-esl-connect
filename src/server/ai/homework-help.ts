@@ -1,6 +1,11 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
+import {
+  inferHomeworkContentShape,
+  type HomeworkContentShape,
+  type HomeworkCoachAction,
+} from "@/lib/homework-help";
 import { clamp } from "@/lib/utils";
 import { env } from "@/server/env";
 import { openai } from "@/server/openai";
@@ -24,12 +29,11 @@ export type HomeworkParseResult = {
   assignmentSummary: string;
   subject: string;
   difficultyLevel: string;
+  contentShape: HomeworkContentShape;
   parseConfidence: number;
   reviewNotes: string[];
   questions: HomeworkQuestion[];
 };
-
-export type HomeworkCoachAction = "explain" | "plan" | "hint" | "check" | "submit";
 
 export type HomeworkCoachReply = {
   coachTitle: string;
@@ -235,6 +239,25 @@ function normalizeQuestion(
   };
 }
 
+export function createReviewedHomeworkQuestion({
+  promptText,
+  index,
+  existingQuestion,
+}: {
+  promptText: string;
+  index: number;
+  existingQuestion?: Partial<HomeworkQuestion> | null;
+}) {
+  return normalizeQuestion(
+    {
+      ...existingQuestion,
+      promptText,
+    },
+    index,
+    promptText
+  );
+}
+
 function createFallbackHomeworkParse(rawText: string, note?: string): HomeworkParseResult {
   const parsed = parseHomeworkText(rawText);
   const questions = parsed.questions
@@ -251,14 +274,22 @@ function createFallbackHomeworkParse(rawText: string, note?: string): HomeworkPa
     .filter((question): question is HomeworkQuestion => Boolean(question));
   const firstPrompt = questions[0]?.promptText ?? "your assignment";
   const normalizedText = rawText.trim();
+  const contentShape = inferHomeworkContentShape({
+    rawText: normalizedText,
+    questionCount: questions.length,
+  });
 
   return {
     assignmentTitle:
-      questions.length > 0
+      questions.length === 1
+        ? "Homework question"
+        : questions.length > 0
         ? `Homework set with ${questions.length} question${questions.length === 1 ? "" : "s"}`
         : "Homework assignment",
     assignmentSummary:
-      questions.length > 0
+      questions.length === 1
+        ? `Detected one question to work through. Start with "${firstPrompt}".`
+        : questions.length > 0
         ? `Detected ${questions.length} question${questions.length === 1 ? "" : "s"} to work through. Start with "${firstPrompt}".`
         : "We could not confidently segment the assignment into clear questions yet.",
     subject:
@@ -267,10 +298,11 @@ function createFallbackHomeworkParse(rawText: string, note?: string): HomeworkPa
         : /\bhistory|government|civil\b/i.test(normalizedText)
           ? "social studies"
           : /\balgebra|equation|fraction|geometry\b/i.test(normalizedText)
-            ? "math"
+          ? "math"
             : "general coursework",
     difficultyLevel:
       questions.length >= 5 ? "moderate" : questions.length >= 2 ? "light" : "unknown",
+    contentShape,
     parseConfidence: clamp(Math.round(parsed.parseConfidence * 100)) / 100,
     reviewNotes: note ? [note] : [],
     questions,
@@ -545,6 +577,10 @@ export async function parseHomeworkAssignment({
       subject: normalizeText(parsed.subject) || fallback.subject,
       difficultyLevel:
         normalizeText(parsed.difficultyLevel) || fallback.difficultyLevel,
+      contentShape: inferHomeworkContentShape({
+        rawText,
+        questionCount: questions.length,
+      }),
       parseConfidence:
         typeof parsed.parseConfidence === "number"
           ? clamp(Math.round(parsed.parseConfidence * 100)) / 100

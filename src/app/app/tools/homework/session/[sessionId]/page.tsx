@@ -1,6 +1,11 @@
 import { notFound } from "next/navigation";
 
 import { HomeworkSessionPanel } from "@/features/homework-help/homework-session-panel";
+import {
+  buildHomeworkCompletionSummary,
+  getHomeworkConfidenceState,
+  hydrateHomeworkSessionState,
+} from "@/lib/homework-help";
 import { getCurrentUser } from "@/server/auth";
 import { prisma } from "@/server/prisma";
 
@@ -36,32 +41,35 @@ export default async function ToolsHomeworkSessionPage({
     assignmentTitle?: string;
     assignmentSummary?: string;
     subject?: string;
-    difficultyLevel?: string;
-    reviewNotes?: string[];
-    questions?: Array<{
-      index: number;
-      promptText: string;
+      difficultyLevel?: string;
+      contentShape?: string;
+      reviewNotes?: string[];
+      questions?: Array<{
+        index: number;
+        promptText: string;
       questionType: string;
       focusSkill?: string;
       studentGoal?: string;
       answerFormat?: string;
       successCriteria?: string[];
       planSteps?: string[];
-      commonPitfalls?: string[];
-    }>;
-  };
-  const completedQuestionIndices = Array.from(
-    new Set(
-      session.steps
-        .filter((step) => {
-          const feedbackPayload = (step.feedbackPayload ?? {}) as {
-            shouldAdvance?: boolean;
-          };
-          return step.result === "completed" || feedbackPayload.shouldAdvance === true;
-        })
-        .map((step) => step.questionIndex)
-    )
-  ).sort((a, b) => a - b);
+        commonPitfalls?: string[];
+      }>;
+    };
+  const questions = parsed.questions ?? [];
+  const sessionState = hydrateHomeworkSessionState({
+    questions,
+    savedState: session.sessionState,
+    steps: session.steps,
+  });
+  const completionSummary = buildHomeworkCompletionSummary({
+    questions,
+    state: sessionState,
+  });
+  const confidenceState = getHomeworkConfidenceState({
+    status: session.homeworkUpload.status,
+    questionCount: questions.length,
+  });
 
   return (
     <HomeworkSessionPanel
@@ -73,10 +81,13 @@ export default async function ToolsHomeworkSessionPage({
       }
       subject={parsed.subject ?? "general coursework"}
       difficultyLevel={parsed.difficultyLevel ?? "moderate"}
+      contentShape={parsed.contentShape ?? "mixed_or_unclear"}
+      confidenceState={confidenceState}
       reviewNotes={parsed.reviewNotes ?? []}
       rawText={parsed.rawText ?? "No source text available."}
-      questions={parsed.questions ?? []}
-      completedQuestionIndices={completedQuestionIndices}
+      questions={questions}
+      initialSessionState={sessionState}
+      completionSummary={completionSummary}
     />
   );
 }
