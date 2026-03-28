@@ -14,20 +14,36 @@ export default async function ToolsPage() {
   }
 
   const [activeHomeworkSession, activeTestPrepPlan] = await Promise.all([
-    prisma.homeworkHelpSession.findFirst({
-      where: {
-        userId: user.id,
-        status: "active",
-      },
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.testPrepPlan.findFirst({
-      where: {
-        userId: user.id,
-        status: "active",
-      },
-      orderBy: { targetDate: "asc" },
-    }),
+    prisma.homeworkHelpSession
+      .findFirst({
+        where: {
+          userId: user.id,
+          status: "active",
+        },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+        },
+      })
+      .catch((error) => {
+        console.error("tools:active homework session lookup failed", error);
+        return null;
+      }),
+    prisma.testPrepPlan
+      .findFirst({
+        where: {
+          userId: user.id,
+          status: "active",
+        },
+        orderBy: { targetDate: "asc" },
+        select: {
+          id: true,
+        },
+      })
+      .catch((error) => {
+        console.error("tools:active test prep plan lookup failed", error);
+        return null;
+      }),
   ]);
 
   await trackEvent({

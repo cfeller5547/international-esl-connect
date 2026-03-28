@@ -3,6 +3,7 @@ import { SignJWT, jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 import { cache } from "react";
 
+import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/server/prisma";
 
 import { env } from "./env";
@@ -14,6 +15,13 @@ type AuthPayload = {
   userId: string;
   email: string;
 };
+
+type CurrentUser = Prisma.UserGetPayload<{
+  include: {
+    subscription: true;
+    userStreak: true;
+  };
+}>;
 
 async function getSecret() {
   return new TextEncoder().encode(env.SESSION_SECRET);
@@ -51,20 +59,43 @@ export const readAuthPayload = cache(async function readAuthPayload() {
   }
 });
 
-export const getCurrentUser = cache(async function getCurrentUser() {
+export const getCurrentUser = cache(async function getCurrentUser(): Promise<CurrentUser | null> {
   const payload = await readAuthPayload();
 
   if (!payload?.userId) {
     return null;
   }
 
-  return prisma.user.findUnique({
-    where: { id: payload.userId },
-    include: {
-      subscription: true,
-      userStreak: true,
-    },
-  });
+  try {
+    return await prisma.user.findUnique({
+      where: { id: payload.userId },
+      include: {
+        subscription: true,
+        userStreak: true,
+      },
+    });
+  } catch (error) {
+    console.error("auth:getCurrentUser relation lookup failed", error);
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+    });
+
+    if (!user) {
+      return null;
+    }
+
+    return {
+      ...user,
+      subscription: null,
+      userStreak: null,
+    };
+  } catch (error) {
+    console.error("auth:getCurrentUser fallback lookup failed", error);
+    return null;
+  }
 });
 
 export async function requireCurrentUser() {

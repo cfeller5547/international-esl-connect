@@ -97,18 +97,34 @@ async function writeEvent({
 }
 
 export async function trackEvent(input: TrackEventInput) {
-  const resolvedInput = await resolveTrackEventInput(input);
+  let resolvedInput: ResolvedTrackEventInput;
+
+  try {
+    resolvedInput = await resolveTrackEventInput(input);
+  } catch (error) {
+    console.error("analytics:resolve failed", error);
+    return;
+  }
 
   try {
     after(async () => {
-      await writeEvent(resolvedInput);
+      try {
+        await writeEvent(resolvedInput);
+      } catch (error) {
+        console.error("analytics:write failed", error);
+      }
     });
     return;
   } catch (error) {
     if (!isMissingRequestScopeError(error)) {
-      throw error;
+      console.error("analytics:after scheduling failed", error);
+      return;
     }
   }
 
-  await writeEvent(resolvedInput);
+  try {
+    await writeEvent(resolvedInput);
+  } catch (error) {
+    console.error("analytics:write failed", error);
+  }
 }

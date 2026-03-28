@@ -21,16 +21,36 @@ export default async function ToolsHomeworkSessionPage({
     return null;
   }
 
-  const session = await prisma.homeworkHelpSession.findFirst({
-    where: {
-      id: sessionId,
-      userId: user.id,
-    },
-    include: {
-      homeworkUpload: true,
-      steps: true,
-    },
-  });
+  const session = await prisma.homeworkHelpSession
+    .findFirst({
+      where: {
+        id: sessionId,
+        userId: user.id,
+      },
+      select: {
+        id: true,
+        status: true,
+        homeworkUpload: {
+          select: {
+            status: true,
+            parsedPayload: true,
+          },
+        },
+        steps: {
+          select: {
+            questionIndex: true,
+            result: true,
+            hintLevelUsed: true,
+            studentAnswer: true,
+            feedbackPayload: true,
+          },
+        },
+      },
+    })
+    .catch((error) => {
+      console.error("tools:homework session lookup failed", error);
+      return null;
+    });
 
   if (!session) {
     notFound();
@@ -59,7 +79,7 @@ export default async function ToolsHomeworkSessionPage({
   const questions = parsed.questions ?? [];
   const sessionState = hydrateHomeworkSessionState({
     questions,
-    savedState: session.sessionState,
+    savedState: null,
     steps: session.steps,
   });
   const completionSummary = buildHomeworkCompletionSummary({

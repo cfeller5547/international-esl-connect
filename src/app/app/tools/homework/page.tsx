@@ -15,9 +15,19 @@ export default async function ToolsHomeworkPage() {
     where: { userId: user.id },
     orderBy: { createdAt: "desc" },
     take: 6,
-    include: {
-      homeworkUpload: true,
+    select: {
+      id: true,
+      createdAt: true,
+      status: true,
+      homeworkUpload: {
+        select: {
+          parsedPayload: true,
+        },
+      },
     },
+  }).catch((error) => {
+    console.error("tools:recent homework sessions lookup failed", error);
+    return [];
   });
 
   await trackEvent({
