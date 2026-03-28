@@ -1,3 +1,5 @@
+import type { LiveStudentTurnDisposition, LiveStudentTurnReasonCode } from "@/lib/conversation-utils";
+
 export type SpeakTurnSignals = {
   fluencyIssue: boolean;
   grammarIssue: boolean;
@@ -64,6 +66,9 @@ export type SpeakTranscriptTurn = {
   speaker: "ai" | "student";
   text: string;
   coaching?: SpeakTurnCoaching | null;
+  disposition?: LiveStudentTurnDisposition | null;
+  countsTowardProgress?: boolean;
+  reasonCode?: LiveStudentTurnReasonCode | null;
 };
 
 const SPEAK_FILLER_PREFIX =

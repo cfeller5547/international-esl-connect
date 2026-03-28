@@ -32,6 +32,11 @@ Data model note:
 
 - Pre-signup onboarding stepper
 - Full diagnostic assessment pre-signup including objective items, writing, and required live AI voice conversation
+- Shared realtime voice policy across Learn, Speak, and full-diagnostic assessment:
+  - hands-free continuous mic flow remains the product model
+  - the AI should wait through short learner pauses instead of cutting in quickly
+  - unclear, noisy, fragmentary, or clarification turns must not count as normal learner progress
+  - accepted learner turns keep compact visible coaching; rejected turns show repair instead
 - Signup after the diagnostic to unlock the saved report inside the authenticated app
 - Formal report generation and persistence over time
 - Home as a coach-briefing surface with one dynamic primary CTA
@@ -49,6 +54,10 @@ Data model note:
   - short guided conversation
   - focused transcript review
   - optional retry
+- Learn speaking live voice quality rules:
+  - realtime voice should feel like a patient real person, not a fast interruption loop
+  - brief acknowledgements, background speech, or unclear audio must trigger repair rather than normal progress
+  - repair stays in simpler English and does not answer for the learner
 - all four curriculum levels are fully hand-authored across all six required Learn activities
 - unit speaking missions support:
   - default account access currently includes the Pro voice path in preview mode
@@ -69,6 +78,10 @@ Data model note:
 - Speak free-talk + guided scenarios with:
   - default account access currently includes the Pro voice path in preview mode
   - text fallback remains available when voice is unavailable
+- Speak live voice should preserve one continuous human-feeling exchange:
+  - quiet ambient-noise awareness
+  - accepted-turn coaching only
+  - repair-first handling for unclear turns
 - Interactive conversation transcript (review, phrase save, vocab extraction)
 - Progress with report history, overall trend timeline, per-skill trend views, and reassessment entry point
 - Shareable progress artifacts (level card, improvement card, milestone card)

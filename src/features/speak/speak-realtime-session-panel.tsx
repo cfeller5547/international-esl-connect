@@ -20,6 +20,11 @@ import {
   type SpeakTranscriptTurn,
 } from "@/lib/speak";
 import { trackClientEvent } from "@/lib/client-analytics";
+import {
+  createAmbientNoiseMonitor,
+  getPreferredRealtimeAudioConstraints,
+  type AmbientNoiseLevel,
+} from "@/features/voice/live-voice-audio";
 
 type SpeakRealtimeSessionPanelProps = {
   sessionId: string;
@@ -32,8 +37,11 @@ type LiveState =
   | "connecting"
   | "ready"
   | "listening"
+  | "still_listening"
   | "thinking"
   | "speaking"
+  | "didnt_catch_that"
+  | "noisy_room"
   | "review"
   | "error";
 
@@ -45,10 +53,16 @@ function getStateCopy(state: LiveState) {
       return "Live and ready";
     case "listening":
       return "Listening";
+    case "still_listening":
+      return "Still listening";
     case "thinking":
       return "Thinking";
     case "speaking":
       return "Speaking";
+    case "didnt_catch_that":
+      return "Didn't catch that";
+    case "noisy_room":
+      return "Noisy room";
     case "review":
       return "Session complete";
     case "error":
@@ -69,6 +83,11 @@ export function SpeakRealtimeSessionPanel({
   const [review, setReview] = useState<SpeakSessionReview | null>(null);
   const [finishing, setFinishing] = useState(false);
   const [helpPrompt, setHelpPrompt] = useState<string | null>(null);
+  const [ambientNoise, setAmbientNoise] = useState<AmbientNoiseLevel>("quiet");
+  const [repairNotice, setRepairNotice] = useState<string | null>(null);
+  const [lastQuestion, setLastQuestion] = useState<string | null>(
+    initialTurns.filter((turn) => turn.speaker === "ai").at(-1)?.text ?? null
+  );
 
   const transcriptRef = useRef(transcript);
   const stateRef = useRef<LiveState>(state);
@@ -76,6 +95,8 @@ export function SpeakRealtimeSessionPanel({
   const dataChannelRef = useRef<RTCDataChannel | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
+  const noiseCleanupRef = useRef<(() => void) | null>(null);
+  const listeningTimerRef = useRef<number | null>(null);
   const syncTimeoutRef = useRef<number | null>(null);
   const lastSyncedSignatureRef = useRef("");
   const syncInFlightRef = useRef<Promise<void> | null>(null);
@@ -100,6 +121,10 @@ export function SpeakRealtimeSessionPanel({
 
       pendingSyncRef.current = null;
       pendingSyncSignatureRef.current = "";
+      if (listeningTimerRef.current) {
+        window.clearTimeout(listeningTimerRef.current);
+      }
+      noiseCleanupRef.current?.();
       connectionRef.current?.close();
       dataChannelRef.current?.close();
       localStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -110,7 +135,10 @@ export function SpeakRealtimeSessionPanel({
   }, []);
 
   const studentTurnCount = useMemo(
-    () => transcript.filter((turn) => turn.speaker === "student").length,
+    () =>
+      transcript.filter(
+        (turn) => turn.speaker === "student" && turn.countsTowardProgress !== false
+      ).length,
     [transcript]
   );
   const counterpartLabel = getSpeakCounterpartLabel(mission.counterpartRole);
@@ -127,30 +155,76 @@ export function SpeakRealtimeSessionPanel({
           grammarIssue?: boolean;
           vocabOpportunity?: boolean;
         };
-      }>
+      }>,
+      lastStudentTurn?: {
+        turnIndex: number;
+        disposition:
+          | "accepted_answer"
+          | "clarification_request"
+          | "acknowledgement_only"
+          | "noise_or_unintelligible"
+          | "off_task_short";
+        countsTowardProgress: boolean;
+        coachLabel: string | null;
+        coachNote: string | null;
+        reasonCode: string;
+      } | null
     ) => {
-      if (coachings.length === 0) {
+      if (coachings.length === 0 && !lastStudentTurn) {
         return;
       }
 
       setTranscript((current) =>
         current.map((turn) => {
           const coaching = coachings.find((entry) => entry.turnIndex === turn.turnIndex);
+          const isLatestStudentTurn =
+            lastStudentTurn &&
+            turn.speaker === "student" &&
+            turn.turnIndex === lastStudentTurn.turnIndex;
 
-          if (!coaching || turn.speaker !== "student") {
+          if (!coaching && !isLatestStudentTurn) {
             return turn;
           }
 
           return {
             ...turn,
-            coaching: {
-              label: coaching.coachLabel,
-              note: coaching.microCoaching,
-              signals: normalizeSpeakTurnSignals(coaching.turnSignals),
-            },
+            coaching:
+              coaching || lastStudentTurn
+                ? {
+                    label:
+                      coaching?.coachLabel ??
+                      lastStudentTurn?.coachLabel ??
+                      "Keep this move",
+                    note:
+                      coaching?.microCoaching ??
+                      lastStudentTurn?.coachNote ??
+                      "Keep the next answer clear and direct.",
+                    signals: normalizeSpeakTurnSignals(coaching?.turnSignals),
+                  }
+                : null,
+            disposition: isLatestStudentTurn
+              ? lastStudentTurn?.disposition ?? turn.disposition ?? null
+              : turn.disposition ?? null,
+            countsTowardProgress: isLatestStudentTurn
+              ? lastStudentTurn?.countsTowardProgress ?? turn.countsTowardProgress
+              : turn.countsTowardProgress,
+            reasonCode: isLatestStudentTurn
+              ? (lastStudentTurn?.reasonCode as typeof turn.reasonCode) ?? turn.reasonCode ?? null
+              : turn.reasonCode ?? null,
           };
         })
       );
+
+      if (lastStudentTurn && !lastStudentTurn.countsTowardProgress) {
+        setRepairNotice(lastStudentTurn.coachNote ?? "Say that again in one short sentence.");
+        setState(
+          lastStudentTurn.disposition === "noise_or_unintelligible"
+            ? "noisy_room"
+            : "didnt_catch_that"
+        );
+      } else if (lastStudentTurn) {
+        setRepairNotice(null);
+      }
     },
     []
   );
@@ -190,9 +264,22 @@ export function SpeakRealtimeSessionPanel({
             vocabOpportunity?: boolean;
           };
         }>;
+        lastStudentTurn?: {
+          turnIndex: number;
+          disposition:
+            | "accepted_answer"
+            | "clarification_request"
+            | "acknowledgement_only"
+            | "noise_or_unintelligible"
+            | "off_task_short";
+          countsTowardProgress: boolean;
+          coachLabel: string | null;
+          coachNote: string | null;
+          reasonCode: string;
+        } | null;
       };
 
-      applySyncedCoachings(payload.studentCoachings ?? []);
+      applySyncedCoachings(payload.studentCoachings ?? [], payload.lastStudentTurn ?? null);
       lastSyncedSignatureRef.current = signature;
     },
     [applySyncedCoachings, sessionId]
@@ -250,7 +337,11 @@ export function SpeakRealtimeSessionPanel({
   );
 
   useEffect(() => {
-    if (!["ready", "listening", "thinking", "speaking"].includes(state)) {
+    if (
+      !["ready", "listening", "still_listening", "thinking", "speaking", "noisy_room"].includes(
+        state
+      )
+    ) {
       return;
     }
 
@@ -283,16 +374,36 @@ export function SpeakRealtimeSessionPanel({
 
     setHelpPrompt(null);
     setTranscript((current) => {
+      const trimmedText = turn.text.trim();
+      if (
+        turn.speaker === "ai" &&
+        current.length === 1 &&
+        current[0]?.speaker === "ai"
+      ) {
+        const next = [
+          {
+            ...current[0],
+            text: trimmedText,
+          },
+        ];
+        transcriptRef.current = next;
+        setLastQuestion(trimmedText);
+        return next;
+      }
+
       const next = [
         ...current,
         {
           turnIndex: current.length + 1,
           speaker: turn.speaker,
-          text: turn.text.trim(),
+          text: trimmedText,
           coaching: null,
         },
       ];
       transcriptRef.current = next;
+      if (turn.speaker === "ai") {
+        setLastQuestion(trimmedText);
+      }
       return next;
     });
   }
@@ -343,6 +454,16 @@ export function SpeakRealtimeSessionPanel({
     });
   }
 
+  function requestRepeatedQuestion() {
+    sendRealtimeEvent({
+      type: "response.create",
+      response: {
+        instructions:
+          "Repeat your last question in simpler English, in one short sentence, and wait for the learner's answer.",
+      },
+    });
+  }
+
   function handleRealtimeMessage(rawEvent: MessageEvent<string>) {
     const event = JSON.parse(rawEvent.data) as {
       type: string;
@@ -353,9 +474,18 @@ export function SpeakRealtimeSessionPanel({
 
     switch (event.type) {
       case "input_audio_buffer.speech_started":
+        if (listeningTimerRef.current) {
+          window.clearTimeout(listeningTimerRef.current);
+        }
         setState("listening");
+        listeningTimerRef.current = window.setTimeout(() => {
+          setState((current) => (current === "listening" ? "still_listening" : current));
+        }, 1800);
         return;
       case "input_audio_buffer.speech_stopped":
+        if (listeningTimerRef.current) {
+          window.clearTimeout(listeningTimerRef.current);
+        }
         setState("thinking");
         return;
       case "response.created":
@@ -431,11 +561,7 @@ export function SpeakRealtimeSessionPanel({
       }
 
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
+        audio: getPreferredRealtimeAudioConstraints(),
       });
 
       const connection = new RTCPeerConnection();
@@ -496,6 +622,25 @@ export function SpeakRealtimeSessionPanel({
       connectionRef.current = connection;
       dataChannelRef.current = channel;
       localStreamRef.current = stream;
+      noiseCleanupRef.current?.();
+      noiseCleanupRef.current = createAmbientNoiseMonitor(stream, (level) => {
+        setAmbientNoise(level);
+        setState((current) => {
+          if (current === "review" || current === "error" || current === "speaking") {
+            return current;
+          }
+
+          if (level === "very_noisy") {
+            return "noisy_room";
+          }
+
+          if (current === "noisy_room") {
+            return "ready";
+          }
+
+          return current;
+        });
+      });
       closingSessionRef.current = false;
       sessionStartedAtRef.current ??= Date.now();
       setState("ready");
@@ -503,6 +648,7 @@ export function SpeakRealtimeSessionPanel({
       connectionRef.current?.close();
       dataChannelRef.current?.close();
       localStreamRef.current?.getTracks().forEach((track) => track.stop());
+      noiseCleanupRef.current?.();
       setState("error");
       setError(
         startError instanceof Error
@@ -533,6 +679,10 @@ export function SpeakRealtimeSessionPanel({
       connectionRef.current?.close();
       dataChannelRef.current?.close();
       localStreamRef.current?.getTracks().forEach((track) => track.stop());
+      noiseCleanupRef.current?.();
+      if (listeningTimerRef.current) {
+        window.clearTimeout(listeningTimerRef.current);
+      }
       if (remoteAudioRef.current) {
         remoteAudioRef.current.srcObject = null;
       }
@@ -698,6 +848,9 @@ export function SpeakRealtimeSessionPanel({
                     <Radio className="mr-1 size-3.5" />
                     {getStateCopy(state)}
                   </Badge>
+                  <Badge variant="outline" className="rounded-full px-3 py-1 text-xs">
+                    Room: {ambientNoise === "very_noisy" ? "Very noisy" : ambientNoise === "noisy" ? "Noisy" : "Quiet"}
+                  </Badge>
                 </div>
                 <div>
                   <CardTitle className="text-3xl leading-tight">{mission.scenarioTitle}</CardTitle>
@@ -741,10 +894,16 @@ export function SpeakRealtimeSessionPanel({
                     ? "Start live voice when you are ready. The conversation will open with one natural question."
                     : state === "listening"
                       ? "Speak naturally. The AI will answer when you pause."
+                      : state === "still_listening"
+                        ? "Keep going. The AI is still listening for the rest of your thought."
                       : state === "speaking"
                         ? "The AI is responding out loud right now."
-                        : state === "thinking"
-                          ? "The AI is preparing the next spoken reply."
+                      : state === "thinking"
+                        ? "The AI is preparing the next spoken reply."
+                        : state === "didnt_catch_that"
+                          ? "The last turn did not count. Answer the question again in one short sentence."
+                          : state === "noisy_room"
+                            ? "The room sounds noisy. Move closer to the mic and answer again."
                           : "Your microphone stays live for the conversation once connected."}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -755,12 +914,28 @@ export function SpeakRealtimeSessionPanel({
                 <Button variant="outline" onClick={startLiveConversation}>
                   Retry connection
                 </Button>
+              ) : state === "didnt_catch_that" || state === "noisy_room" ? (
+                <Button variant="outline" onClick={requestRepeatedQuestion}>
+                  Say that again
+                </Button>
               ) : state === "idle" ? (
                 <Button variant="outline" onClick={startLiveConversation}>
                   Start now
                 </Button>
               ) : null}
             </div>
+
+            {repairNotice ? (
+              <div className="rounded-[1.5rem] border border-border/70 bg-background/80 px-4 py-3 text-sm">
+                <p className="font-medium text-foreground">Recovery</p>
+                <p className="mt-1 text-muted-foreground">{repairNotice}</p>
+                {lastQuestion ? (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Last question: <span className="font-medium text-foreground">{lastQuestion}</span>
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
 
             {helpPrompt ? (
               <div className="rounded-[1.5rem] border border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">

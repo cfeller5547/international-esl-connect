@@ -123,6 +123,19 @@ Conversation provider rule:
   - `OPENAI_REALTIME_VOICE`
 - If the OpenAI key is absent, development fallback behavior may remain heuristic for text responses, but live voice mode must stay unavailable.
 
+Shared realtime voice policy:
+- Learn speaking, Speak live voice, and full-diagnostic assessment share one realtime session policy.
+- Default turn detection uses `semantic_vad` with low eagerness and `interrupt_response = false`.
+- Browser mic capture should request mono input plus `echoCancellation`, `noiseSuppression`, `autoGainControl`, and best-effort voice-isolation constraints when supported.
+- After transcription, candidate learner turns must be classified before they count:
+  - `accepted_answer`
+  - `clarification_request`
+  - `acknowledgement_only`
+  - `noise_or_unintelligible`
+  - `off_task_short`
+- Only `accepted_answer` turns count toward mission progress, benchmark thresholds, and final evaluation.
+- Rejected turns stay in the transcript for continuity but must resolve through repair rather than normal coaching.
+
 Streak rule:
 - `StreakService` recomputes streaks on qualifying activity completion and emits milestone events idempotently.
 
@@ -199,9 +212,11 @@ Required output fields from `RecommendationService`:
 5. free users continue through the text turn route; Pro voice users request a short-lived realtime client secret from `/api/v1/learn/curriculum/speaking/:sessionId/realtime`
 6. browser opens a WebRTC connection directly to OpenAI Realtime for the bounded Learn voice exchange
 7. transcript snapshots sync back to `/api/v1/learn/curriculum/speaking/:sessionId/sync`
-8. completion generates a focused mission review with highlights
-9. the review is persisted on the linked unit activity progress row
-10. final curriculum completion still flows through `CurriculumService`
+8. sync classifies the last learner turn, persists disposition metadata, and returns accepted-turn coaching or repair state
+9. only accepted learner turns count toward feedback unlocks and benchmark follow-up thresholds
+10. completion generates a focused mission review with highlights
+11. the review is persisted on the linked unit activity progress row
+12. final curriculum completion still flows through `CurriculumService`
 
 ### 9.2.3 Speak Realtime Voice Flow
 1. user starts a Speak session with `interactionMode = voice`
@@ -209,9 +224,10 @@ Required output fields from `RecommendationService`:
 3. session page requests a short-lived realtime client secret from `/api/v1/speak/session/:sessionId/realtime`
 4. browser opens a WebRTC connection directly to OpenAI Realtime
 5. transcript snapshots sync back to `/api/v1/speak/session/:sessionId/sync`
-6. user finishes the session explicitly
-7. server completes the session, stores evaluation payload, and returns transcript review
-8. phrase-bank saves continue through the shared conversation/session layer
+6. sync classifies the latest learner turn and returns accepted-turn coaching or repair metadata
+7. user finishes the session explicitly
+8. server completes the session, stores evaluation payload, and returns transcript review
+9. phrase-bank saves continue through the shared conversation/session layer
 
 ### 9.3 Reassessment Report Loop
 1. user starts new assessment from Progress

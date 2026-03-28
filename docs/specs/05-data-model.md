@@ -389,6 +389,16 @@ Rules:
 - `audio_ref` (nullable)
 - `metrics_payload` (jsonb)
 
+`metrics_payload` usage notes:
+- for realtime voice turns, `metrics_payload` may persist shared live-turn reliability fields:
+  - `disposition`
+  - `countsTowardProgress`
+  - `reasonCode`
+  - `coachLabel`
+  - `microCoaching`
+  - `turnSignals`
+- rejected learner turns remain in the transcript for continuity, but `countsTowardProgress = false` keeps them out of progress thresholds and final evaluation.
+
 ### `phrase_bank_items`
 - `id` (uuid, pk)
 - `user_id` (fk)

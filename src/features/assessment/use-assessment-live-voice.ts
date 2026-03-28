@@ -8,20 +8,34 @@ import {
   useState,
 } from "react";
 
-import { isClarificationRequest } from "@/lib/conversation-utils";
+import {
+  classifyLiveStudentTurn,
+  type LiveStudentTurnDisposition,
+  type LiveStudentTurnReasonCode,
+} from "@/lib/conversation-utils";
+import {
+  createAmbientNoiseMonitor,
+  getPreferredRealtimeAudioConstraints,
+  type AmbientNoiseLevel,
+} from "@/features/voice/live-voice-audio";
 
 export type AssessmentVoiceState =
   | "idle"
   | "starting"
   | "listening"
+  | "still_listening"
   | "thinking"
   | "speaking"
+  | "didnt_catch_that"
+  | "noisy_room"
   | "error";
 
 type AssessmentConversationTurn = {
   speaker: "ai" | "student";
   text: string;
   countsTowardProgress?: boolean;
+  disposition?: LiveStudentTurnDisposition | null;
+  reasonCode?: LiveStudentTurnReasonCode | null;
 };
 
 type RealtimeCredentialPayload =
@@ -66,6 +80,7 @@ export function useAssessmentLiveVoice({
 }: UseAssessmentLiveVoiceArgs) {
   const [voiceState, setVoiceState] = useState<AssessmentVoiceState>("idle");
   const [liveActive, setLiveActive] = useState(false);
+  const [ambientNoise, setAmbientNoise] = useState<AmbientNoiseLevel>("quiet");
 
   const transcriptRef = useRef(transcript);
   const voiceStateRef = useRef(voiceState);
@@ -73,6 +88,8 @@ export function useAssessmentLiveVoice({
   const dataChannelRef = useRef<RTCDataChannel | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
+  const noiseCleanupRef = useRef<(() => void) | null>(null);
+  const listeningTimerRef = useRef<number | null>(null);
   const connectionStartedAtRef = useRef<number | null>(null);
   const accumulatedMillisecondsRef = useRef(0);
   const closingConnectionRef = useRef(false);
@@ -88,6 +105,10 @@ export function useAssessmentLiveVoice({
   useEffect(() => {
     return () => {
       accumulatedMillisecondsRef.current += consumeActiveMilliseconds();
+      if (listeningTimerRef.current) {
+        window.clearTimeout(listeningTimerRef.current);
+      }
+      noiseCleanupRef.current?.();
       teardownConnection();
     };
   }, []);
@@ -116,6 +137,7 @@ export function useAssessmentLiveVoice({
     connectionRef.current?.close();
     dataChannelRef.current?.close();
     localStreamRef.current?.getTracks().forEach((track) => track.stop());
+    noiseCleanupRef.current?.();
 
     if (remoteAudioRef.current) {
       remoteAudioRef.current.srcObject = null;
@@ -135,6 +157,17 @@ export function useAssessmentLiveVoice({
     }
 
     setTranscript((current) => {
+      if (turn.speaker === "ai" && current.length === 1 && current[0]?.speaker === "ai") {
+        const next = [
+          {
+            ...current[0],
+            text,
+          },
+        ];
+        transcriptRef.current = next;
+        return next;
+      }
+
       const next = [...current, { ...turn, text }];
       transcriptRef.current = next;
       return next;
@@ -198,9 +231,18 @@ export function useAssessmentLiveVoice({
     switch (event.type) {
       case "input_audio_buffer.speech_started":
         setVoiceState("listening");
+        if (listeningTimerRef.current) {
+          window.clearTimeout(listeningTimerRef.current);
+        }
+        listeningTimerRef.current = window.setTimeout(() => {
+          setVoiceState((current) => (current === "listening" ? "still_listening" : current));
+        }, 1800);
         updateDurationSnapshot();
         return;
       case "input_audio_buffer.speech_stopped":
+        if (listeningTimerRef.current) {
+          window.clearTimeout(listeningTimerRef.current);
+        }
         setVoiceState("thinking");
         updateDurationSnapshot();
         return;
@@ -220,11 +262,23 @@ export function useAssessmentLiveVoice({
         return;
       case "conversation.item.input_audio_transcription.completed":
         if (event.transcript?.trim()) {
+          const studentTurn = classifyLiveStudentTurn(event.transcript);
           appendTurn({
             speaker: "student",
             text: event.transcript,
-            countsTowardProgress: !isClarificationRequest(event.transcript),
+            countsTowardProgress: studentTurn.countsTowardProgress,
+            disposition: studentTurn.disposition,
+            reasonCode: studentTurn.reasonCode,
           });
+          if (!studentTurn.countsTowardProgress) {
+            setVoiceState(
+              studentTurn.disposition === "noise_or_unintelligible"
+                ? "noisy_room"
+                : "didnt_catch_that"
+            );
+            updateDurationSnapshot();
+            return;
+          }
         }
         setVoiceState("thinking");
         updateDurationSnapshot();
@@ -295,11 +349,7 @@ export function useAssessmentLiveVoice({
       }
 
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
+        audio: getPreferredRealtimeAudioConstraints(),
       });
 
       const connection = new RTCPeerConnection();
@@ -359,6 +409,25 @@ export function useAssessmentLiveVoice({
       connectionRef.current = connection;
       dataChannelRef.current = channel;
       localStreamRef.current = stream;
+      noiseCleanupRef.current?.();
+      noiseCleanupRef.current = createAmbientNoiseMonitor(stream, (level) => {
+        setAmbientNoise(level);
+        setVoiceState((current) => {
+          if (current === "speaking" || current === "error") {
+            return current;
+          }
+
+          if (level === "very_noisy") {
+            return "noisy_room";
+          }
+
+          if (current === "noisy_room") {
+            return "idle";
+          }
+
+          return current;
+        });
+      });
       closingConnectionRef.current = false;
       connectionStartedAtRef.current = Date.now();
       setLiveActive(true);
@@ -380,6 +449,7 @@ export function useAssessmentLiveVoice({
     isSupported: supportsLiveVoice(),
     liveActive,
     voiceState,
+    ambientNoise,
     startLiveConversation,
     pauseLiveConversation,
   };

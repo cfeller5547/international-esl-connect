@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CircleHelp, CreditCard, LogOut, Settings2, UserRound } from "lucide-react";
@@ -43,15 +43,15 @@ const ACCOUNT_LINKS = [
   },
 ] as const;
 
+function subscribeNoop() {
+  return () => undefined;
+}
+
 export function AccountMenu() {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(subscribeNoop, () => true, () => false);
   const [open, setOpen] = useState(false);
   const [pendingLogout, setPendingLogout] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   async function handleLogout() {
     setPendingLogout(true);

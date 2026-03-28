@@ -194,10 +194,10 @@ Implementation note:
    - properties: `starter_key`
 6. `speak_turn_submitted`
    - trigger: student submits turn
-   - properties: `turn_index`, `input_mode`
+   - properties: `turn_index`, `input_mode`, `turn_disposition`, `counts_toward_progress`, `noise_detected`
 7. `speak_turn_coaching_shown`
    - trigger: learner-turn coaching rendered after a turn lands
-   - properties: `input_mode`
+   - properties: `input_mode`, `turn_disposition`, `counts_toward_progress`
 8. `speak_help_requested`
    - trigger: learner opens the in-session `Help me` hint
    - properties: `input_mode`
@@ -209,11 +209,15 @@ Implementation note:
 11. `transcript_phrase_saved`
    - trigger: phrase saved from transcript review
    - properties: `session_id`
+12. `live_voice_turn_processed`
+   - trigger: shared realtime sync pipeline classifies the latest learner voice turn
+   - properties: `surface`, `mission_kind`, `turn_disposition`, `counts_toward_progress`, `clarification_rephrase_used`, `noise_detected`, `rejected_turn_count`
 
 Implementation note:
 - the current Pro voice path uses OpenAI Realtime in-browser.
 - live voice continues to roll up into the existing `speak_session_started`, `speak_turn_submitted`, and `speak_session_completed` contract.
 - in-session coaching and `Help me` analytics apply to both text and voice sessions.
+- `live_voice_turn_processed` is emitted by the shared realtime sync pipeline and applies to Learn, Speak, and full-diagnostic voice surfaces.
 
 ## 4.5 Progress and Reporting
 

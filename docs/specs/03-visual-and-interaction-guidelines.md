@@ -135,6 +135,16 @@ Avoid equal visual weight between overall trend and per-skill detail.
 - Display live transcript where possible
 - Show clear listening/speaking states
 - Handle mic permission denial gracefully
+- Realtime voice status should use a compact shared state set:
+  - `Listening`
+  - `Still listening`
+  - `Thinking`
+  - `Speaking`
+  - `Didn't catch that`
+  - `Noisy room`
+- Show one quiet ambient-noise badge during active voice sessions.
+- Keep repair notices in-line with the transcript and anchor the last valid question when the learner needs to try again.
+- Accepted-turn coaching should be visually quieter than the AI reply; rejected-turn repair should be distinct from normal coaching.
 
 ### 6.1 Learn Game Treatment
 

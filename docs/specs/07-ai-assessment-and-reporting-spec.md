@@ -22,6 +22,8 @@ Conversation must be:
 - measurable in speaking and listening evidence
 - voice-required in the UI, with one-tap start and continuous turn-taking rather than manual record/stop cycles
 - delivered as actual AI audio through the live Realtime session, not browser text-to-speech playback of static text
+- patient with pauses so ESL learners are not cut off mid-thought
+- repair-first when audio is unclear, noisy, or only a clarification request
 
 Required measured signals:
 - pronunciation quality
@@ -32,6 +34,7 @@ Required measured signals:
 Phase rule:
 - the onboarding full diagnostic must collect enough conversation and writing evidence to support confident initial placement.
 - clarification turns may keep the interview moving, but they do not count toward the captured evidence target.
+- acknowledgement-only, noisy, unintelligible, or off-task-short turns also do not count toward the captured evidence target.
 
 ## 4. Skill Scoring Model
 

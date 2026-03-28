@@ -88,6 +88,11 @@ Current Learn UX shape:
 - preview mode currently means signed-in users land on the Pro Learn speaking path by default
 - the text-first Learn speaking path still exists as the fallback shape when voice is unavailable or when plan gating is re-enabled later
 - Learn speaking hides visible turn-count mechanics from the main conversation body
+- shared realtime voice now uses patient turn-taking:
+  - `semantic_vad` with low eagerness
+  - no eager interruption while the learner is likely still speaking
+  - only accepted learner turns count toward feedback unlocks and benchmark thresholds
+  - rejected turns show repair rather than normal coaching
 
 Current Speak UX shape:
 - Speak launch is recommendation-led rather than setup-led
@@ -128,6 +133,13 @@ Current Speak UX shape:
 - realtime transcript snapshots sync back through the app before the session is completed
 - non-realtime fallback Speak panels are read-only for voice sessions so the app does not regress to per-turn recording UX
 - Learn voice missions use parallel Learn-scoped realtime routes under `/api/v1/learn/curriculum/speaking/:sessionId/*`
+- shared live voice states across Learn, Speak, and assessment now include:
+  - `Listening`
+  - `Still listening`
+  - `Thinking`
+  - `Speaking`
+  - `Didn't catch that`
+  - `Noisy room`
 
 ## 3. Read First
 
@@ -190,9 +202,12 @@ Do not casually change these:
 - `src/app/api/v1/assessment/full/conversation/realtime/route.ts`
 - `src/features/assessment/assessment-form.tsx`
 - `src/features/assessment/use-assessment-live-voice.ts`
+- `src/features/voice/live-voice-audio.ts`
 - `src/server/services/onboarding-service.ts`
 - `src/server/services/assessment-service.ts`
 - `src/server/services/assessment-conversation-service.ts`
+- `src/server/realtime-voice-policy.ts`
+- `src/lib/conversation-utils.ts`
 
 ### Curriculum Learn
 - `src/app/app/learn/page.tsx`
@@ -226,6 +241,7 @@ Do not casually change these:
 - `src/features/speak/speak-view-model.ts`
 - `src/features/speak/speak-realtime-session-panel.tsx`
 - `src/features/speak/speak-session-panel.tsx`
+- `src/features/voice/live-voice-audio.ts`
 - `src/lib/speak.ts`
 - `src/server/services/conversation-service.ts`
 - `src/server/services/speak-service.ts`

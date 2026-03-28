@@ -30,6 +30,9 @@ Critical domains:
 10. In the diagnostic conversation, verify one tap starts the live voice interview, the AI introduces itself first, and the user does not need to press record between turns.
 11. Verify the AI opening audio is the actual live AI voice and not browser text-to-speech playback.
 12. Ask for clarification with a short reply such as `why?` and verify the AI rephrases without increasing the captured-reply count.
+13. Pause briefly mid-sentence during the live interview and verify the AI does not cut in early.
+14. Simulate background speech or music and verify the interview shows repair rather than counting the noise as a learner answer.
+15. Verify rejected assessment turns do not increase captured evidence progress.
 
 Pass condition:
 - no repeated data entry
@@ -140,6 +143,9 @@ Pass condition:
 25. On a Pro account, confirm transcript snapshots sync while the Learn voice conversation is active and that `See feedback` becomes available after the hidden participation threshold is met.
 26. On a Pro account, confirm mic-denied or unavailable cases fall back cleanly to text without losing mission state.
 27. Attempt to open `/app/learn/unit/:unitSlug/speaking` before completing game and verify the standard locked-state recovery path is shown.
+28. In a Learn voice mission, pause briefly mid-answer and verify the AI remains in `Listening` / `Still listening` instead of interrupting.
+29. Trigger a clarification request such as `say that again` and verify the mission rephrases the last question in simpler English without counting the turn.
+30. Trigger a noisy or unintelligible turn and verify the UI shows repair, anchors the last question, and does not unlock feedback early.
 
 Pass condition:
 - speaking missions feel like one bounded curriculum task, not a generic Speak detour
@@ -234,10 +240,15 @@ Pass condition:
    - transcript updates while the conversation is live
    - the AI responds in real time
    - transcript sync requests remain successful
-7. Finish the session.
-8. Verify no late transcript-sync failures occur after completion.
-9. Verify the review surface loads with summary feedback and phrase-bank save actions.
-10. Repeat with a free-speech voice session and verify it skips the guided mission brief while still waiting for `Start live conversation`.
+   - accepted learner turns receive compact coaching
+   - noisy or fragmentary turns surface repair instead of standard coaching
+7. Pause briefly mid-sentence and verify the AI does not cut in.
+8. Say a short acknowledgement such as `sure` or `thank you` and verify the session treats it as repair, not a counted answer.
+9. Simulate coffee-shop background speech or music and verify the session surfaces `Noisy room` / repair behavior rather than treating the noise as the learner.
+10. Finish the session.
+11. Verify no late transcript-sync failures occur after completion.
+12. Verify the review surface loads with summary feedback and phrase-bank save actions.
+13. Repeat with a free-speech voice session and verify it skips the guided mission brief while still waiting for `Start live conversation`.
 
 Pass condition:
 - the live voice path feels like an actual back-and-forth conversation

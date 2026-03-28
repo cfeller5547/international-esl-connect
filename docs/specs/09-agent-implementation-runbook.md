@@ -97,6 +97,11 @@ Deliver:
 - Speak free and guided session flows with plan-aware mode behavior
 - explicit Speak mode switch with only one launch surface visible at a time
 - free-tier text-first + pro voice gating behavior
+- shared realtime voice reliability layer across Learn, Speak, and full diagnostic:
+  - patient turn-taking
+  - accepted-vs-repair turn handling
+  - ambient-noise awareness
+  - accepted-turn coaching only
 - free-tier quota enforcement with deterministic limit keys
 - free-speech quick-start lanes and first-run default lane
 - transcript learning layer (inline corrections + phrase save)

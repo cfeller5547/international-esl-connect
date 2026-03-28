@@ -1,10 +1,14 @@
 import { FULL_DIAGNOSTIC_CONVERSATION } from "@/features/assessment/question-bank";
-import { isClarificationRequest } from "@/lib/conversation-utils";
+import {
+  classifyLiveStudentTurn,
+  type LiveStudentTurnFeedback,
+} from "@/lib/conversation-utils";
 import { AppError } from "@/server/errors";
 import { env } from "@/server/env";
 import { openai } from "@/server/openai";
 import { prisma } from "@/server/prisma";
 import { serializeRealtimeClientSecret } from "@/server/realtime-client-secret";
+import { createRealtimeTurnDetectionConfig } from "@/server/realtime-voice-policy";
 
 import {
   createOpeningPrompt,
@@ -114,6 +118,26 @@ function buildClarificationReply(lastAiTurn: string) {
   return "I mean, can you answer my last question in one or two simple sentences?";
 }
 
+function buildRepairReply(lastAiTurn: string, feedback: LiveStudentTurnFeedback) {
+  if (feedback.disposition === "clarification_request") {
+    return buildClarificationReply(lastAiTurn);
+  }
+
+  if (feedback.disposition === "acknowledgement_only") {
+    return "Answer the question first, then add one short detail.";
+  }
+
+  if (feedback.disposition === "noise_or_unintelligible") {
+    return "I didn't catch that clearly. Can you say it again in one short sentence?";
+  }
+
+  if (feedback.disposition === "off_task_short") {
+    return "Start with one full answer to my question, then add one detail.";
+  }
+
+  return "Can you answer my last question in one or two simple sentences?";
+}
+
 async function getAuthorizedAttempt({
   assessmentAttemptId,
   userId,
@@ -152,14 +176,14 @@ function createAssessmentRealtimeInstructions() {
   const context = buildContext("voice");
 
   return [
-    "You are Maya, a warm placement coach having a short live English conversation with a learner.",
-    "Sound like a real person speaking naturally, not a robot, test engine, scripted narrator, or worksheet.",
-    "Keep every spoken reply short and natural for audio, usually one or two sentences plus one follow-up question.",
-    "Stay inside the placement interview and help the learner keep talking about classes, routines, and goals.",
-    "Acknowledge what the learner just said before you ask the next question.",
-    "If the learner asks for clarification with something like 'why?', 'what do you mean?', or 'can you repeat that?', rephrase your last question in simpler English and invite a real answer.",
-    "Do not mention scoring, pronunciation analysis, evaluation, rubrics, or that you are grading the learner.",
-    "Do not correct the learner during the live exchange.",
+    "Role: you are Maya, a warm placement coach having a short live English conversation with a learner.",
+    "Style: sound like a real person speaking naturally, not a robot, test engine, scripted narrator, or worksheet.",
+    "Turn-taking: keep spoken replies short for audio, usually one or two sentences plus one follow-up question.",
+    "Patience: be patient with pauses. ESL learners may need a few seconds to finish a thought.",
+    "Noise: if the audio is unclear, noisy, or sounds like background speech, ask for a clear short answer instead of moving on.",
+    "Clarification: if the learner says what, sorry, say that again, or sounds confused, rephrase your last question in simpler English and stay in English.",
+    "Guardrails: do not mention scoring, pronunciation analysis, evaluation, rubrics, or that you are grading the learner. Do not answer for the learner.",
+    "Variety: avoid repeating the same repair phrase every turn.",
     `Scenario title: ${context.scenarioTitle}.`,
     `Scenario setup: ${context.scenarioSetup}.`,
     `Introduction style: ${context.introductionText}.`,
@@ -220,14 +244,7 @@ export const AssessmentConversationService = {
               model: env.OPENAI_TRANSCRIPTION_MODEL,
               language: "en",
             },
-            turn_detection: {
-              type: "server_vad",
-              create_response: true,
-              interrupt_response: true,
-              idle_timeout_ms: 6000,
-              prefix_padding_ms: 300,
-              silence_duration_ms: 450,
-            },
+            turn_detection: createRealtimeTurnDetectionConfig(),
           },
           output: {
             voice: env.OPENAI_REALTIME_VOICE,
@@ -283,7 +300,8 @@ export const AssessmentConversationService = {
       );
     }
 
-    const countsTowardProgress = !isClarificationRequest(studentTranscriptText);
+    const studentTurnFeedback = classifyLiveStudentTurn(studentTranscriptText);
+    const countsTowardProgress = studentTurnFeedback.countsTowardProgress;
     const replyCount =
       normalizedTranscript.filter(
         (turn) => turn.speaker === "student" && turn.countsTowardProgress !== false
@@ -294,7 +312,7 @@ export const AssessmentConversationService = {
     const reply =
       !countsTowardProgress
         ? {
-            aiResponseText: buildClarificationReply(lastAiTurn),
+            aiResponseText: buildRepairReply(lastAiTurn, studentTurnFeedback),
             microCoaching: "",
             turnSignals: {
               fluencyIssue: false,
@@ -323,6 +341,8 @@ export const AssessmentConversationService = {
       responseTarget: FULL_DIAGNOSTIC_CONVERSATION.responseTarget,
       canAdvance: replyCount >= FULL_DIAGNOSTIC_CONVERSATION.responseTarget,
       countsTowardProgress,
+      disposition: studentTurnFeedback.disposition,
+      reasonCode: studentTurnFeedback.reasonCode,
       turnSignals: reply.turnSignals,
       durationSeconds: studentInput.durationSeconds ?? 0,
     };

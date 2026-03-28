@@ -72,6 +72,8 @@ This document translates product and UX principles into concrete, testable scree
   - the live interview must use realtime AI audio, not browser text-to-speech replay
   - typing is disabled for this diagnostic conversation
   - clarification turns must rephrase the last question and must not increment captured-reply progress
+  - the voice surface must show compact shared live states (`Listening`, `Still listening`, `Thinking`, `Speaking`, `Didn't catch that`, `Noisy room`)
+  - noisy or unintelligible turns must render repair and must not increment captured-reply progress
 - Loading/empty/error: autosave progress; recover session if refreshed.
 - Exit transition: submit assessment and route to `/signup`.
 - Instrumentation: `assessment_started`, `full_diagnostic_completed`.
@@ -288,6 +290,12 @@ This document translates product and UX principles into concrete, testable scree
     - collapsed hint support
     - Pro live voice path uses a bounded realtime voice exchange inside Learn
     - free path uses transcript-first text chat
+    - active live voice must show:
+      - compact voice status (`Listening`, `Still listening`, `Thinking`, `Speaking`, `Didn't catch that`, `Noisy room`)
+      - one quiet room-noise badge
+      - repair notice + last valid question when the last turn was rejected
+      - `Say that again` recovery action after rejected voice turns
+    - visible coaching appears only after accepted learner turns; rejected turns use repair instead
   - feedback state with:
     - one simple outcome label
     - one strength
@@ -312,6 +320,8 @@ This document translates product and UX principles into concrete, testable scree
 - Conversation behavior:
   - the first AI turn must be a natural scenario opener, not procedural setup text such as `Let's practice` or `Start with this`
   - the live exchange must avoid visible `reply count` or `unlock feedback` copy in the main body
+  - short pauses mid-answer should keep the session in a listening state rather than causing an early interruption
+  - clarification, acknowledgement-only, and noisy turns must not count toward hidden completion thresholds
 - Exit transition:
   - completing the conversation moves into feedback first
   - completing the underlying speaking activity routes to writing through the existing activity-completion chain
@@ -377,18 +387,22 @@ This document translates product and UX principles into concrete, testable scree
     - optional small context hint
   - shared transcript pane
   - compact mission header after the session starts; no persistent coach sidebar
-  - activity-state indicator (`Ready to start`, `Connecting`, `Listening`, `Thinking`, `Speaking`, `Session complete`, `Connection issue`)
+  - activity-state indicator (`Ready to start`, `Connecting`, `Listening`, `Still listening`, `Thinking`, `Speaking`, `Didn't catch that`, `Noisy room`, `Session complete`, `Connection issue`)
   - text input controls for text-first sessions
   - live voice surface for active Pro voice sessions:
     - explicit `Start live conversation` CTA
     - browser mic handoff
     - transcript that grows as the live session unfolds
     - one visible `Finish session` action
+    - quiet ambient-noise badge
+    - repair notice with the last valid question when the previous learner turn was rejected
+    - one `Say that again` recovery action after rejected turns
   - subtle per-turn coaching on learner turns only:
     - one short coach label derived from turn signals
     - one concise coaching note
     - no numeric scores
     - no large correction boxes during the live exchange
+  - rejected learner turns should render repair instead of normal coaching
   - one minimal `Help me` support action that reveals one contextual hint without sending a turn
   - post-session completion mode:
     - dedicated completion summary card
@@ -400,7 +414,8 @@ This document translates product and UX principles into concrete, testable scree
 - Voice rule:
   - active voice sessions should feel like real-time back-and-forth audio, not turn-by-turn upload
   - transcript sync must survive overlapping browser updates without dropping the session
-  - coaching appears only after a learner turn lands in the transcript
+  - accepted-turn coaching appears only after a learner turn lands in the transcript
+  - clarification, acknowledgement-only, and noisy turns should not be treated as accepted progress
   - free-speech voice sessions should not display the guided mission brief before `Start live conversation`
 - Exit transition: completion summary first, then recommend next Learn step.
 - Instrumentation: `speak_turn_submitted`, `speak_turn_coaching_shown`, `speak_help_requested`, `speak_session_completed`, `transcript_phrase_saved`.

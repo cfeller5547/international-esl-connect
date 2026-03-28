@@ -83,6 +83,10 @@ type SessionView = {
     turnIndex: number;
     speaker: "ai" | "student";
     text: string;
+    coaching?: ConversationTurn["coaching"];
+    disposition?: ConversationTurn["disposition"];
+    countsTowardProgress?: boolean;
+    reasonCode?: ConversationTurn["reasonCode"];
   }>;
   review?: Review | null;
 };
@@ -153,7 +157,7 @@ function normalizePhrase(value: string) {
 
 function countSubstantiveFollowUpResponses(turns: ConversationTurn[]) {
   return turns
-    .filter((turn) => turn.speaker === "student")
+    .filter((turn) => turn.speaker === "student" && turn.countsTowardProgress !== false)
     .slice(1)
     .filter((turn) => turn.text.trim().split(/\s+/).filter(Boolean).length >= 5).length;
 }
@@ -189,10 +193,16 @@ function getRealtimeStateCopy(state: RealtimeState) {
       return "Live now";
     case "listening":
       return "Listening";
+    case "still_listening":
+      return "Still listening";
     case "thinking":
       return "Thinking";
     case "speaking":
       return "Speaking";
+    case "didnt_catch_that":
+      return "Didn't catch that";
+    case "noisy_room":
+      return "Noisy room";
     case "error":
       return "Connection issue";
     default:
@@ -217,8 +227,11 @@ function getStatusCue({
   if (isVoiceSession && !textFallbackEnabled) {
     if (realtimeState === "connecting") return "Connecting";
     if (realtimeState === "listening") return "Listening";
+    if (realtimeState === "still_listening") return "Still listening";
     if (realtimeState === "thinking") return "Thinking";
     if (realtimeState === "speaking") return "Speaking";
+    if (realtimeState === "didnt_catch_that") return "Didn't catch that";
+    if (realtimeState === "noisy_room") return "Noisy room";
   }
   if (studentTurnCount === 0) return "Start with one clear idea";
   if (studentTurnCount === 1) return "Keep going";
@@ -271,7 +284,14 @@ export function LearnSpeakingMission({
     initialDeliveryMode === "text_chat"
   );
   const [turns, setTurns] = useState<ConversationTurn[]>(
-    initialSession?.turns.map((turn) => ({ speaker: turn.speaker, text: turn.text })) ?? []
+    initialSession?.turns.map((turn) => ({
+      speaker: turn.speaker,
+      text: turn.text,
+      coaching: turn.coaching,
+      disposition: turn.disposition,
+      countsTowardProgress: turn.countsTowardProgress,
+      reasonCode: turn.reasonCode,
+    })) ?? []
   );
   const [review, setReview] = useState<Review | null>(initialReview);
   const [input, setInput] = useState("");
@@ -283,7 +303,9 @@ export function LearnSpeakingMission({
   const isVoiceSession = deliveryMode === "realtime_voice";
   const requiredTurns = mission.requiredTurns;
   const studentTurnCount = useMemo(
-    () => turns.filter((turn) => turn.speaker === "student").length,
+    () =>
+      turns.filter((turn) => turn.speaker === "student" && turn.countsTowardProgress !== false)
+        .length,
     [turns]
   );
   const substantiveFollowUps = useMemo(
@@ -312,9 +334,13 @@ export function LearnSpeakingMission({
   const {
     liveConnected,
     realtimeState,
+    ambientNoise,
+    repairNotice,
+    lastQuestion,
     startLiveConversation,
     closeLiveConnection,
     syncTranscript,
+    requestRepeatedQuestion,
   } = useLearnRealtimeConversation({
     sessionId,
     turns,
@@ -395,9 +421,11 @@ export function LearnSpeakingMission({
       setDeliveryMode(payload.deliveryMode);
       setTextFallbackEnabled(payload.deliveryMode === "text_chat");
       setTurns(
-        payload.resumeState.turns.length > 0
-          ? payload.resumeState.turns
-          : [{ speaker: "ai", text: payload.openingTurn }]
+        payload.deliveryMode === "realtime_voice"
+          ? []
+          : payload.resumeState.turns.length > 0
+            ? payload.resumeState.turns
+            : [{ speaker: "ai", text: payload.openingTurn }]
       );
       setReview(null);
       setInput("");
@@ -705,13 +733,18 @@ export function LearnSpeakingMission({
                 </div>
 
                 {isVoiceSession && !textFallbackEnabled ? (
-                  <Badge
-                    variant={realtimeState === "error" ? "destructive" : "outline"}
-                    className="rounded-full px-3 py-1"
-                  >
-                    <Radio className="mr-1 size-3.5" />
-                    {getRealtimeStateCopy(realtimeState)}
-                  </Badge>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge
+                      variant={realtimeState === "error" ? "destructive" : "outline"}
+                      className="rounded-full px-3 py-1"
+                    >
+                      <Radio className="mr-1 size-3.5" />
+                      {getRealtimeStateCopy(realtimeState)}
+                    </Badge>
+                    <Badge variant="outline" className="rounded-full px-3 py-1">
+                      Room: {ambientNoise === "very_noisy" ? "Very noisy" : ambientNoise === "noisy" ? "Noisy" : "Quiet"}
+                    </Badge>
+                  </div>
                 ) : (
                   <Badge variant="outline" className="rounded-full px-3 py-1">
                     Chat-style text
@@ -764,6 +797,23 @@ export function LearnSpeakingMission({
                       ) : null}
                     </div>
                     <p className="mt-2">{turn.text}</p>
+                    {turn.speaker === "student" && turn.coaching ? (
+                      <div
+                        className={cn(
+                          "mt-3 rounded-2xl border px-3 py-2 text-xs",
+                          turn.countsTowardProgress === false
+                            ? "border-amber-200 bg-amber-50/80 text-amber-950"
+                            : "border-border/70 bg-background/70 text-foreground"
+                        )}
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="secondary" className="rounded-full px-2.5 py-0.5 text-[11px]">
+                            {turn.coaching.label}
+                          </Badge>
+                          <span>{turn.coaching.note}</span>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
@@ -782,6 +832,18 @@ export function LearnSpeakingMission({
               <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                 {notice}
               </p>
+            ) : null}
+
+            {repairNotice ? (
+              <div className="rounded-2xl border border-border/70 bg-background/85 px-4 py-3 text-sm">
+                <p className="font-medium text-foreground">Recovery</p>
+                <p className="mt-1 text-muted-foreground">{repairNotice}</p>
+                {lastQuestion ? (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Last question: <span className="font-medium text-foreground">{lastQuestion}</span>
+                  </p>
+                ) : null}
+              </div>
             ) : null}
 
             {error ? (
@@ -826,6 +888,13 @@ export function LearnSpeakingMission({
                           : "Start live conversation"}
                     </Button>
                   )}
+
+                  {repairNotice ? (
+                    <Button variant="outline" onClick={requestRepeatedQuestion}>
+                      <RefreshCcw className="size-4" />
+                      Say that again
+                    </Button>
+                  ) : null}
 
                   <Button
                     variant="ghost"

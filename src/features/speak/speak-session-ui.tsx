@@ -35,6 +35,14 @@ function coachingToneClasses(turn: SpeakTranscriptTurn) {
   return "border-border/70 bg-card/90 text-foreground";
 }
 
+function repairToneClasses(turn: SpeakTranscriptTurn) {
+  if (turn.disposition === "noise_or_unintelligible") {
+    return "border-amber-200 bg-amber-50/80 text-amber-950";
+  }
+
+  return "border-border/70 bg-muted/35 text-foreground";
+}
+
 function getReviewStatusCopy(
   status: SpeakSessionReview["status"],
   mode: SpeakMissionDetails["mode"]
@@ -84,9 +92,11 @@ function getReviewStatusCopy(
 export function SpeakTranscriptPane({
   turns,
   compact = false,
+  showCoaching = true,
 }: {
   turns: SpeakTranscriptTurn[];
   compact?: boolean;
+  showCoaching?: boolean;
 }) {
   return (
     <div
@@ -110,7 +120,22 @@ export function SpeakTranscriptPane({
           >
             {turn.text}
           </div>
-          {turn.speaker === "student" && turn.coaching ? (
+          {turn.speaker === "student" && turn.disposition && turn.disposition !== "accepted_answer" ? (
+            <div
+              className={`max-w-[88%] rounded-2xl border px-3 py-2 text-xs ${repairToneClasses(turn)}`}
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="secondary" className="rounded-full px-2.5 py-0.5 text-[11px]">
+                  {turn.coaching?.label ?? "Say that again"}
+                </Badge>
+                <span>
+                  {turn.coaching?.note ??
+                    "That turn did not count. Listen for the question again and answer it clearly."}
+                </span>
+              </div>
+            </div>
+          ) : null}
+          {showCoaching && turn.speaker === "student" && turn.coaching && (!turn.disposition || turn.disposition === "accepted_answer") ? (
             <div
               className={`max-w-[88%] rounded-2xl border px-3 py-2 text-xs ${coachingToneClasses(turn)}`}
             >

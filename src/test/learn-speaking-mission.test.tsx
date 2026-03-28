@@ -134,4 +134,49 @@ describe("LearnSpeakingMission", () => {
     expect(screen.getByText(/open feedback whenever you are ready/i)).toBeInTheDocument();
     expect(screen.queryByText(/replies unlock feedback/i)).not.toBeInTheDocument();
   });
+
+  it("does not count rejected voice turns toward feedback unlocks", () => {
+    render(
+      <LearnSpeakingMission
+        {...buildMissionProps()}
+        plan="pro"
+        voiceEnabled
+        progressStatus="unlocked"
+        initialSession={{
+          id: "session-3",
+          status: "active",
+          interactionMode: "voice",
+          retryOfSessionId: null,
+          turns: [
+            { turnIndex: 1, speaker: "ai", text: "What is your opinion?" },
+            {
+              turnIndex: 2,
+              speaker: "student",
+              text: "Thank you.",
+              countsTowardProgress: false,
+              coaching: {
+                label: "Answer the question",
+                note: "Answer the question itself first, then add one detail.",
+                signals: {
+                  fluencyIssue: false,
+                  grammarIssue: false,
+                  vocabOpportunity: false,
+                },
+              },
+            },
+            { turnIndex: 3, speaker: "ai", text: "What do you think, and why?" },
+            { turnIndex: 4, speaker: "student", text: "I think uniforms can help." },
+            { turnIndex: 5, speaker: "ai", text: "Why do you think that?" },
+            { turnIndex: 6, speaker: "student", text: "Because they reduce pressure." },
+            { turnIndex: 7, speaker: "ai", text: "Can you add one example?" },
+          ],
+        }}
+        savedReview={null}
+      />
+    );
+
+    expect(screen.queryByRole("button", { name: /see feedback/i })).not.toBeInTheDocument();
+    expect(screen.getAllByText(/one more thought/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/answer the question itself first, then add one detail/i)).toBeInTheDocument();
+  });
 });

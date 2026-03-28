@@ -81,21 +81,41 @@ function getMinimumFollowUpResponses(
       : 1;
 }
 
-function countStudentTurns(turns: Array<{ speaker: "ai" | "student"; text: string }>) {
-  return turns.filter((turn) => turn.speaker === "student").length;
+function countsTowardProgress(
+  turn: { speaker: "ai" | "student"; text: string; countsTowardProgress?: boolean }
+) {
+  return turn.speaker === "student" ? turn.countsTowardProgress !== false : true;
+}
+
+function countStudentTurns(
+  turns: Array<{
+    speaker: "ai" | "student";
+    text: string;
+    countsTowardProgress?: boolean;
+  }>
+) {
+  return turns.filter((turn) => turn.speaker === "student" && countsTowardProgress(turn)).length;
 }
 
 function countSubstantiveFollowUpResponses(
-  turns: Array<{ speaker: "ai" | "student"; text: string }>
+  turns: Array<{
+    speaker: "ai" | "student";
+    text: string;
+    countsTowardProgress?: boolean;
+  }>
 ) {
   return turns
-    .filter((turn) => turn.speaker === "student")
+    .filter((turn) => turn.speaker === "student" && countsTowardProgress(turn))
     .slice(1)
     .filter((turn) => turn.text.trim().split(/\s+/).filter(Boolean).length >= 5).length;
 }
 
 function canFinishMission(
-  turns: Array<{ speaker: "ai" | "student"; text: string }>,
+  turns: Array<{
+    speaker: "ai" | "student";
+    text: string;
+    countsTowardProgress?: boolean;
+  }>,
   payload: Pick<
     SpeakingMissionPayload,
     "requiredTurns" | "minimumFollowUpResponses" | "isBenchmark"
@@ -407,6 +427,7 @@ export const LearnSpeakingService = {
       curriculumUnitId: unit.id,
       curriculumActivityId: activity.id,
       retryOfSessionId,
+      seedOpeningTurn: interactionMode !== "voice",
       summaryPayload: {
         unitSlug,
         unitTitle: unit.title,
@@ -452,12 +473,15 @@ export const LearnSpeakingService = {
       resumeState: {
         status: "active" as const,
         interactionMode,
-        turns: [
-          {
-            speaker: "ai" as const,
-            text: openingTurn,
-          },
-        ],
+        turns:
+          interactionMode === "voice"
+            ? []
+            : [
+                {
+                  speaker: "ai" as const,
+                  text: openingTurn,
+                },
+              ],
       },
       canFinish: false,
     };
@@ -558,14 +582,19 @@ export const LearnSpeakingService = {
         performanceTask: "Complete the speaking mission.",
       }
     );
-    const currentTurns = turns.map((turn) => ({
-      speaker: turn.speaker,
-      text: turn.text,
+    const currentTurns = session.turns.map((turn) => ({
+      speaker: turn.speaker as "ai" | "student",
+      text: turn.transcriptText,
+      countsTowardProgress:
+        ((turn.metricsPayload as Record<string, unknown> | null)?.countsTowardProgress as
+          | boolean
+          | undefined) ?? true,
     }));
 
     return {
       studentTurnCount: sync.studentTurnCount,
       canFinish: canFinishMission(currentTurns, mission),
+      lastStudentTurn: sync.lastStudentTurn,
     };
   },
 

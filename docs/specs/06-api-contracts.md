@@ -169,12 +169,15 @@ Response:
   "responseTarget": 4,
   "canAdvance": false,
   "countsTowardProgress": true,
+  "disposition": "accepted_answer",
+  "reasonCode": "accepted",
   "durationSeconds": 0
 }
 ```
 Behavior note:
 - this route remains available for non-realtime or service-side continuation logic; `voiceCaptured: true` means the learner spoke through the browser mic even when no raw audio blob is uploaded
 - if the learner sends a clarification turn such as `why?` or `what do you mean?`, the API returns a rephrased coach question and `countsTowardProgress: false`
+- the same repair-first rule applies to acknowledgement-only, noisy, or unintelligible turns; those turns return a non-accepted `disposition` and do not count toward captured evidence
 
 ### `POST /api/v1/onboarding/session/assessment/conversation/realtime`
 Creates a short-lived OpenAI Realtime client secret for the active guest full-diagnostic interview.
@@ -618,9 +621,20 @@ Response:
 ```json
 {
   "studentTurnCount": 1,
-  "canFinish": false
+  "canFinish": false,
+  "lastStudentTurn": {
+    "disposition": "accepted_answer",
+    "countsTowardProgress": true,
+    "coachLabel": "Strong follow-up",
+    "coachNote": "You answered the question directly and added one reason.",
+    "reasonCode": "accepted"
+  }
 }
 ```
+
+Behavior note:
+- `studentTurnCount` counts only accepted learner turns.
+- `lastStudentTurn` is returned for the most recent learner turn so the client can render accepted-turn coaching or repair without waiting for session completion.
 
 ### `POST /api/v1/learn/curriculum/speaking/complete`
 Completes the current Learn speaking mission and returns a focused review payload.
@@ -998,9 +1012,20 @@ Response:
 {
   "turnCount": 2,
   "studentTurnCount": 1,
-  "newStudentTurns": 1
+  "newStudentTurns": 1,
+  "lastStudentTurn": {
+    "disposition": "accepted_answer",
+    "countsTowardProgress": true,
+    "coachLabel": "Clear answer",
+    "coachNote": "Keep the same idea and add one short detail next time.",
+    "reasonCode": "accepted"
+  }
 }
 ```
+
+Behavior note:
+- `studentTurnCount` counts only accepted learner turns.
+- `lastStudentTurn` lets the client distinguish accepted-turn coaching from repair-only turns in the live transcript.
 
 ### `POST /api/v1/speak/session/complete`
 Request:

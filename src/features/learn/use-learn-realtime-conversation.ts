@@ -8,10 +8,21 @@ import {
   useRef,
   useState,
 } from "react";
+import type { LiveStudentTurnDisposition, LiveStudentTurnReasonCode } from "@/lib/conversation-utils";
+import type { SpeakTurnCoaching } from "@/lib/speak";
+import {
+  createAmbientNoiseMonitor,
+  getPreferredRealtimeAudioConstraints,
+  type AmbientNoiseLevel,
+} from "@/features/voice/live-voice-audio";
 
 export type ConversationTurn = {
   speaker: "ai" | "student";
   text: string;
+  coaching?: SpeakTurnCoaching | null;
+  disposition?: LiveStudentTurnDisposition | null;
+  countsTowardProgress?: boolean;
+  reasonCode?: LiveStudentTurnReasonCode | null;
 };
 
 export type RealtimeState =
@@ -19,8 +30,11 @@ export type RealtimeState =
   | "connecting"
   | "ready"
   | "listening"
+  | "still_listening"
   | "thinking"
   | "speaking"
+  | "didnt_catch_that"
+  | "noisy_room"
   | "error";
 
 function supportsLiveVoice() {
@@ -55,6 +69,11 @@ export function useLearnRealtimeConversation({
 }: UseLearnRealtimeConversationArgs) {
   const [realtimeState, setRealtimeState] = useState<RealtimeState>("idle");
   const [liveConnected, setLiveConnected] = useState(false);
+  const [ambientNoise, setAmbientNoise] = useState<AmbientNoiseLevel>("quiet");
+  const [repairNotice, setRepairNotice] = useState<string | null>(null);
+  const [lastQuestion, setLastQuestion] = useState<string | null>(
+    turns.filter((turn) => turn.speaker === "ai").at(-1)?.text ?? null
+  );
 
   const turnsRef = useRef(turns);
   const sessionIdRef = useRef(sessionId);
@@ -63,6 +82,8 @@ export function useLearnRealtimeConversation({
   const dataChannelRef = useRef<RTCDataChannel | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
+  const noiseCleanupRef = useRef<(() => void) | null>(null);
+  const listeningTimerRef = useRef<number | null>(null);
   const syncTimeoutRef = useRef<number | null>(null);
   const lastSyncedSignatureRef = useRef("");
   const syncInFlightRef = useRef<Promise<void> | null>(null);
@@ -87,7 +108,11 @@ export function useLearnRealtimeConversation({
       if (syncTimeoutRef.current) {
         window.clearTimeout(syncTimeoutRef.current);
       }
+      if (listeningTimerRef.current) {
+        window.clearTimeout(listeningTimerRef.current);
+      }
 
+      noiseCleanupRef.current?.();
       connectionRef.current?.close();
       dataChannelRef.current?.close();
       localStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -97,9 +122,76 @@ export function useLearnRealtimeConversation({
     };
   }, []);
 
+  const applySyncedTurnFeedback = useCallback(
+    (lastStudentTurn?: {
+      turnIndex: number;
+      disposition:
+        | "accepted_answer"
+        | "clarification_request"
+        | "acknowledgement_only"
+        | "noise_or_unintelligible"
+        | "off_task_short";
+      countsTowardProgress: boolean;
+      coachLabel: string | null;
+      coachNote: string | null;
+      reasonCode: string;
+    } | null) => {
+      if (!lastStudentTurn) {
+        return;
+      }
+
+      setTurns((current) => {
+        const next = current.map((turn, index) => {
+          if (turn.speaker !== "student" || index + 1 !== lastStudentTurn.turnIndex) {
+            return turn;
+          }
+
+          return {
+            ...turn,
+            coaching: lastStudentTurn.coachLabel
+              ? {
+                  label: lastStudentTurn.coachLabel,
+                  note:
+                    lastStudentTurn.coachNote ??
+                    "Keep the next answer clear and direct.",
+                  signals: {
+                    fluencyIssue: false,
+                    grammarIssue: false,
+                    vocabOpportunity: false,
+                  },
+                }
+              : null,
+            disposition: lastStudentTurn.disposition,
+            countsTowardProgress: lastStudentTurn.countsTowardProgress,
+            reasonCode: lastStudentTurn.reasonCode as LiveStudentTurnReasonCode,
+          };
+        });
+
+        turnsRef.current = next;
+        return next;
+      });
+
+      if (!lastStudentTurn.countsTowardProgress) {
+        setRepairNotice(lastStudentTurn.coachNote ?? "Say that again in one short sentence.");
+        setRealtimeState(
+          lastStudentTurn.disposition === "noise_or_unintelligible"
+            ? "noisy_room"
+            : "didnt_catch_that"
+        );
+      } else {
+        setRepairNotice(null);
+      }
+    },
+    [setTurns]
+  );
+
   const syncTranscript = useCallback(async (transcript: ConversationTurn[]) => {
     const activeSessionId = sessionIdRef.current;
-    const signature = JSON.stringify(transcript);
+    const payloadTurns = transcript.map((turn) => ({
+      speaker: turn.speaker,
+      text: turn.text,
+    }));
+    const signature = JSON.stringify(payloadTurns);
     if (!activeSessionId || signature === lastSyncedSignatureRef.current) {
       return;
     }
@@ -107,15 +199,32 @@ export function useLearnRealtimeConversation({
     const response = await fetch(`/api/v1/learn/curriculum/speaking/${activeSessionId}/sync`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ turns: transcript }),
+      body: JSON.stringify({ turns: payloadTurns }),
     });
 
     if (!response.ok) {
       throw new Error("Unable to sync the live transcript.");
     }
 
+    const payload = (await response.json()) as {
+      lastStudentTurn?: {
+        turnIndex: number;
+        disposition:
+          | "accepted_answer"
+          | "clarification_request"
+          | "acknowledgement_only"
+          | "noise_or_unintelligible"
+          | "off_task_short";
+        countsTowardProgress: boolean;
+        coachLabel: string | null;
+        coachNote: string | null;
+        reasonCode: string;
+      } | null;
+    };
+
+    applySyncedTurnFeedback(payload.lastStudentTurn ?? null);
     lastSyncedSignatureRef.current = signature;
-  }, []);
+  }, [applySyncedTurnFeedback]);
 
   const flushPendingSync = useCallback(async () => {
     const transcript = pendingSyncRef.current;
@@ -149,7 +258,12 @@ export function useLearnRealtimeConversation({
   }, [syncTranscript]);
 
   const queueTranscriptSync = useCallback((transcript: ConversationTurn[]) => {
-    const signature = JSON.stringify(transcript);
+    const signature = JSON.stringify(
+      transcript.map((turn) => ({
+        speaker: turn.speaker,
+        text: turn.text,
+      }))
+    );
     if (
       signature === lastSyncedSignatureRef.current ||
       signature === pendingSyncSignatureRef.current
@@ -166,7 +280,12 @@ export function useLearnRealtimeConversation({
   }, [flushPendingSync]);
 
   useEffect(() => {
-    if (!liveConnected || !["ready", "listening", "thinking", "speaking"].includes(realtimeState)) {
+    if (
+      !liveConnected ||
+      !["ready", "listening", "still_listening", "thinking", "speaking", "noisy_room"].includes(
+        realtimeState
+      )
+    ) {
       return;
     }
 
@@ -197,8 +316,24 @@ export function useLearnRealtimeConversation({
     }
 
     setTurns((current) => {
-      const next = [...current, { speaker: turn.speaker, text: turn.text.trim() }];
+      const trimmedText = turn.text.trim();
+      if (turn.speaker === "ai" && current.length === 1 && current[0]?.speaker === "ai") {
+        const next = [
+          {
+            ...current[0],
+            text: trimmedText,
+          },
+        ];
+        turnsRef.current = next;
+        setLastQuestion(trimmedText);
+        return next;
+      }
+
+      const next = [...current, { ...turn, text: trimmedText }];
       turnsRef.current = next;
+      if (turn.speaker === "ai") {
+        setLastQuestion(trimmedText);
+      }
       return next;
     });
   }
@@ -249,6 +384,16 @@ export function useLearnRealtimeConversation({
     });
   }
 
+  function requestRepeatedQuestion() {
+    sendRealtimeEvent({
+      type: "response.create",
+      response: {
+        instructions:
+          "Repeat your last question in simpler English, in one short sentence, and wait for the learner's answer.",
+      },
+    });
+  }
+
   function handleRealtimeMessage(rawEvent: MessageEvent<string>) {
     const event = JSON.parse(rawEvent.data) as {
       type: string;
@@ -259,9 +404,18 @@ export function useLearnRealtimeConversation({
 
     switch (event.type) {
       case "input_audio_buffer.speech_started":
+        if (listeningTimerRef.current) {
+          window.clearTimeout(listeningTimerRef.current);
+        }
         setRealtimeState("listening");
+        listeningTimerRef.current = window.setTimeout(() => {
+          setRealtimeState((current) => (current === "listening" ? "still_listening" : current));
+        }, 1800);
         return;
       case "input_audio_buffer.speech_stopped":
+        if (listeningTimerRef.current) {
+          window.clearTimeout(listeningTimerRef.current);
+        }
         setRealtimeState("thinking");
         return;
       case "response.created":
@@ -309,12 +463,16 @@ export function useLearnRealtimeConversation({
       window.clearTimeout(syncTimeoutRef.current);
       syncTimeoutRef.current = null;
     }
+    if (listeningTimerRef.current) {
+      window.clearTimeout(listeningTimerRef.current);
+    }
 
     sendRealtimeEvent({ type: "response.cancel" });
 
     connectionRef.current?.close();
     dataChannelRef.current?.close();
     localStreamRef.current?.getTracks().forEach((track) => track.stop());
+    noiseCleanupRef.current?.();
     if (remoteAudioRef.current) {
       remoteAudioRef.current.srcObject = null;
     }
@@ -365,11 +523,7 @@ export function useLearnRealtimeConversation({
       }
 
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
+        audio: getPreferredRealtimeAudioConstraints(),
       });
 
       const connection = new RTCPeerConnection();
@@ -425,6 +579,25 @@ export function useLearnRealtimeConversation({
       connectionRef.current = connection;
       dataChannelRef.current = channel;
       localStreamRef.current = stream;
+      noiseCleanupRef.current?.();
+      noiseCleanupRef.current = createAmbientNoiseMonitor(stream, (level) => {
+        setAmbientNoise(level);
+        setRealtimeState((current) => {
+          if (current === "speaking" || current === "error") {
+            return current;
+          }
+
+          if (level === "very_noisy") {
+            return "noisy_room";
+          }
+
+          if (current === "noisy_room") {
+            return "ready";
+          }
+
+          return current;
+        });
+      });
       closingConnectionRef.current = false;
       setLiveConnected(true);
       setRealtimeState("ready");
@@ -432,6 +605,7 @@ export function useLearnRealtimeConversation({
       connectionRef.current?.close();
       dataChannelRef.current?.close();
       localStreamRef.current?.getTracks().forEach((track) => track.stop());
+      noiseCleanupRef.current?.();
       connectionRef.current = null;
       dataChannelRef.current = null;
       localStreamRef.current = null;
@@ -455,8 +629,12 @@ export function useLearnRealtimeConversation({
   return {
     liveConnected,
     realtimeState,
+    ambientNoise,
+    repairNotice,
+    lastQuestion,
     startLiveConversation,
     closeLiveConnection,
     syncTranscript,
+    requestRepeatedQuestion,
   };
 }

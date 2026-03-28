@@ -381,10 +381,16 @@ function voiceStateCopy(state: AssessmentVoiceState) {
       return "Starting live voice";
     case "listening":
       return "Listening";
+    case "still_listening":
+      return "Still listening";
     case "thinking":
       return "Thinking";
     case "speaking":
       return "Speaking";
+    case "didnt_catch_that":
+      return "Didn't catch that";
+    case "noisy_room":
+      return "Noisy room";
     case "error":
       return "Voice issue";
     default:
@@ -635,6 +641,7 @@ export function AssessmentForm({
     isSupported: liveVoiceSupported,
     liveActive: liveVoiceActive,
     voiceState,
+    ambientNoise,
     startLiveConversation,
     pauseLiveConversation,
   } = useAssessmentLiveVoice({
@@ -929,6 +936,11 @@ export function AssessmentForm({
                 {diagnosticRequiresVoice ? (
                   <span className="rounded-full border border-border/70 bg-background/80 px-3 py-1">
                     {voiceStateCopy(voiceState)}
+                  </span>
+                ) : null}
+                {diagnosticRequiresVoice ? (
+                  <span className="rounded-full border border-border/70 bg-background/80 px-3 py-1">
+                    Room: {ambientNoise === "very_noisy" ? "Very noisy" : ambientNoise === "noisy" ? "Noisy" : "Quiet"}
                   </span>
                 ) : null}
                 {!liveVoiceSupported && diagnosticRequiresVoice ? (

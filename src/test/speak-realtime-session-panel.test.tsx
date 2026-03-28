@@ -149,4 +149,41 @@ describe("SpeakRealtimeSessionPanel", () => {
     expect(screen.getByText(/anything from class or daily life is a good place to start/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /start live conversation/i })).toBeInTheDocument();
   });
+
+  it("renders repair feedback differently for rejected student turns", () => {
+    render(
+      <SpeakRealtimeSessionPanel
+        sessionId="live-session-3"
+        mission={mission}
+        initialTurns={[
+          {
+            turnIndex: 1,
+            speaker: "ai",
+            text: "Tell me one thing people should know about you.",
+            coaching: null,
+          },
+          {
+            turnIndex: 2,
+            speaker: "student",
+            text: "Thank you.",
+            disposition: "acknowledgement_only",
+            countsTowardProgress: false,
+            reasonCode: "acknowledgement_only",
+            coaching: {
+              label: "Answer the question",
+              note: "Answer the question itself first, then add one detail.",
+              signals: {
+                fluencyIssue: false,
+                grammarIssue: false,
+                vocabOpportunity: false,
+              },
+            },
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByText(/answer the question itself first, then add one detail/i)).toBeInTheDocument();
+    expect(screen.getByText(/student turns recorded: 0/i)).toBeInTheDocument();
+  });
 });

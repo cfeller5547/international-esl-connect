@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState, useSyncExternalStore } from "react";
 
 type RecordedAudio = {
   audioDataUrl: string;
@@ -24,24 +24,28 @@ async function blobToDataUrl(blob: Blob) {
   });
 }
 
+function subscribeNoop() {
+  return () => undefined;
+}
+
+function getRecorderSupport() {
+  return (
+    typeof window !== "undefined" &&
+    typeof navigator !== "undefined" &&
+    Boolean(navigator.mediaDevices?.getUserMedia) &&
+    typeof MediaRecorder !== "undefined"
+  );
+}
+
 export function useVoiceRecorder() {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const startedAtRef = useRef<number | null>(null);
 
-  const [isSupported, setIsSupported] = useState(false);
+  const isSupported = useSyncExternalStore(subscribeNoop, getRecorderSupport, () => false);
   const [recording, setRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setIsSupported(
-      typeof window !== "undefined" &&
-        typeof navigator !== "undefined" &&
-        Boolean(navigator.mediaDevices?.getUserMedia) &&
-        typeof MediaRecorder !== "undefined"
-    );
-  }, []);
 
   const startRecording = useCallback(async () => {
     if (!isSupported) {

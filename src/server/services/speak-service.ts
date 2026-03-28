@@ -242,6 +242,11 @@ export const SpeakService = {
         properties: {
           turn_index: sync.studentTurnCount,
           input_mode: "voice",
+          turn_disposition: sync.lastStudentTurn?.disposition ?? "accepted_answer",
+          counts_toward_progress: sync.lastStudentTurn?.countsTowardProgress ?? true,
+          noise_detected: sync.lastStudentTurn?.disposition === "noise_or_unintelligible",
+          clarification_rephrase_used:
+            sync.lastStudentTurn?.disposition === "clarification_request",
         },
       });
 
@@ -252,6 +257,7 @@ export const SpeakService = {
           userId,
           properties: {
             input_mode: "voice",
+            turn_disposition: sync.lastStudentTurn?.disposition ?? "accepted_answer",
           },
         });
       }

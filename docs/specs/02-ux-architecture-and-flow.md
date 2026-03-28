@@ -65,6 +65,12 @@ Content sourcing behavior:
 - Learn speaking should feel like a mini conversation experience, not a worksheet step with a mic attached.
 - The first counterpart turn must be a concrete scene opener that makes sense on its own, not an abstract prompt such as `Can you answer that in your own words?`.
 - Each unit speaking mission must include authored phrase support, authored follow-up directions, and a real model answer rather than generic placeholder scaffolding.
+- Realtime voice speaking must use patient turn-taking:
+  - short learner pauses should not trigger an early AI reply
+  - background speech, music, or unclear fragments should trigger repair rather than progress
+  - clarification requests should rephrase the last question in simpler English and stay on task
+- Visible coaching remains part of the product, but only after accepted learner turns.
+- Rejected turns should show repair messaging rather than normal coaching and should not unlock feedback.
 - Units `3` and `6` use stronger benchmark-mode speaking missions, but those benchmark results stay inside Learn and do not affect `currentLevel` or create Progress entries.
 - All four curriculum levels are fully hand-authored across lesson, practice, game, speaking, writing, and checkpoint.
 - Benchmark missions across all four levels are evidence-aware: the runtime pushes toward missing task evidence, not just the next canned follow-up.
@@ -101,6 +107,7 @@ Plan behavior:
 - Voice remains available by default while preview mode is active, with text fallback when voice is unavailable.
 - Active Pro voice sessions should feel like real-time back-and-forth, not clip upload plus delayed playback.
 - Voice review still happens after the session, not during the live exchange.
+- The live voice surface should keep one quiet ambient-noise cue and one compact recovery path when the last turn was not accepted.
 
 First-run behavior:
 - Free Speech must present quick-start topic lanes (not an empty input state).
@@ -130,6 +137,8 @@ Session behavior:
   - one concise coaching note per learner turn
   - no numeric scores
   - no large correction boxes during the live exchange
+- Only accepted learner turns should receive visible coaching.
+- Clarification, acknowledgement-only, and noisy turns should render as repair moments and should not advance the live conversation state as if they were full answers.
 - The AI should teach mostly through natural recasts, level-aware follow-up questions, and better modeled language inside the conversation.
 - One minimal `Help me` action can reveal a contextual hint without sending a turn or interrupting the conversation.
 - Once the session is completed, Speak should switch into a review-first state:

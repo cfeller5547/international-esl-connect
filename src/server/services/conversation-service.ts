@@ -3,8 +3,14 @@ import { prisma } from "@/server/prisma";
 import { env } from "@/server/env";
 import { Prisma } from "@/generated/prisma/client";
 import { serializeRealtimeClientSecret } from "@/server/realtime-client-secret";
+import {
+  classifyLiveStudentTurn,
+  type LiveStudentTurnDisposition,
+  type LiveStudentTurnReasonCode,
+} from "@/lib/conversation-utils";
 import type { MissionEvidenceTarget } from "@/server/learn-speaking-types";
 import { buildSpeakTurnCoaching, filterSpeakVocabulary, sanitizeSpeakPhraseTerm } from "@/lib/speak";
+import { createRealtimeTurnDetectionConfig } from "@/server/realtime-voice-policy";
 
 import {
   createOpeningPrompt,
@@ -55,10 +61,13 @@ type RealtimeTranscriptTurnInput = {
   text: string;
 };
 
-type PersistedTurnCoaching = {
+type PersistedStudentTurnFeedback = {
   turnIndex: number;
-  microCoaching: string;
-  coachLabel: string;
+  disposition: LiveStudentTurnDisposition;
+  countsTowardProgress: boolean;
+  reasonCode: LiveStudentTurnReasonCode;
+  coachLabel: string | null;
+  coachNote: string | null;
   turnSignals: {
     fluencyIssue: boolean;
     grammarIssue: boolean;
@@ -75,15 +84,32 @@ function normalizeTranscriptTurns(turns: RealtimeTranscriptTurnInput[]) {
     .filter((turn) => turn.text.length > 0);
 }
 
-function deriveRealtimeStudentCoaching({
+function countsTowardProgressFromMetrics(metricsPayload: unknown) {
+  const metrics = metricsPayload as Record<string, unknown> | null;
+  return (metrics?.countsTowardProgress as boolean | undefined) ?? true;
+}
+
+function hasDetailSignal(text: string) {
+  return /\b(because|for example|for instance|when|after|before|so|with|at|in|on|later|then)\b/i.test(
+    text
+  );
+}
+
+function hasFragmentSignal(text: string) {
+  return /^(to|for|with|about|at|in|on|from|because|and|but)\b/i.test(text.trim());
+}
+
+function deriveRealtimeStudentFeedback({
   studentText,
+  previousStudentFeedback,
   context,
   turnIndex,
 }: {
   studentText: string;
+  previousStudentFeedback?: PersistedStudentTurnFeedback | null;
   context: ConversationContext;
   turnIndex: number;
-}): PersistedTurnCoaching {
+}): PersistedStudentTurnFeedback {
   const normalizedText = studentText.trim();
   const wordCount = normalizedText.split(/\s+/).filter(Boolean).length;
   const includesLowercaseI = /\bi\b/.test(normalizedText) && !/\bI\b/.test(normalizedText);
@@ -91,34 +117,82 @@ function deriveRealtimeStudentCoaching({
     const normalizedPhrase = phrase.replace(/\.\.\.$/, "").trim().toLowerCase();
     return normalizedPhrase.length > 0 && normalizedText.toLowerCase().includes(normalizedPhrase);
   });
+  const disposition = classifyLiveStudentTurn(normalizedText);
   const turnSignals = {
-    fluencyIssue: wordCount < 6,
-    grammarIssue: /\b(goed|wented|eated)\b/i.test(normalizedText) || includesLowercaseI,
-    vocabOpportunity: !usesTargetPhrase && wordCount < 14,
+    fluencyIssue:
+      disposition.disposition === "accepted_answer" &&
+      !hasDetailSignal(normalizedText) &&
+      wordCount < 10,
+    grammarIssue:
+      disposition.disposition === "accepted_answer" &&
+      (/\b(goed|wented|eated)\b/i.test(normalizedText) ||
+        includesLowercaseI ||
+        hasFragmentSignal(normalizedText)),
+    vocabOpportunity:
+      disposition.disposition === "accepted_answer" &&
+      !usesTargetPhrase &&
+      context.targetPhrases.length > 0 &&
+      wordCount >= 6,
   };
 
-  const microCoaching = turnSignals.grammarIssue
-    ? "Keep the sentence complete and check the verb form."
-    : turnSignals.fluencyIssue
-      ? "Add one more clear detail so the answer feels complete."
-      : turnSignals.vocabOpportunity
-        ? context.targetPhrases[0]
-          ? `Work in a phrase like "${context.targetPhrases[0]}" on the next answer.`
-          : "Use one stronger phrase from the topic on the next answer."
-        : context.successCriteria[0]
-          ? `Good. Keep moving toward this goal: ${context.successCriteria[0]}`
-          : "Good. Keep the next answer just as clear.";
+  const coachNote =
+    disposition.disposition === "accepted_answer"
+      ? turnSignals.grammarIssue
+        ? previousStudentFeedback?.coachLabel === "Tighten the wording"
+          ? "Answer in one full sentence and keep the wording smooth."
+          : "Answer in one full sentence and check the verb form."
+        : turnSignals.fluencyIssue
+          ? previousStudentFeedback?.coachLabel === "Add one more detail"
+            ? "Answer first, then add one fresh detail from your own experience."
+            : "Answer the question first, then add one clear detail."
+          : turnSignals.vocabOpportunity
+            ? context.targetPhrases[0]
+              ? `Try using "${context.targetPhrases[0]}" naturally in the next answer.`
+              : "Use one stronger phrase from the topic in the next answer."
+            : context.successCriteria[0]
+              ? `Clear answer. Keep building toward this goal: ${context.successCriteria[0]}`
+              : "Clear answer. Keep the next one just as direct."
+      : null;
 
-  const visibleCoaching = buildSpeakTurnCoaching({
-    microCoaching,
-    turnSignals,
-    mode: context.missionKind === "free_speech" ? "free_speech" : "guided",
-  });
+  const repairNote =
+    disposition.disposition === "clarification_request"
+      ? "Sure. Listen for the simpler version and answer that question."
+      : disposition.disposition === "acknowledgement_only"
+        ? "Answer the question itself first, then add one detail."
+        : disposition.disposition === "noise_or_unintelligible"
+          ? "I did not catch a clear answer. Say it again in one short sentence."
+          : disposition.disposition === "off_task_short"
+            ? "Start with one complete answer, then add a detail."
+            : null;
+
+  const visibleCoaching =
+    disposition.disposition === "accepted_answer"
+      ? buildSpeakTurnCoaching({
+          microCoaching: coachNote,
+          turnSignals,
+          mode: context.missionKind === "free_speech" ? "free_speech" : "guided",
+        })
+      : null;
 
   return {
     turnIndex,
-    microCoaching: visibleCoaching?.note ?? "",
-    coachLabel: visibleCoaching?.label ?? "Keep this move",
+    disposition: disposition.disposition,
+    countsTowardProgress: disposition.countsTowardProgress,
+    reasonCode: disposition.reasonCode,
+    coachLabel:
+      disposition.disposition === "accepted_answer"
+        ? (visibleCoaching?.label ?? "Keep this move")
+        : disposition.disposition === "noise_or_unintelligible"
+          ? "Didn't catch that"
+          : disposition.disposition === "clarification_request"
+            ? "Let me say it more simply"
+            : disposition.disposition === "acknowledgement_only"
+              ? "Answer the question"
+              : "Use one full answer",
+    coachNote:
+      disposition.disposition === "accepted_answer"
+        ? (visibleCoaching?.note ?? coachNote)
+        : repairNote,
     turnSignals,
   };
 }
@@ -148,12 +222,14 @@ function createRealtimeInstructions(context: ConversationContext) {
     const counterpartRole = context.counterpartRole ?? "conversation partner";
 
     return [
-      `You are role-playing as the learner's ${counterpartRole} in a short ESL curriculum conversation.`,
-      "Sound like a real, warm person inside the scene, not a coach or test engine.",
-      "Keep responses short and natural for live audio, usually one or two sentences plus one follow-up question.",
-      "Acknowledge what the learner just said before you ask the next question.",
-      "Stay fully inside the authored scenario and do not mention exercises, unit goals, target phrases, or feedback while the conversation is live.",
-      "If the learner struggles, simplify your language and gently rephrase instead of switching languages.",
+      `Role: You are role-playing as the learner's ${counterpartRole} in a short ESL curriculum conversation.`,
+      "Style: sound like a real, warm person inside the scene, not a coach, robot, or test engine.",
+      "Turn-taking: keep spoken replies short, usually one or two sentences plus one follow-up question.",
+      "Patience: be patient with pauses. ESL learners may need a few seconds to finish a thought.",
+      "Noise: if the audio is unclear, noisy, or sounds like background speech, ask for the answer again instead of moving on.",
+      "Clarification: if the learner says what, sorry, say that again, or sounds confused, rephrase your last question in simpler English and stay in English.",
+      "Guardrails: do not answer for the learner, switch roles, or mention exercises, unit goals, target phrases, scores, or feedback while the conversation is live.",
+      "Variety: avoid repeating the same stock phrase every turn. Vary short acknowledgements and repair language naturally.",
       `Scenario title: ${context.scenarioTitle}.`,
       `Scenario setup: ${context.scenarioSetup}.`,
       `Opening line: ${createOpeningPrompt(context)}`,
@@ -171,13 +247,14 @@ function createRealtimeInstructions(context: ConversationContext) {
     const laneLabel = context.starterLabel ?? context.scenarioTitle;
 
     return [
-      "You are a warm English conversation partner for an ESL learner.",
-      "Sound like a real person having a natural conversation, not a teacher script, chatbot, or worksheet.",
-      "Keep responses short and natural for live audio, usually one or two sentences plus one open follow-up question.",
-      "Open with one short human question and let the topic drift naturally if the learner takes it somewhere real.",
-      "Do not introduce yourself with role-play framing and do not mention exercises, goals, target phrases, or feedback while the conversation is live.",
-      "Naturally recast or model better English inside your reply when useful instead of explicitly correcting the learner.",
-      "If the learner struggles, simplify your language and gently rephrase instead of switching languages.",
+      "Role: you are a warm English conversation partner for an ESL learner.",
+      "Style: sound like a real person having a natural conversation, not a teacher script, chatbot, or worksheet.",
+      "Turn-taking: keep replies short for live audio, usually one or two sentences plus one open follow-up question.",
+      "Patience: wait through short pauses before you respond.",
+      "Noise: if you hear background speech, fragments in other languages, or unclear audio, ask for a clear short answer instead of moving on.",
+      "Clarification: if the learner asks you to repeat, restate your last idea in simpler English.",
+      "Guardrails: do not answer for the learner and do not mention exercises, goals, target phrases, or feedback while the conversation is live.",
+      "Variety: avoid repeating tell me more style prompts. Keep the follow-up tied to what the learner actually said.",
       `Conversation lane: ${laneLabel}.`,
       `Opening question: ${createOpeningPrompt(context)}`,
       `Learner level: ${context.learnerLevel ?? "n/a"}.`,
@@ -192,13 +269,14 @@ function createRealtimeInstructions(context: ConversationContext) {
   }
 
   return [
-    "You are ESL International Connect, a live English conversation partner for an ESL learner.",
-    "Sound like a real, warm, patient person having a spoken conversation, not like a test engine.",
-    "Keep responses short and natural for audio, usually one or two sentences plus one follow-up question.",
-    "Stay fully inside the current scenario and help the learner keep talking.",
-    "Naturally recast or model better English inside your reply when useful instead of explicitly correcting the learner.",
-    "Do not give long evaluations or score explanations during the live conversation.",
-    "If the learner struggles, simplify your language and gently rephrase instead of switching languages.",
+    "Role: you are ESL International Connect, a live English conversation partner for an ESL learner.",
+    "Style: sound like a real, warm, patient person having a spoken conversation, not a test engine.",
+    "Turn-taking: keep replies short for audio, usually one or two sentences plus one follow-up question.",
+    "Patience: wait through brief pauses before responding.",
+    "Noise: if the audio is unclear or sounds like background speech, ask the learner to say it again instead of moving on.",
+    "Clarification: if the learner asks for repetition, rephrase your last question in simpler English.",
+    "Guardrails: stay inside the scenario, do not answer for the learner, and do not give long evaluations or score explanations during the live conversation.",
+    "Variety: avoid repeating the same acknowledgement or repair phrase every turn.",
     `Scenario title: ${context.scenarioTitle}.`,
     `Scenario setup: ${context.scenarioSetup}.`,
     `Can-do goal: ${context.canDoStatement ?? "Keep the conversation clear and useful."}`,
@@ -494,14 +572,7 @@ export const ConversationService = {
               model: env.OPENAI_TRANSCRIPTION_MODEL,
               language: "en",
             },
-            turn_detection: {
-              type: "server_vad",
-              create_response: true,
-              interrupt_response: true,
-              idle_timeout_ms: 6000,
-              prefix_padding_ms: 300,
-              silence_duration_ms: 450,
-            },
+            turn_detection: createRealtimeTurnDetectionConfig(),
           },
           output: {
             voice: env.OPENAI_REALTIME_VOICE,
@@ -547,25 +618,39 @@ export const ConversationService = {
       session.interactionMode as "text" | "voice",
       session.scenarioKey
     );
-    const studentCoachings = normalizedTurns
-      .map((turn, index) =>
-        turn.speaker === "student"
-          ? deriveRealtimeStudentCoaching({
-              studentText: turn.text,
-              context,
-              turnIndex: index + 1,
-            })
-          : null
-      )
-      .filter(
-        (coaching): coaching is PersistedTurnCoaching =>
-          Boolean(coaching && coaching.microCoaching)
-      );
-    const coachingByTurnIndex = new Map(
-      studentCoachings.map((coaching) => [coaching.turnIndex, coaching])
+    const studentFeedbackEntries = normalizedTurns
+      .map((turn, index, allTurns) => {
+        if (turn.speaker !== "student") {
+          return null;
+        }
+
+        const previousAcceptedFeedback = [...allTurns]
+          .slice(0, index)
+          .reverse()
+          .find((candidate) => candidate.speaker === "student");
+
+        return deriveRealtimeStudentFeedback({
+          studentText: turn.text,
+          previousStudentFeedback:
+            previousAcceptedFeedback?.speaker === "student"
+              ? deriveRealtimeStudentFeedback({
+                  studentText: previousAcceptedFeedback.text,
+                  context,
+                  turnIndex: index,
+                })
+              : null,
+          context,
+          turnIndex: index + 1,
+        });
+      })
+      .filter((feedback): feedback is PersistedStudentTurnFeedback => Boolean(feedback));
+    const feedbackByTurnIndex = new Map(
+      studentFeedbackEntries.map((feedback) => [feedback.turnIndex, feedback])
     );
     const existingStudentTurnCount = session.turns.filter(
-      (turn) => turn.speaker === "student"
+      (turn) =>
+        turn.speaker === "student" &&
+        ((turn.metricsPayload as Record<string, unknown> | null)?.countsTowardProgress ?? true)
     ).length;
 
     await prisma.$transaction(async (tx) => {
@@ -590,9 +675,13 @@ export const ConversationService = {
               turn.speaker === "student"
                 ? ({
                     source: "realtime",
-                    microCoaching: coachingByTurnIndex.get(index + 1)?.microCoaching ?? null,
-                    coachLabel: coachingByTurnIndex.get(index + 1)?.coachLabel ?? null,
-                    turnSignals: coachingByTurnIndex.get(index + 1)?.turnSignals ?? null,
+                    disposition: feedbackByTurnIndex.get(index + 1)?.disposition ?? "accepted_answer",
+                    countsTowardProgress:
+                      feedbackByTurnIndex.get(index + 1)?.countsTowardProgress ?? true,
+                    reasonCode: feedbackByTurnIndex.get(index + 1)?.reasonCode ?? "accepted",
+                    microCoaching: feedbackByTurnIndex.get(index + 1)?.coachNote ?? null,
+                    coachLabel: feedbackByTurnIndex.get(index + 1)?.coachLabel ?? null,
+                    turnSignals: feedbackByTurnIndex.get(index + 1)?.turnSignals ?? null,
                   } as never)
                 : ({
                     source: "realtime",
@@ -602,15 +691,57 @@ export const ConversationService = {
       }
     });
 
-    const studentTurnCount = normalizedTurns.filter(
-      (turn) => turn.speaker === "student"
+    const studentTurnCount = studentFeedbackEntries.filter(
+      (turn) => turn.countsTowardProgress
     ).length;
+    const studentCoachings = studentFeedbackEntries
+      .filter(
+        (feedback) =>
+          feedback.disposition === "accepted_answer" &&
+          Boolean(feedback.coachNote) &&
+          Boolean(feedback.coachLabel)
+      )
+      .map((feedback) => ({
+        turnIndex: feedback.turnIndex,
+        microCoaching: feedback.coachNote ?? "",
+        coachLabel: feedback.coachLabel ?? "Keep this move",
+        turnSignals: feedback.turnSignals,
+      }));
+    const lastStudentTurn = [...studentFeedbackEntries].reverse()[0] ?? null;
+
+    if (lastStudentTurn) {
+      const unitSlug = (session.summaryPayload as Record<string, unknown> | null)?.unitSlug;
+      const route =
+        session.surface === "learn" && typeof unitSlug === "string"
+          ? `/app/learn/unit/${unitSlug}/speaking`
+          : session.surface === "speak"
+            ? `/app/speak/session/${sessionId}`
+            : "/app";
+
+      await trackEvent({
+        eventName: "live_voice_turn_processed",
+        route,
+        userId,
+        properties: {
+          surface: session.surface,
+          mission_kind: session.missionKind,
+          turn_disposition: lastStudentTurn.disposition,
+          counts_toward_progress: lastStudentTurn.countsTowardProgress,
+          clarification_rephrase_used:
+            lastStudentTurn.disposition === "clarification_request",
+          noise_detected: lastStudentTurn.disposition === "noise_or_unintelligible",
+          rejected_turn_count:
+            studentFeedbackEntries.filter((entry) => !entry.countsTowardProgress).length,
+        },
+      });
+    }
 
     return {
       turnCount: normalizedTurns.length,
       studentTurnCount,
       newStudentTurns: Math.max(0, studentTurnCount - existingStudentTurnCount),
       studentCoachings,
+      lastStudentTurn,
     };
   },
 
@@ -765,11 +896,17 @@ export const ConversationService = {
       session.scenarioKey
     );
 
-    const turns = session.turns.map((turn) => ({
-      speaker: turn.speaker as "ai" | "student",
-      text: turn.transcriptText,
-    }));
-    const studentTurns = turns.filter((turn) => turn.speaker === "student");
+    const turns = session.turns
+      .filter(
+        (turn) => turn.speaker === "ai" || countsTowardProgressFromMetrics(turn.metricsPayload)
+      )
+      .map((turn) => ({
+        speaker: turn.speaker as "ai" | "student",
+        text: turn.transcriptText,
+      }));
+    const studentTurns = session.turns.filter(
+      (turn) => turn.speaker === "student" && countsTowardProgressFromMetrics(turn.metricsPayload)
+    );
     const review = await evaluateMissionTranscript({
       context,
       turns,
@@ -856,7 +993,11 @@ export const ConversationService = {
       turns: session.turns.map((turn) => ({
         speaker: turn.speaker as "ai" | "student",
         text: turn.transcriptText,
-      })),
+      })).filter(
+        (turn, index) =>
+          turn.speaker === "ai" ||
+          countsTowardProgressFromMetrics(session.turns[index]?.metricsPayload)
+      ),
     });
 
     return {
