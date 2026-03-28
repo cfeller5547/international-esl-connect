@@ -1,6 +1,5 @@
 import { differenceInCalendarDays, subDays } from "date-fns";
 
-import { hydrateHomeworkSessionState } from "@/lib/homework-help";
 import { prisma } from "@/server/prisma";
 
 import { trackEvent } from "../analytics";
@@ -11,20 +10,14 @@ export const RecommendationService = {
   async getRecommendation(userId: string, surface: "home" | "learn" | "speak" = "home") {
     const user = await prisma.user.findUniqueOrThrow({
       where: { id: userId },
-      include: {
+      select: {
+        id: true,
+        currentLevel: true,
+        fullDiagnosticCompletedAt: true,
         testPrepPlans: {
           where: { status: "active" },
           orderBy: { targetDate: "asc" },
           take: 1,
-        },
-        homeworkHelpSessions: {
-          where: { status: "active" },
-          orderBy: { createdAt: "desc" },
-          take: 5,
-          include: {
-            homeworkUpload: true,
-            steps: true,
-          },
         },
         homeworkUploads: {
           orderBy: { createdAt: "desc" },
@@ -46,19 +39,45 @@ export const RecommendationService = {
       });
     }
 
-    const activeHomeworkSession = user.homeworkHelpSessions.find((session) => {
+    const activeHomeworkSessions = await prisma.homeworkHelpSession.findMany({
+      where: {
+        userId,
+        status: "active",
+      },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      select: {
+        id: true,
+        homeworkUpload: {
+          select: {
+            parsedPayload: true,
+          },
+        },
+        steps: {
+          select: {
+            questionIndex: true,
+            result: true,
+          },
+        },
+      },
+    });
+
+    const activeHomeworkSession = activeHomeworkSessions.find((session) => {
       const parsedPayload = (session.homeworkUpload.parsedPayload ?? {}) as {
         questions?: Array<{ index: number; promptText: string }>;
       };
-      const sessionState = hydrateHomeworkSessionState({
-        questions: parsedPayload.questions ?? [],
-        savedState: session.sessionState,
-        steps: session.steps,
-      });
+      const questionCount = Array.isArray(parsedPayload.questions) ? parsedPayload.questions.length : 0;
+      if (questionCount === 0) {
+        return true;
+      }
 
-      return sessionState.questionStates.some(
-        (questionState) => questionState.status !== "completed"
+      const completedQuestionIndexes = new Set(
+        session.steps
+          .filter((step) => step.result === "completed")
+          .map((step) => step.questionIndex)
       );
+
+      return completedQuestionIndexes.size < questionCount;
     });
     if (activeHomeworkSession) {
       return this.persistSnapshot(userId, surface, {
