@@ -8,27 +8,143 @@ import { PageShell } from "@/components/ui-kit/page-shell";
 import { TrackedLink } from "@/components/ui-kit/tracked-link";
 import { buildHomeViewModel } from "@/features/home/home-view-model";
 import { cn } from "@/lib/utils";
-import { getCurrentUser } from "@/server/auth";
+import { getCurrentUser, readAuthPayload } from "@/server/auth";
 import { trackEvent } from "@/server/analytics";
 import { prisma } from "@/server/prisma";
 import { RecommendationService } from "@/server/services/recommendation-service";
 import { StreakService } from "@/server/services/streak-service";
 
+type HomeUser = {
+  id: string;
+  currentLevel: string | null;
+  fullDiagnosticCompletedAt: Date | null;
+};
+
+type HomeRecommendationFallback = {
+  actionType: string;
+  title: string;
+  targetUrl: string;
+  reason: string;
+  reasonCode: string;
+};
+
+async function getHomeUser(): Promise<HomeUser | null> {
+  try {
+    const user = await getCurrentUser();
+    if (user) {
+      return {
+        id: user.id,
+        currentLevel: user.currentLevel,
+        fullDiagnosticCompletedAt: user.fullDiagnosticCompletedAt,
+      };
+    }
+  } catch (error) {
+    console.error("home:getCurrentUser failed", error);
+  }
+
+  const auth = await readAuthPayload();
+  if (!auth?.userId) {
+    return null;
+  }
+
+  try {
+    return await prisma.user.findUnique({
+      where: { id: auth.userId },
+      select: {
+        id: true,
+        currentLevel: true,
+        fullDiagnosticCompletedAt: true,
+      },
+    });
+  } catch (error) {
+    console.error("home:fallback user lookup failed", error);
+    return null;
+  }
+}
+
+function getFallbackRecommendation(user: HomeUser): HomeRecommendationFallback {
+  if (!user.fullDiagnosticCompletedAt) {
+    return {
+      actionType: "complete_full_diagnostic",
+      title: "Complete full diagnostic",
+      targetUrl: "/app/assessment/full",
+      reason: "Unlock deeper analysis and confirm the curriculum level that should guide Learn.",
+      reasonCode: "home_fallback_complete_full_diagnostic",
+    };
+  }
+
+  return {
+    actionType: "continue_curriculum",
+    title: "Continue curriculum",
+    targetUrl: "/app/learn",
+    reason: "Continue the next guided step in Learn while home data finishes syncing.",
+    reasonCode: "home_fallback_continue_curriculum",
+  };
+}
+
+async function getSafeRecommendation(user: HomeUser) {
+  try {
+    return await RecommendationService.getRecommendation(user.id, "home");
+  } catch (error) {
+    console.error("home:recommendation failed", error);
+    return getFallbackRecommendation(user);
+  }
+}
+
+async function getSafeLatestReport(userId: string) {
+  try {
+    return await prisma.report.findFirst({
+      where: { userId },
+      include: { skillSnapshots: true },
+      orderBy: { createdAt: "desc" },
+    });
+  } catch (error) {
+    console.error("home:latestReport failed", error);
+    return null;
+  }
+}
+
+async function getSafeStreak(userId: string) {
+  try {
+    return await StreakService.getSnapshot(userId);
+  } catch (error) {
+    console.error("home:streak failed", error);
+    return {
+      currentStreakDays: 0,
+      longestStreakDays: 0,
+      nextMilestoneDays: 3,
+    };
+  }
+}
+
+async function trackHomeRender(userId: string, recommendation: HomeRecommendationFallback) {
+  try {
+    await trackEvent({
+      eventName: "home_primary_cta_rendered",
+      route: "/app/home",
+      userId,
+      properties: {
+        action_type: recommendation.actionType,
+        target_url: recommendation.targetUrl,
+        reason_code: recommendation.reasonCode,
+      },
+    });
+  } catch (error) {
+    console.error("home:trackEvent failed", error);
+  }
+}
+
 export default async function HomePage() {
-  const user = await getCurrentUser();
+  const user = await getHomeUser();
 
   if (!user) {
     return null;
   }
 
   const [recommendation, latestReport, streak] = await Promise.all([
-    RecommendationService.getRecommendation(user.id, "home"),
-    prisma.report.findFirst({
-      where: { userId: user.id },
-      include: { skillSnapshots: true },
-      orderBy: { createdAt: "desc" },
-    }),
-    StreakService.getSnapshot(user.id),
+    getSafeRecommendation(user),
+    getSafeLatestReport(user.id),
+    getSafeStreak(user.id),
   ]);
 
   const viewModel = buildHomeViewModel({
@@ -39,16 +155,7 @@ export default async function HomePage() {
     fullDiagnosticCompletedAt: user.fullDiagnosticCompletedAt,
   });
 
-  await trackEvent({
-    eventName: "home_primary_cta_rendered",
-    route: "/app/home",
-    userId: user.id,
-    properties: {
-      action_type: recommendation.actionType,
-      target_url: recommendation.targetUrl,
-      reason_code: recommendation.reasonCode,
-    },
-  });
+  await trackHomeRender(user.id, recommendation);
 
   return (
     <PageShell className="px-0 py-0">
