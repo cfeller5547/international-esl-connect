@@ -720,7 +720,7 @@ function arcadeComboRules(overrides: Partial<ArcadeComboRules> = {}): ArcadeComb
 function arcadeMotionDefaults(kind: ArcadeStageOptions["interactionModel"]): ArcadeMotionRules {
   switch (kind) {
     case "cross_dash":
-      return { dashStep: 1, driftPx: 8, travelMs: 170 };
+      return { dashStep: 1, driftPx: 4, travelMs: 620 };
     case "conveyor_bins":
       return { conveyorSpeed: 1.15, travelMs: 210, driftPx: 4 };
     case "grid_runner":

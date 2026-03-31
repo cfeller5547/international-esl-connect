@@ -25,8 +25,10 @@ import { Button } from "@/components/ui/button";
 import {
   useAnimatedCount,
   useLearnGameAudio,
+  useLearnGameSpeech,
   usePersistentGameAudioMute,
 } from "@/features/learn/use-learn-game-feel";
+import { getStageResolvedSpeechText } from "@/lib/learn-game-speech";
 import { useVoiceRecorder } from "@/features/speak/use-voice-recorder";
 import type {
   GameActivityPayload,
@@ -181,7 +183,7 @@ function laneTokenPositions(stage: LaneRunnerGameStage) {
     current[token.id] = {
       lane: token.lane,
       column: columns[token.id] ?? 0,
-      direction: index % 2 === 0 ? 1 : -1,
+      direction: 1,
     };
     return current;
   }, {});
@@ -289,6 +291,7 @@ function LaneRunnerBoard({
   onMove: (lane: number, column: number) => void;
   locked: boolean;
 }) {
+  const tokenTravelDuration = Math.max(0.4, ((stage.motionRules?.travelMs ?? 620) / 1000) * 0.88);
   const targetRail =
     stage.targetSequenceIds.length <= 5
       ? stage.targetSequenceIds
@@ -434,7 +437,7 @@ function LaneRunnerBoard({
                   ) : null}
                   {token && !cleared ? (
                     <motion.span
-                      layout
+                      layout="position"
                       initial={{ scale: 0.86, opacity: 0.4 }}
                       animate={
                         pulsingToken
@@ -443,14 +446,14 @@ function LaneRunnerBoard({
                             : pulsingToken.outcome === "near_miss"
                               ? { scale: [1, 1.03, 1], opacity: 1, x: [0, -2, 2, 0] }
                               : { scale: [1, 1.06, 1], opacity: 1, y: [0, -4, 0] }
-                          : { scale: 1, opacity: 1, y: [0, -2, 0] }
+                          : { scale: 1, opacity: 1, x: 0, y: 0 }
                       }
                       transition={
                         pulsingToken
                           ? pulsingToken.outcome === "miss"
-                            ? { duration: 0.28, ease: "easeOut" }
-                            : { type: "tween", duration: 0.22, ease: "easeOut", times: [0, 0.48, 1] }
-                          : { duration: 0.28 }
+                            ? { layout: { duration: tokenTravelDuration, ease: "linear" }, duration: 0.28, ease: "easeOut" }
+                            : { layout: { duration: tokenTravelDuration, ease: "linear" }, type: "tween", duration: 0.22, ease: "easeOut", times: [0, 0.48, 1] }
+                          : { layout: { duration: tokenTravelDuration, ease: "linear" }, duration: tokenTravelDuration }
                       }
                       className={`absolute inset-x-2 top-2 flex flex-col items-start rounded-xl border px-2 py-2 text-left text-xs font-semibold ${
                         token.role === "target"
@@ -1247,6 +1250,9 @@ export function LearnArcadeStageSurface({
   const [nodePulse, setNodePulse] = useState<NodePulse | null>(null);
   const pulseRef = useRef(0);
   const timeRemainingRef = useRef(stage.timerMs);
+  const livesRemainingRef = useRef(stage.lives);
+  const comboPeakRef = useRef(0);
+  const mistakeCountRef = useRef(0);
   const laneTokenStateRef = useRef<Record<string, LaneTokenPosition>>(
     stage.kind === "lane_runner" ? laneTokenPositions(stage) : {}
   );
@@ -1255,6 +1261,7 @@ export function LearnArcadeStageSurface({
   const runnerColumnRef = useRef(0);
   const submittedRef = useRef(false);
   const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+  const spokenEvaluationKeyRef = useRef<string | null>(null);
 
   const { muted, toggleMuted } = usePersistentGameAudioMute();
   const {
@@ -1271,6 +1278,7 @@ export function LearnArcadeStageSurface({
     ambientEnabled: !paused && !evaluation && !pending && stage.kind !== "voice_burst",
     ambientDucked: stage.kind === "voice_burst" || recording,
   });
+  const { speakText: playSpeechText, stopSpeech, speechPending } = useLearnGameSpeech({ muted });
   const queueCards = useMemo(
     () =>
       stage.kind === "sort_rush"
@@ -1285,6 +1293,7 @@ export function LearnArcadeStageSurface({
   const timerLabel = timerStatusLabel({ timeRemainingMs, pending, evaluation });
   const animatedStageScore = useAnimatedCount(evaluation?.scoreDelta ?? 0, Boolean(evaluation), 360);
   const animatedComboCarry = useAnimatedCount(comboPeak, Boolean(evaluation), 420);
+  const resolvedSpeechText = useMemo(() => getStageResolvedSpeechText(stage), [stage]);
   const statusMessage = error ?? notice ?? localMessage ?? recorderError;
   const flashMode = flash ?? (evaluation?.outcome === "strong" ? "clear" : null);
 
@@ -1300,14 +1309,18 @@ export function LearnArcadeStageSurface({
 
   const resetStageState = useCallback(() => {
     submittedRef.current = false;
+    stopSpeech();
     setPaused(false);
     setTimeRemainingMs(stage.timerMs);
     timeRemainingRef.current = stage.timerMs;
     setLivesRemaining(stage.lives);
+    livesRemainingRef.current = stage.lives;
     setScore(0);
     setCombo(0);
     setComboPeak(0);
+    comboPeakRef.current = 0;
     setMistakeCount(0);
+    mistakeCountRef.current = 0;
     setRunnerLane(stage.kind === "lane_runner" ? Math.max(0, stage.lanes.length - 1) : 0);
     runnerLaneRef.current = stage.kind === "lane_runner" ? Math.max(0, stage.lanes.length - 1) : 0;
     setRunnerColumn(0);
@@ -1332,7 +1345,11 @@ export function LearnArcadeStageSurface({
     setAssignmentPulse(null);
     setNodePulse(null);
     resetError();
-  }, [isSupported, resetError, stage, voiceEnabled]);
+  }, [isSupported, resetError, stage, stopSpeech, voiceEnabled]);
+
+  useEffect(() => {
+    stopSpeech();
+  }, [stage.id, stopSpeech]);
 
   useEffect(() => {
     if (!flash) return;
@@ -1346,6 +1363,18 @@ export function LearnArcadeStageSurface({
   useEffect(() => {
     timeRemainingRef.current = timeRemainingMs;
   }, [timeRemainingMs]);
+
+  useEffect(() => {
+    livesRemainingRef.current = livesRemaining;
+  }, [livesRemaining]);
+
+  useEffect(() => {
+    comboPeakRef.current = comboPeak;
+  }, [comboPeak]);
+
+  useEffect(() => {
+    mistakeCountRef.current = mistakeCount;
+  }, [mistakeCount]);
 
   useEffect(() => {
     laneTokenStateRef.current = laneTokenState;
@@ -1454,10 +1483,10 @@ export function LearnArcadeStageSurface({
       await onSubmit({
         ...answer,
         arcadeMetrics: {
-          mistakeCount,
-          timeRemainingMs,
-          comboPeak,
-          livesRemaining,
+          mistakeCount: mistakeCountRef.current,
+          timeRemainingMs: timeRemainingRef.current,
+          comboPeak: comboPeakRef.current,
+          livesRemaining: livesRemainingRef.current,
           completionPath,
           muteEnabled: muted,
           interactionModel: stage.interactionModel,
@@ -1465,15 +1494,11 @@ export function LearnArcadeStageSurface({
       });
     },
     [
-      comboPeak,
       evaluation,
-      livesRemaining,
-      mistakeCount,
       muted,
       onSubmit,
       pending,
       stage.interactionModel,
-      timeRemainingMs,
     ]
   );
 
@@ -1489,10 +1514,10 @@ export function LearnArcadeStageSurface({
         Object.entries(currentTokens).map(([tokenId, token]) => {
           const nextColumn = token.column + token.direction;
           if (nextColumn < 0) {
-            return [tokenId, { ...token, column: 1, direction: 1 }];
+            return [tokenId, { ...token, column: 0, direction: 1 }];
           }
           if (nextColumn >= GRID_COLUMNS) {
-            return [tokenId, { ...token, column: GRID_COLUMNS - 2, direction: -1 }];
+            return [tokenId, { ...token, column: 0, direction: 1 }];
           }
           return [tokenId, { ...token, column: nextColumn }];
         })
@@ -1545,7 +1570,7 @@ export function LearnArcadeStageSurface({
       });
       setTokenPulse({ tokenId: collisionToken.id, pulse, outcome: "miss" });
       registerMiss();
-    }, Math.max(260, travelMs));
+    }, Math.max(520, travelMs));
 
     return () => window.clearInterval(timer);
   }, [
@@ -1596,6 +1621,36 @@ export function LearnArcadeStageSurface({
       playSfx("incorrect");
     }
   }, [evaluation, playSfx]);
+
+  useEffect(() => {
+    if (!evaluation || evaluation.outcome !== "strong" || !resolvedSpeechText) {
+      return;
+    }
+
+    const evaluationKey = `${stage.id}:${evaluation.attemptNumber}`;
+    if (spokenEvaluationKeyRef.current === evaluationKey) {
+      return;
+    }
+
+    spokenEvaluationKeyRef.current = evaluationKey;
+    const timeout = window.setTimeout(() => {
+      void playSpeechText(resolvedSpeechText);
+    }, 430);
+
+    return () => window.clearTimeout(timeout);
+  }, [evaluation, playSpeechText, resolvedSpeechText, stage.id]);
+
+  const handleReplayResolvedSpeech = useCallback(async () => {
+    if (!resolvedSpeechText) {
+      return;
+    }
+
+    setLocalMessage(null);
+    const played = await playSpeechText(resolvedSpeechText, { ignoreMute: true });
+    if (!played) {
+      setLocalMessage("Speech playback is not available right now.");
+    }
+  }, [playSpeechText, resolvedSpeechText]);
 
   const moveRunner = useCallback((nextLane: number, nextColumn: number) => {
     if (stage.kind !== "lane_runner" || paused || pending || evaluation || timeRemainingMs <= 0) return;
@@ -2275,6 +2330,18 @@ export function LearnArcadeStageSurface({
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-2 lg:justify-end">
+                        {evaluation.outcome === "strong" && resolvedSpeechText ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="rounded-full border-white/18 bg-white/10 text-white hover:bg-white/16"
+                            onClick={() => void handleReplayResolvedSpeech()}
+                            disabled={speechPending}
+                          >
+                            <Volume2 className="mr-2 size-4" />
+                            {speechPending ? "Playing line..." : "Hear full line"}
+                          </Button>
+                        ) : null}
                         {evaluation.outcome === "strong" ? (
                           <Button
                             type="button"

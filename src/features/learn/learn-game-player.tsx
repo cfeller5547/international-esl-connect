@@ -89,15 +89,6 @@ const ACTIVITY_SHORT_LABELS: Record<LearnGameActivityType, string> = {
   checkpoint: "Check",
 };
 
-function speakText(text: string) {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-    return;
-  }
-
-  window.speechSynthesis.cancel();
-  window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
-}
-
 function attemptLabel(attemptNumber: number) {
   return attemptNumber <= 1 ? "First try" : "Retry";
 }
@@ -2121,16 +2112,6 @@ export function LearnGamePlayer({
                     onClick={() => setPhase("game")}
                   >
                     Start game
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="rounded-full"
-                    onClick={() =>
-                      speakText(game.stages.map((stage) => stagePreviewLabel(stage)).join(". "))
-                    }
-                  >
-                    <Volume2 className="size-4" />
-                    Hear the key language
                   </Button>
                 </div>
               </div>
