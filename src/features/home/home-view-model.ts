@@ -313,7 +313,7 @@ function buildSecondaryActions({
     actions.push({
       key: "learn_roadmap",
       title: "Learn roadmap",
-      href: "/app/learn",
+      href: "/app/learn/roadmap",
       body: "Stay close to your assigned curriculum path.",
     });
   }

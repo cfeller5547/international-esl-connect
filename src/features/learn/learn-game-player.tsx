@@ -2010,7 +2010,7 @@ export function LearnGamePlayer({
           <CardContent className="space-y-4 px-5 py-5 sm:px-6 sm:py-6">
             <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
               <Link
-                href="/app/learn"
+                href="/app/learn/roadmap"
                 className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/70 px-3 py-1.5 transition hover:border-primary/40 hover:text-foreground"
               >
                 <ArrowLeft className="size-4" />
@@ -2166,10 +2166,10 @@ export function LearnGamePlayer({
       ) : null}
 
       {phase === "game" && currentStage && arcadeStage ? (
-          <LearnArcadeStagePlayer
-            backHref="/app/learn"
-            game={game}
-            stage={arcadeStage}
+        <LearnArcadeStagePlayer
+          backHref="/app/learn/roadmap"
+          game={game}
+          stage={arcadeStage}
           stageIndex={currentStageIndex}
           totalStages={game.stages.length}
           unitTitle={unitTitle}
@@ -2199,11 +2199,11 @@ export function LearnGamePlayer({
             <CardContent className="space-y-4 px-5 py-4 sm:px-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <Link
-                  href="/app/learn"
+                  href="/app/learn/roadmap"
                   className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/70 px-3 py-1.5 text-sm text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
                 >
                   <ArrowLeft className="size-4" />
-                  Back
+                  Back to roadmap
                 </Link>
                 <div className="flex items-center gap-2">
                   <Button

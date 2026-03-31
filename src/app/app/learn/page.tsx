@@ -214,6 +214,12 @@ export default async function LearnPage() {
                     <ArrowRight className="size-4" />
                   </Link>
                   <Link
+                    href="/app/learn/roadmap"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-border/70 px-5 py-3 text-sm font-semibold text-foreground transition hover:border-primary/35 hover:bg-primary/5 sm:w-auto"
+                  >
+                    View roadmap
+                  </Link>
+                  <Link
                     href={`/app/learn/unit/${currentUnit.slug}`}
                     className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-border/70 px-5 py-3 text-sm font-semibold text-foreground transition hover:border-primary/35 hover:bg-primary/5 sm:w-auto"
                   >

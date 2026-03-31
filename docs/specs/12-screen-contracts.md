@@ -149,9 +149,10 @@ This document translates product and UX principles into concrete, testable scree
 ### `/app/learn`
 - Goal: start or resume learning with lowest cognitive load.
 - Primary CTA: `Continue` on the next required curriculum activity.
-- Secondary actions: open the current unit, review completed units, inspect archived prior-level progress.
+- Secondary actions: `View roadmap`, open the current unit, review completed units, inspect archived prior-level progress.
 - Required components:
   - current curriculum hero with one dominant continue CTA
+  - one visible secondary `View roadmap` action
   - current level badge
   - current-unit progress summary
   - detailed current-unit activity list
@@ -165,10 +166,29 @@ This document translates product and UX principles into concrete, testable scree
 - Exit transition: primary CTA routes directly to the next required activity, not to an intermediate overview.
 - Instrumentation: `curriculum_viewed`.
 
+### `/app/learn/roadmap`
+- Goal: let the learner quickly see the full assigned current-level curriculum path without replacing the focused Learn landing.
+- Primary CTA: `Open current unit`.
+- Secondary actions: `Back to Learn`, `Review unit` for completed units.
+- Required components:
+  - roadmap hero with current level and current-unit position
+  - ordered unit-card list for all 6 units in the assigned current level
+  - current-unit highlight
+  - completed-unit review access
+  - locked later units visible but muted and not clickable
+  - separate archived prior-level curriculum summary section when present
+- Content sourcing rule: show only the assigned current level in the main roadmap; do not render future levels as selectable alternatives.
+- Loading/empty/error:
+  - Loading curriculum skeleton
+  - Empty fallback: show recoverable curriculum sync state with retry
+  - Error fallback: show safe reload path without exposing unrelated tools
+- Exit transition: current or completed unit actions route to `/app/learn/unit/:unitSlug`.
+- Instrumentation: `curriculum_roadmap_viewed`, `curriculum_roadmap_unit_clicked`.
+
 ### `/app/learn/unit/:unitSlug`
 - Goal: provide optional unit context and review without interrupting the default activity flow.
 - Primary CTA: `Start unit` or `Continue`.
-- Secondary actions: return to Learn.
+- Secondary actions: `Back to roadmap`, `Back to Learn`.
 - Required components:
   - unit title and summary
   - can-do statement
@@ -204,7 +224,7 @@ This document translates product and UX principles into concrete, testable scree
   - `Start game` in brief
   - one active stage control at a time in game
   - `Continue to speaking` in summary
-- Secondary actions: `Back`, `Hear the target language`, optional replay of the hardest stages from summary.
+- Secondary actions: `Back to roadmap`, optional replay of the hardest stages from summary.
 - Required components:
   - brief state with:
     - one clear reason the game matters for the current unit

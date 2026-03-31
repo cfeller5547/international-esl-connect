@@ -1011,8 +1011,8 @@ export const CurriculumService = {
 
     if (!nextUnit || !nextActivity) {
       nextAction = {
-        href: nextActionHref,
-        label: "Return to Learn",
+        href: "/app/learn/roadmap",
+        label: "View roadmap",
         title: "Curriculum milestone complete",
         description:
           "You have completed every required unit in your active curriculum. Review your roadmap while you wait for reassessment.",

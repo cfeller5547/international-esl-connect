@@ -139,4 +139,27 @@ describe("home view model", () => {
       expect(viewModel.learningPicture.overallScore).toBe(81);
     }
   });
+
+  it("points the learn roadmap secondary action at the dedicated roadmap route", () => {
+    const viewModel = buildHomeViewModel({
+      recommendation: {
+        actionType: "resume_homework_help",
+        title: "Resume homework help",
+        targetUrl: "/app/tools/homework/session/session-123",
+        reason: "You already have work in progress.",
+        reasonCode: "resume_homework_help",
+      },
+      latestReport: null,
+      streak: {
+        currentStreakDays: 2,
+        longestStreakDays: 2,
+        nextMilestoneDays: 3,
+      },
+      currentLevel: "basic",
+      fullDiagnosticCompletedAt: new Date(),
+    });
+
+    const roadmapAction = viewModel.secondaryActions.find((action) => action.key === "learn_roadmap");
+    expect(roadmapAction?.href).toBe("/app/learn/roadmap");
+  });
 });

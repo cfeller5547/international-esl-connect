@@ -43,6 +43,7 @@ Data model note:
 - Home persistent "Homework Help now" quick action for urgent use
 - Learn with one assigned fixed curriculum based on `currentLevel`
 - sequential unit unlocks and required unit activities (`lesson`, `practice`, `game`, `speaking`, `writing`, `checkpoint`)
+- Learn keeps one dominant `Continue` path on `/app/learn`, with a separate one-tap `Learn roadmap` view for all 6 units in the assigned current level
 - required Learn game activity in every unit:
   - Learn game uses authored payloads with `theme`, `assetRefs`, `layoutVariant`, stage presentation metadata, and authored summary copy
   - the current `very_basic` and `basic` games now use the Stage 9 direct-playfield foundation built from `lane_runner`, `sort_rush`, `route_race`, `reaction_pick`, and `voice_burst`, and Stage 10 gives `Name Tag Mixer`, `Map Route`, `Story Chain`, and `Scene Scan` a deeper showcase pass

@@ -56,7 +56,7 @@ export default async function CurriculumUnitPage({
             <div className="space-y-5">
               <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                 <Link
-                  href="/app/learn"
+                  href="/app/learn/roadmap"
                   className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/70 px-3 py-1.5 transition hover:border-primary/40 hover:text-foreground"
                 >
                   <ArrowLeft className="size-4" />
@@ -106,7 +106,7 @@ export default async function CurriculumUnitPage({
                     <ArrowRight className="size-4" />
                   </Link>
                   <Link
-                    href="/app/learn"
+                    href="/app/learn/roadmap"
                     className="inline-flex items-center justify-center gap-2 rounded-full border border-border/70 px-5 py-3 text-sm font-semibold text-foreground transition hover:border-primary/35 hover:bg-primary/5"
                   >
                     Return to roadmap

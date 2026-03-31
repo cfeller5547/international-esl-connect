@@ -46,6 +46,7 @@ Content sourcing behavior:
 - Use teacher-authored or placeholder curriculum activities for the assigned level.
 - Do not mix Homework Help or Test Prep into Learn entry IA.
 - Learn landing should emphasize the current unit and next step, not render all units with equal visual weight.
+- Learn roadmap should be available one tap away on its own route and should show all 6 units for the assigned current level without becoming the default Learn landing.
 - Unit overview remains available as an optional detail/review route, not a required stop before activity execution.
 - Speaking missions stay inside Learn and are scenario-bound to the unit can-do goal.
 - Learn game is a required curriculum warm-up inside Learn, not a separate game surface.

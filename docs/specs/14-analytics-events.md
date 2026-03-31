@@ -100,59 +100,65 @@ Implementation note:
 7. `curriculum_viewed`
    - trigger: Learn curriculum landing rendered
    - properties: `level`, `current_unit_slug`, `current_activity_type`
-8. `unit_started`
+8. `curriculum_roadmap_viewed`
+   - trigger: Learn roadmap route rendered
+   - properties: `level`, `current_unit_slug`, `total_units`
+9. `curriculum_roadmap_unit_clicked`
+   - trigger: user taps a current or completed unit from the Learn roadmap
+   - properties: `level`, `unit_slug`, `unit_status`, `click_target`
+10. `unit_started`
    - trigger: curriculum unit overview opened
    - properties: `unit_slug`
-9. `unit_activity_completed`
+11. `unit_activity_completed`
    - trigger: curriculum unit activity completed
    - properties: `unit_slug`, `activity_type`, `score`
-10. `unit_completed`
+12. `unit_completed`
    - trigger: all required unit activities are complete
    - properties: `unit_slug`
-11. `learn_game_started`
+13. `learn_game_started`
    - trigger: user starts the first stage of a Learn game
    - properties: `unit_slug`, `level`, `game_kind`, `stage_kind`, `challenge_profile`, `attempt_number`, `layout_variant`, `interaction_model`, `input_mode`, `mute_enabled`, `surface_family`, `audio_enabled`, `answer_reveal_mode`, `ambient_set`
-12. `learn_game_retry_used`
+14. `learn_game_retry_used`
    - trigger: user uses the retry on a Learn game stage
    - properties: `unit_slug`, `level`, `stage_id`, `game_kind`, `stage_kind`, `challenge_profile`, `attempt_number`, `layout_variant`, `interaction_model`, `input_mode`, `retry_count`, `answer_reveal_mode`, `ambient_set`
-13. `learn_game_fallback_used`
+15. `learn_game_fallback_used`
    - trigger: Learn game falls back from voice to structural fallback, or the learner explicitly uses the fallback path
    - properties: `unit_slug`, `level`, `stage_id`, `reason`, `game_kind`, `stage_kind`, `challenge_profile`, `attempt_number`, `layout_variant`, `interaction_model`, `input_mode`, `answer_reveal_mode`, `ambient_set`
-14. `learn_game_completed`
+16. `learn_game_completed`
    - trigger: required Learn game activity is completed through curriculum activity completion
    - properties: `unit_slug`, `score`, `game_kind`, `layout_variant`, `completion_path`, `mute_enabled`, `audio_enabled`, `surface_family`, `celebration_variant`, `near_miss`, `answer_reveal_mode`, `ambient_set`, `voice_used`
    - Stage 10 requirement: the Learn game analytics layer should continue capturing `interaction_model`, `combo_peak`, `lives_lost`, `fail_count`, `retry_count`, `mute_enabled`, and `voice_used` where available from the saved game review so the top-4 showcase pass can be reviewed without changing the schema
-15. `learn_game_stage_failed`
+17. `learn_game_stage_failed`
    - trigger: the server resolves a Learn game stage into retry/failure state
    - properties: `unit_slug`, `level`, `game_kind`, `stage_id`, `stage_kind`, `challenge_profile`, `attempt_number`, `medal`, `medal_cap`, `failure_reason`, `time_expired`, `lives_remaining`, `score_delta`, `combo_peak`, `input_mode`
-16. `learn_game_stage_timed_out`
+18. `learn_game_stage_timed_out`
    - trigger: the server resolves a Learn game stage with `time_expired = true`
    - properties: `unit_slug`, `level`, `game_kind`, `stage_id`, `stage_kind`, `challenge_profile`, `attempt_number`, `medal`, `medal_cap`, `failure_reason`, `time_expired`, `lives_remaining`, `score_delta`, `combo_peak`, `input_mode`
-17. `learn_game_stage_medal_awarded`
+19. `learn_game_stage_medal_awarded`
    - trigger: the server resolves a Learn game stage with a non-`retry` medal outcome
    - properties: `unit_slug`, `level`, `game_kind`, `stage_id`, `stage_kind`, `challenge_profile`, `attempt_number`, `medal`, `medal_cap`, `failure_reason`, `time_expired`, `lives_remaining`, `score_delta`, `combo_peak`, `input_mode`
-18. `curriculum_level_promoted`
+20. `curriculum_level_promoted`
    - trigger: qualifying assessment promotes the learner into a higher curriculum
    - properties: `previous_level`, `new_level`
-19. `learn_speaking_mission_started`
+21. `learn_speaking_mission_started`
    - trigger: user starts a Learn speaking mission
    - properties: `unit_slug`, `interaction_mode`, `delivery_mode`, `is_benchmark`
-20. `learn_speaking_mission_completed`
+22. `learn_speaking_mission_completed`
    - trigger: Learn speaking mission review is generated
    - properties: `unit_slug`, `interaction_mode`, `delivery_mode`, `is_benchmark`, `score`, `evidence_covered_count`, `evidence_missing_count`, `follow_up_objectives_met`
-21. `learn_speaking_feedback_viewed`
+23. `learn_speaking_feedback_viewed`
    - trigger: Learn speaking review state rendered
    - properties: `unit_slug`, `status`
-22. `learn_speaking_retry_started`
+24. `learn_speaking_retry_started`
    - trigger: user starts a retry of the same Learn speaking mission
    - properties: `unit_slug`, `interaction_mode`, `delivery_mode`, `is_benchmark`
-23. `learn_speaking_phrase_saved`
+25. `learn_speaking_phrase_saved`
    - trigger: user saves a phrase from Learn speaking review
    - properties: `session_id`
-24. `recommendation_content_source_selected`
+26. `recommendation_content_source_selected`
    - trigger: recommendation payload finalized
    - properties: `content_id`, `source_type`, `content_type`
-25. `recommendation_rule_applied`
+27. `recommendation_rule_applied`
    - trigger: deterministic recommendation rule selected
    - properties: `reason_code`
 

@@ -575,9 +575,9 @@ export function LearnSpeakingMission({
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.6rem] border border-border/70 bg-card/95 px-4 py-4 shadow-sm">
         <div className="flex flex-wrap items-center gap-2">
           <Button asChild variant="ghost" className="rounded-full px-3">
-            <Link href="/app/learn">
+            <Link href="/app/learn/roadmap">
               <ArrowLeft className="size-4" />
-              Back
+              Back to roadmap
             </Link>
           </Button>
           <Badge

@@ -48,7 +48,7 @@ function buildCompletionState({
 }): CompletionState {
   const meta = LEARN_ACTIVITY_META[activityType];
   const nextHref = response.nextAction?.href ?? response.nextActionHref ?? fallbackHref;
-  const nextTitle = response.nextAction?.title ?? "Return to your roadmap";
+  const nextTitle = response.nextAction?.title ?? "Return to Learn";
   const nextDescription =
     response.nextAction?.description ??
     "Keep moving through your curriculum with the next required step.";

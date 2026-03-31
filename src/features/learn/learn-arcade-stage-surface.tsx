@@ -1999,7 +1999,7 @@ export function LearnArcadeStageSurface({
               className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/80 px-3 py-1.5 text-sm text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
             >
               <ArrowLeft className="size-4" />
-              Back
+              Back to roadmap
             </Link>
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="outline" className={`rounded-full px-3 py-1 ${theme.badge}`}>
