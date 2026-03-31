@@ -49,19 +49,64 @@ Content sourcing behavior:
 - Unit overview remains available as an optional detail/review route, not a required stop before activity execution.
 - Speaking missions stay inside Learn and are scenario-bound to the unit can-do goal.
 - Learn game is a required curriculum warm-up inside Learn, not a separate game surface.
-- Stage 3 game uses a richer authored unit challenge with `theme`, `assetRefs`, `layoutVariant`, stage presentation metadata, authored CTA labels, and authored summary bridge copy.
-- The current `very_basic`, `basic`, `intermediate`, and `advanced` games should feel distinct by mechanic, not just by art:
-  - `assemble`
-  - `spotlight`
-  - `state_switch`
-  - `priority_board`
-  - plus the existing `choice`, `match`, `sequence`, `map`, and `voice_prompt` primitives where they still fit
-- Voice is used only on stages where it materially helps, and all voice-enabled stages must fall back cleanly when mic access or voice evaluation is unavailable.
+- Learn game uses authored payloads with `theme`, `assetRefs`, `layoutVariant`, stage presentation metadata, authored CTA labels, and authored summary bridge copy.
+- The current `very_basic` and `basic` games now use the Stage 9 direct-playfield foundation, and Stage 10 gives `Name Tag Mixer`, `Map Route`, `Story Chain`, and `Scene Scan` a deeper showcase pass:
+  - `lane_runner`
+  - `sort_rush`
+  - `route_race`
+  - `reaction_pick`
+  - `voice_burst`
+- Stage 9 current-12 arcade stages require an interaction model and richer arcade config:
+  - `interactionModel`
+  - `spriteRefs`
+  - `motionRules`
+  - `hitBoxes`
+  - `spawnTimeline`
+  - `failWindowMs`
+  - `rewardFx`
+  - `transitionFx`
+- Stage 9 authored game payloads also require:
+  - `answerRevealMode`
+  - `ambientSet`
+  - `celebrationVariant`
+- Every Learn game stage now also declares a shared challenge contract:
+  - `challengeProfile` (`arcade` | `recall` | `construction` | `voice`)
+  - `challenge`
+    - `difficultyBand`
+    - `timerMs` when the profile is timed
+    - `lives`
+    - `medalWindowAttempts`
+    - optional `perActionWindowMs`
+    - optional `speedRampStepMs`
+    - optional `fallbackMedalCap`
+    - optional `voiceOnlyGold`
+- Challenge defaults are fixed by stage kind in this pass:
+  - arcade kinds use countdown timer, per-action expiry, within-stage speed escalation, and `2` lives
+  - recall kinds use countdown timer and `2` lives
+  - construction kinds do not use a countdown timer; they use `2` lives, or `3` lives when the stage has `3+` placements/order decisions
+  - voice kinds do not use a countdown timer; fallback remains valid
+- Stage failure must block advancement. The resolved state may only show `Retry stage` until the server returns `nextAllowedAction = advance`.
+- Retry stays stage-local: retry resets the current stage timer, lives, combo, and local score but preserves already-cleared prior stages.
+- Medals are attempt-sensitive:
+  - attempt `1` can earn `gold`
+  - attempt `2` can earn up to `silver`
+  - attempt `3+` can earn up to `bronze`
+- Voice accessibility applies to both `voice_burst` and `voice_prompt`:
+  - fallback remains a valid completion path
+  - fallback can earn up to `silver`
+  - `gold` requires real voice completion
+- `intermediate` and `advanced` remain on the current authored Stage 3 board-first set for now.
+- Voice is used only on 6 selected current-12 games overall: `Name Tag Mixer`, `Snack Counter`, `Story Chain`, `Scene Scan`, `Station Help`, and `Choice Showdown`. All voice-enabled stages must fall back cleanly when mic access or voice evaluation is unavailable.
+- Current-12 arcade games should show one metrics HUD only during active play:
+  - outer Learn shell: back, unit title, stage count, slim progress, attempt label
+  - in-board HUD: timer, hearts, score, combo, mute, pause, restart
+- Active arcade stages must never visibly remain live at `0:00`; once the timer expires, input locks and the board resolves immediately into fail, close-call, or cleared state.
+- Current-12 stage-clear flow should use a compact interstitial with medal, score delta, combo carry, one short why-it-worked note, and a dominant `Next stage` action only after a clear; failed stages should resolve into retry-only state instead of exposing forward progression.
+- The top-4 showcase games should use game-specific board art and sprite kits where needed so the scene fantasy is legible at a glance.
+- Showcase `voice_burst` stages should keep mode choice and primary action visually connected instead of reading like a tall stacked form.
 - There is no separate Games tab or standalone game route; the game remains inside the existing Learn unit flow.
-- Game feedback must stay coaching-first:
-  - one quick note
-  - one retry when needed
-  - no visible numeric score
+- The current 12 arcade games use visible local score, combo, hearts, timer, and medal, but never a global reward economy, coins, or leaderboards.
+- All Learn games now share a compact feel layer: sound feedback, animated stage swaps, and a short completion celebration.
 - Learn speaking should feel like a mini conversation experience, not a worksheet step with a mic attached.
 - The first counterpart turn must be a concrete scene opener that makes sense on its own, not an abstract prompt such as `Can you answer that in your own words?`.
 - Each unit speaking mission must include authored phrase support, authored follow-up directions, and a real model answer rather than generic placeholder scaffolding.
@@ -207,9 +252,10 @@ After a lesson:
   - `Game`
   - `Summary`
 - Game should feel like a short, authored warm-up between practice and speaking, not like a separate arcade mode.
-- Game should use richer scene/map presentation when available so the step feels intentionally designed, not generic.
+- The current `very_basic` and `basic` game state should feel like a micro-arcade scene with direct playfield interaction rather than a board of static answer cards.
+- `intermediate` and `advanced` game states remain board-first and should not be described as micro-arcade.
 - Voice should appear only where it materially helps the learning moment; structural fallback remains the default safety net and must not lose progress.
-- Completing game unlocks speaking; game quality is not score-gated.
+- Completing game unlocks speaking, but each stage must still be cleared in sequence; there is no extra unit-level score gate once all stages are cleared.
 - Pro users enter the speaking brief in voice-first mode by default with one primary CTA: `Start conversation`.
 - Starting a Pro Learn mission opens a shorter, curriculum-bound live voice conversation inside Learn; it is smaller and more bounded than Speak.
 - Free users enter the speaking brief in text-first mode by default and continue in a transcript-first chat surface with optional coach playback.

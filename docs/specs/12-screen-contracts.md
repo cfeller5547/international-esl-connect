@@ -212,29 +212,58 @@ This document translates product and UX principles into concrete, testable scree
     - themed scene or map presentation linked to the authored payload
     - one dominant `Start game` CTA
   - game state with:
-    - compact in-flow progress strip with:
+    - current `very_basic` and `basic` arcade games use a compact in-board HUD with:
       - back action
-      - unit title
-      - `Game`
+      - game title
       - `Stage X of Y`
       - slim progress bar
       - attempt label
+      - timer
+      - hearts
+      - score
+      - combo
+      - pause/restart
+      - local mute toggle for game SFX
+      - direct-playfield interaction as the primary control surface
+    - `intermediate` and `advanced` continue to use the authored board-first game shell for now
     - one authored stage at a time
     - stage count / progress treatment across the full game
     - stage visuals driven by `theme`, `layoutVariant`, and presentation metadata
-    - distinct board treatment by stage kind (`assemble`, `spotlight`, `state_switch`, `priority_board`, `choice`, `match`, `sequence`, `map`, `voice_prompt`)
-    - no persistent large left explainer column during active play; stage context should live inside the board
+    - Stage 9 current-12 direct-playfield treatment by stage kind (`lane_runner`, `sort_rush`, `route_race`, `reaction_pick`, `voice_burst`), with Stage 10 giving `Name Tag Mixer`, `Map Route`, `Story Chain`, and `Scene Scan` a deeper showcase pass
+    - showcase current-12 boards should use game-specific board/sprite assets where needed so the top four do not read like generic copies of the same dark arcade shell
+    - no persistent large left explainer column during active play; context should live in the HUD and playfield
+    - current-12 arcade games show one metrics HUD only during active play:
+      - outer shell keeps navigation, unit context, stage count, slim progress, and attempt label
+      - in-board HUD keeps timer, hearts, score, combo, mute, pause, and restart
+    - required `interactionModel` values by stage kind:
+      - `lane_runner` -> `cross_dash`
+      - `sort_rush` -> `conveyor_bins`
+      - `route_race` -> `grid_runner`
+      - `reaction_pick` -> `target_tag` or `split_decision`
+      - `voice_burst` -> `burst_callout`
     - authored board title, helper text, and CTA copy for the active stage
-    - richer Stage 4 layout variants for the current `very_basic` and `basic` games, including `slot_strip`, `dialogue_pick`, `voice_focus`, `planner_dense`, `scene_focus`, and `map_focus`
-    - pointer-device drag-and-drop may enhance `assemble` and `priority_board`, but tap-first completion must remain fully supported
-    - voice-enabled stages must surface `Say it` and `Quick backup` together as equal-weight choices at the top of the stage
-    - voice controls only on stages where they materially help the learning moment
-    - structural fallback controls on stages that do not need voice
-    - one coaching note and at most one retry per stage
+    - shared feel layer for every Learn game:
+      - correct / incorrect sound
+      - neutral or themed ambient audio during active play
+      - stage transition motion
+      - compact completion celebration before summary
+    - pointer-device drag may enhance sorting interactions, but tap-first completion must remain fully supported
+    - `voice_burst` stages must surface `Say it` and `Quick backup` together as equal-weight choices at the top of the stage
+    - only the selected current-12 games use voice; the current voice set remains `Name Tag Mixer`, `Snack Counter`, `Story Chain`, `Scene Scan`, `Station Help`, and `Choice Showdown`
+    - `reaction_pick` stages should default to `answerRevealMode = postanswer` so the learner sees rationale only after committing
+    - pre-answer reaction and split-decision states should use neutral iconography only; use `spriteRefs.neutral` when authored
+    - active arcade boards must never remain live at `0:00`; once time expires, input locks and the stage resolves immediately
+    - showcase lane-runner boards should visibly mark the next required target in the rail and on the board
+    - showcase route-race boards should visually distinguish clean routes from detour branches
+    - showcase `voice_burst` boards should keep mode choice and primary action in one compact decision area
+    - one coaching note and up to two stage retries where the payload allows it
     - compact resolved-state feedback before the next stage with:
-      - small success pulse
+      - result banner
+      - medal/rank
+      - score delta and combo carry when arcade metrics apply
       - one authored why-it-worked note
       - one clear `Next stage` CTA
+      - a short stage-clear interstitial before the next authored stage appears
   - summary state with:
     - completion confirmation
     - one strength pattern
@@ -243,17 +272,19 @@ This document translates product and UX principles into concrete, testable scree
     - optional replay list for the hardest stages
     - one dominant `Continue to speaking` CTA
 - Current authored scope:
-  - all four curriculum levels use authored Stage 3 games
-  - the current authored mechanic set is drawn from `assemble`, `spotlight`, `state_switch`, `priority_board`, `choice`, `match`, `sequence`, `map`, and `voice_prompt`
+  - the current `very_basic` and `basic` games use authored Stage 9 arcade payloads
+  - the current authored arcade set is drawn from `lane_runner`, `sort_rush`, `route_race`, `reaction_pick`, and `voice_burst`
+  - `intermediate` and `advanced` remain on authored Stage 3 board-first payloads
 - Loading/empty/error:
   - if game is already completed, reopen in summary state using the saved completion review
   - if mic access is denied or voice evaluation fails on a voice-enabled stage, switch to fallback on the same activity without losing progress
   - if the unit or activity is locked, show the standard locked-state recovery path
   - if scene/map presentation metadata is missing, degrade gracefully to the standard structural layout
 - Feedback rules:
-  - no visible numeric score
-  - no hard pass/fail gate
-  - coaching-first feedback only
+  - current Stage 9 arcade games may show local score, combo, hearts, timer, and medal
+  - no global currency, XP, or leaderboard
+  - no hard pass/fail gate outside the current stage retry loop
+  - completion feedback remains coaching-first
   - no separate Games tab or standalone game route
 - Exit transition:
   - completing game routes into the existing activity-completion transition

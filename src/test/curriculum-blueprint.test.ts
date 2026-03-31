@@ -45,12 +45,15 @@ describe("curriculum blueprint game scaffolding", () => {
   );
   const voiceGameSlugs = new Set([
     "introductions-and-personal-information",
-    "family-friends-and-classroom-language",
     "food-shopping-and-likes-dislikes",
-    "habits-and-routines-in-more-detail",
     "past-events-and-weekend-stories",
+    "what-is-happening-now",
     "health-travel-and-everyday-services",
     "comparing-choosing-and-short-narratives",
+  ]);
+  const extendedArcadeGameSlugs = new Set([
+    "past-events-and-weekend-stories",
+    "what-is-happening-now",
   ]);
 
   it("keeps Stage 1 game payloads authored instead of falling back to the generic template", () => {
@@ -65,22 +68,34 @@ describe("curriculum blueprint game scaffolding", () => {
         expect(unit.game.summary.strength.trim().length).toBeGreaterThan(16);
         expect(unit.game.summary.nextFocus.trim().length).toBeGreaterThan(16);
         expect(unit.game.summary.bridgeToSpeaking.trim().length).toBeGreaterThan(16);
-        expect(unit.game.stages).toHaveLength(3);
-        expect(unit.game.completionRule.requiredStageCount).toBe(3);
-        expect(unit.game.completionRule.maxRetriesPerStage).toBe(1);
+        expect(unit.game.ambientSet).toBeTruthy();
+        expect(unit.game.celebrationVariant).toBe("arcade_pulse");
+        expect(unit.game.stages).toHaveLength(extendedArcadeGameSlugs.has(unit.slug) ? 4 : 3);
+        expect(unit.game.completionRule.requiredStageCount).toBe(unit.game.stages.length);
+        expect(unit.game.completionRule.maxRetriesPerStage).toBe(2);
         expect(
           unit.game.stages.every(
             (stage) => stage.title.trim().length > 0 && stage.prompt.trim().length > 0
           )
         ).toBe(true);
         const voiceStageCount = unit.game.stages.filter(
-          (stage) => stage.kind === "voice_prompt"
+          (stage) => stage.kind === "voice_burst"
         ).length;
         expect(voiceStageCount).toBe(voiceGameSlugs.has(unit.slug) ? 1 : 0);
-        expect(unit.game.stages.some((stage) => stage.kind !== "choice")).toBe(true);
+        expect(
+          unit.game.stages.every((stage) =>
+            ["lane_runner", "sort_rush", "route_race", "reaction_pick", "voice_burst"].includes(
+              stage.kind
+            )
+          )
+        ).toBe(true);
         expect(
           unit.game.stages.every((stage) => {
             expect(stage.presentation?.layoutVariant).toBeTruthy();
+            if (stage.kind === "reaction_pick") {
+              expect(stage.presentation?.answerRevealMode).toBe("postanswer");
+              expect(stage.spriteRefs?.neutral).toBeTruthy();
+            }
 
             return true;
           })
@@ -89,62 +104,98 @@ describe("curriculum blueprint game scaffolding", () => {
     }
   });
 
-  it("exercises the richer Stage 3 mechanics across the current 12 games", () => {
+  it("exercises the Stage 5 arcade mechanics across the current 12 games", () => {
     const stageKinds = new Set(
       stage1Curricula.flatMap((curriculum) =>
         curriculum.units.flatMap((unit) => unit.game.stages.map((stage) => stage.kind))
       )
     );
 
-    expect(stageKinds.has("assemble")).toBe(true);
-    expect(stageKinds.has("spotlight")).toBe(true);
-    expect(stageKinds.has("state_switch")).toBe(true);
-    expect(stageKinds.has("priority_board")).toBe(true);
+    expect(stageKinds.has("lane_runner")).toBe(true);
+    expect(stageKinds.has("sort_rush")).toBe(true);
+    expect(stageKinds.has("route_race")).toBe(true);
+    expect(stageKinds.has("reaction_pick")).toBe(true);
+    expect(stageKinds.has("voice_burst")).toBe(true);
   });
 
-  it("authors Name Tag Mixer with the denser Stage 4 layout variants", () => {
+  it("authors Name Tag Mixer with the Stage 5 arcade flow", () => {
     const introUnit = stage1Curricula
       .flatMap((curriculum) => curriculum.units)
       .find((unit) => unit.slug === "introductions-and-personal-information");
 
     expect(introUnit).toBeTruthy();
     expect(introUnit!.game.gameTitle).toBe("Name Tag Mixer");
-    expect(introUnit!.game.stages[0]?.presentation?.layoutVariant).toBe("slot_strip");
-    expect(introUnit!.game.stages[1]?.presentation?.layoutVariant).toBe("dialogue_pick");
+    expect(introUnit!.game.stages.map((stage) => stage.kind)).toEqual([
+      "lane_runner",
+      "reaction_pick",
+      "voice_burst",
+    ]);
+    expect(introUnit!.game.stages[0]?.presentation?.layoutVariant).toBe("arcade_lane_runner");
+    expect(introUnit!.game.stages[1]?.presentation?.layoutVariant).toBe("arcade_reaction_pick");
     expect(introUnit!.game.stages[2]?.presentation?.layoutVariant).toBe("voice_focus");
-    expect(introUnit!.game.stages[1]?.presentation?.dialoguePrompt).toContain(
-      "Hi, I'm Ana. I'm from Brazil."
+    expect(
+      introUnit!.game.stages[0]?.kind === "lane_runner"
+        ? introUnit!.game.stages[0].spriteRefs?.board ?? ""
+        : ""
+    ).toContain("name-tag-hallway-board");
+    expect(
+      introUnit!.game.stages[1]?.kind === "reaction_pick"
+        ? introUnit!.game.stages[1].rounds[0]?.prompt
+        : ""
+    ).toContain("Hi, I'm Ana.");
+    expect(
+      introUnit!.game.stages[0]?.kind === "lane_runner"
+        ? introUnit!.game.stages[0].targetSequenceIds
+        : []
+    ).toEqual(
+      expect.arrayContaining(["token-hi", "token-ana", "token-brazil", "token-question"])
     );
+    expect(
+      introUnit!.game.stages[1]?.kind === "reaction_pick"
+        ? introUnit!.game.stages[1].rounds[0]?.options[0]?.label
+        : ""
+    ).toBe("Where are you from?");
+    expect(
+      introUnit!.game.stages[1]?.kind === "reaction_pick"
+        ? introUnit!.game.stages[1].interactionModel
+        : null
+    ).toBe("target_tag");
+    expect(
+      introUnit!.game.stages[0]?.kind === "lane_runner"
+        ? introUnit!.game.stages[0].spriteRefs?.board ?? ""
+        : ""
+    ).toContain("name-tag-hallway-board");
+    expect(
+      introUnit!.game.stages[1]?.kind === "reaction_pick"
+        ? introUnit!.game.stages[1].spriteRefs?.board ?? ""
+        : ""
+    ).toContain("name-tag-chat-board");
   });
 
-  it("exposes stage-one theme and layout metadata on every authored game", () => {
+  it("exposes stage-one arcade theme and layout metadata on every authored game", () => {
     for (const curriculum of stage1Curricula) {
       for (const unit of curriculum.units) {
         expect(unit.game.theme).toBeTruthy();
         expect(unit.game.layoutVariant).toBeTruthy();
         expect(unit.game.assetRefs.hero).toBeTruthy();
-
-        if (unit.slug === "home-school-and-neighborhood") {
-          expect(unit.game.layoutVariant).toBe("map_route");
-        }
-
-        if (unit.slug === "what-is-happening-now") {
-          expect(unit.game.layoutVariant).toBe("scene_hotspots");
-        }
+        expect(unit.game.layoutVariant.startsWith("arcade_")).toBe(true);
       }
     }
   });
 
-  it("authors Map Route with positioned nodes and explicit route connections", () => {
+  it("authors Map Route with route-race nodes and explicit path connections", () => {
     const mapRoute = stage1Curricula
       .flatMap((curriculum) => curriculum.units)
       .find((unit) => unit.slug === "home-school-and-neighborhood");
 
     expect(mapRoute).toBeTruthy();
-    expect(mapRoute!.game.layoutVariant).toBe("map_route");
+    expect(mapRoute!.game.layoutVariant).toBe("arcade_route_race");
 
-    const mapStage = mapRoute!.game.stages.find((stage) => stage.kind === "map");
+    const mapStage = mapRoute!.game.stages.find((stage) => stage.kind === "route_race");
     expect(mapStage).toBeTruthy();
+    expect(mapStage?.kind === "route_race" ? mapStage.spriteRefs?.board ?? "" : "").toContain(
+      "map-route-showcase-board"
+    );
     expect(mapStage!.nodes.every((node) => typeof node.x === "number" && typeof node.y === "number"))
       .toBe(true);
 
@@ -159,39 +210,82 @@ describe("curriculum blueprint game scaffolding", () => {
     }
   });
 
-  it("authors Scene Scan with scene hotspot metadata", () => {
+  it("authors Scene Scan with lane-runner action tags and follow-up reaction rounds", () => {
     const sceneScan = stage1Curricula
       .flatMap((curriculum) => curriculum.units)
       .find((unit) => unit.slug === "what-is-happening-now");
 
     expect(sceneScan).toBeTruthy();
-    expect(sceneScan!.game.layoutVariant).toBe("scene_hotspots");
+    expect(sceneScan!.game.layoutVariant).toBe("arcade_lane_runner");
 
-    const sceneStage = sceneScan!.game.stages.find((stage) => stage.kind === "spotlight");
+    const sceneStage = sceneScan!.game.stages.find((stage) => stage.kind === "lane_runner");
     expect(sceneStage).toBeTruthy();
-    const hotspots = sceneStage?.kind === "spotlight" ? sceneStage.hotspots : [];
-    expect(hotspots.length).toBeGreaterThan(0);
-
-    for (const hotspot of hotspots) {
-      expect(hotspot.x).toBeGreaterThanOrEqual(0);
-      expect(hotspot.x).toBeLessThanOrEqual(100);
-      expect(hotspot.y).toBeGreaterThanOrEqual(0);
-      expect(hotspot.y).toBeLessThanOrEqual(100);
-    }
+    const tokens = sceneStage?.kind === "lane_runner" ? sceneStage.tokens : [];
+    expect(tokens.length).toBeGreaterThanOrEqual(6);
+    expect(tokens.some((token) => token.role === "target")).toBe(true);
+    expect(tokens.some((token) => token.role === "hazard")).toBe(true);
+    expect(sceneStage?.spriteRefs?.board ?? "").toContain("scene-classroom-board");
+    expect(sceneScan!.game.stages.some((stage) => stage.kind === "reaction_pick")).toBe(true);
+    expect(sceneScan!.game.stages.some((stage) => stage.kind === "voice_burst")).toBe(true);
   });
 
-  it("keeps voice content to the authored voice prompt stage", () => {
+  it("keeps voice content to the selected Stage 9 voice burst games", () => {
     for (const curriculum of stage1Curricula) {
       for (const unit of curriculum.units) {
-        const voiceStages = unit.game.stages.filter((stage) => stage.kind === "voice_prompt");
+        const voiceStages = unit.game.stages.filter((stage) => stage.kind === "voice_burst");
         expect(voiceStages).toHaveLength(voiceGameSlugs.has(unit.slug) ? 1 : 0);
         expect(
           unit.game.stages
-            .filter((stage) => stage.kind !== "voice_prompt")
+            .filter((stage) => stage.kind !== "voice_burst")
             .every((stage) => !("targetPhrase" in stage))
         ).toBe(true);
       }
     }
+  });
+
+  it("adds spoken transfer to Story Chain and Scene Scan without making every game voice-first", () => {
+    const stage1Units = stage1Curricula.flatMap((curriculum) => curriculum.units);
+    const storyChain = stage1Units.find((unit) => unit.slug === "past-events-and-weekend-stories");
+    const sceneScan = stage1Units.find((unit) => unit.slug === "what-is-happening-now");
+    const storyLastStage = storyChain?.game.stages.at(-1) ?? null;
+    const sceneLastStage = sceneScan?.game.stages.at(-1) ?? null;
+    const storyVoiceStage = storyLastStage?.kind === "voice_burst" ? storyLastStage : null;
+    const sceneVoiceStage = sceneLastStage?.kind === "voice_burst" ? sceneLastStage : null;
+
+    expect(storyChain?.game.stages.at(-1)?.kind).toBe("voice_burst");
+    expect(sceneScan?.game.stages.at(-1)?.kind).toBe("voice_burst");
+    expect(storyVoiceStage?.targetPhrase ?? "").toContain("First");
+    expect(storyVoiceStage?.targetPhrase ?? "").toContain("movie");
+    expect(storyVoiceStage?.spriteRefs?.board ?? "").toContain("story-comic-board");
+    expect(sceneVoiceStage?.targetPhrase ?? "").toContain("teacher");
+    expect(sceneVoiceStage?.spriteRefs?.board ?? "").toContain("scene-classroom-board");
+  });
+
+  it("keeps the showcase-route and scene games grounded in one clearly strongest answer path", () => {
+    const stage1Units = stage1Curricula.flatMap((curriculum) => curriculum.units);
+    const mapRoute = stage1Units.find((unit) => unit.slug === "home-school-and-neighborhood");
+    const storyChain = stage1Units.find((unit) => unit.slug === "past-events-and-weekend-stories");
+    const sceneScan = stage1Units.find((unit) => unit.slug === "what-is-happening-now");
+
+    const mapReaction = mapRoute?.game.stages.find((stage) => stage.kind === "reaction_pick");
+    const storyReaction = storyChain?.game.stages.find((stage) => stage.kind === "reaction_pick");
+    const sceneReaction = sceneScan?.game.stages.find((stage) => stage.kind === "reaction_pick");
+
+    expect(mapReaction?.kind === "reaction_pick" ? mapReaction.interactionModel : null).toBe("split_decision");
+    expect(storyReaction?.kind === "reaction_pick" ? storyReaction.interactionModel : null).toBe("split_decision");
+    expect(
+      mapReaction?.kind === "reaction_pick"
+        ? mapReaction.rounds[0]?.options.filter((option) => option.isNearMiss).length
+        : 0
+    ).toBe(1);
+    expect(
+      sceneReaction?.kind === "reaction_pick"
+        ? sceneReaction.rounds.every((round) =>
+            round.options.some((option) => option.isNearMiss) &&
+            round.options.some((option) => option.id === round.correctOptionId)
+          )
+        : false
+    ).toBe(true);
   });
 
   it("uses practice prompts that bridge directly into the authored speaking mission", () => {

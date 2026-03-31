@@ -65,15 +65,34 @@ Current Learn UX shape:
   - focused summary
 - game is a required warm-up between practice and speaking
 - game uses richer authored payloads with `theme`, `assetRefs`, `layoutVariant`, stage presentation metadata, and authored summary copy
-- the current `very_basic`, `basic`, `intermediate`, and `advanced` games now use the richer Stage 3 game system:
-  - `assemble`
-  - `spotlight`
-  - `state_switch`
-  - `priority_board`
-  - plus the existing `choice`, `match`, `sequence`, `map`, and `voice_prompt` where they still fit the unit
-- voice is used only where it materially helps; the game remains completable through structural fallback when mic access or voice evaluation fails
+- the current `very_basic` and `basic` games now use the Stage 9 direct-playfield foundation, and Stage 10 gives `Name Tag Mixer`, `Map Route`, `Story Chain`, and `Scene Scan` a deeper showcase pass:
+  - `lane_runner`
+  - `sort_rush`
+  - `route_race`
+  - `reaction_pick`
+  - `voice_burst`
+- Stage 9 current-12 arcade stages require interaction metadata and richer arcade fields:
+  - `answerRevealMode`
+  - `ambientSet`
+  - `celebrationVariant`
+  - `interactionModel`
+  - `spriteRefs`
+  - `motionRules`
+  - `hitBoxes`
+  - `spawnTimeline`
+  - `failWindowMs`
+  - `rewardFx`
+  - `transitionFx`
+- current-12 arcade boards now use one in-board metrics HUD during active play; the outer Learn shell should not duplicate timer, hearts, score, or combo
+- current-12 arcade timers must never stay visibly live at `0:00`; once time expires, input locks and the stage resolves immediately
+- pre-answer reaction states should use neutral iconography (`spriteRefs.neutral`) when the learner should not infer correctness yet
+- current-12 arcade resolved states now use a short stage-clear interstitial with medal, score delta, combo carry-over where applicable, one why-it-worked note, and one clear next-stage CTA
+- the showcase games (`Name Tag Mixer`, `Map Route`, `Story Chain`, `Scene Scan`) now also use game-specific board/sprite assets, next-target emphasis on lane runners, clearer detour treatment on route boards, and tighter `voice_burst` layouts
+- `intermediate` and `advanced` remain on the authored Stage 3 board-first set for now
+- only 6 selected current-12 games use `voice_burst`; the current voice set remains `Name Tag Mixer`, `Snack Counter`, `Story Chain`, `Scene Scan`, `Station Help`, and `Choice Showdown`; all voice-enabled arcade stages remain completable through fallback when mic access or voice evaluation fails
 - preview mode currently means signed-in users land on the Pro game voice-capable path by default when voice is available
-- game feedback is coaching-first with no visible numeric score
+- the current 12 arcade games show visible local score, combo, hearts, timer, and medal inside the game, but never a global reward economy
+- all Learn games now share the compact game-feel layer: targeted motion, basic game audio, neutral or themed ambient audio, and a short completion celebration before summary
 - there is no separate Games tab or standalone game route; game remains inside Learn
 - speaking flow is:
   - brief

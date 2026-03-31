@@ -151,29 +151,58 @@ Avoid equal visual weight between overall trend and per-skill detail.
 - The Learn game step should feel more authored and visually distinct than the rest of the curriculum flow.
 - Use the game `theme` and `layoutVariant` to drive a stronger visual hierarchy, not just a different title.
 - Surface authored board metadata so the game reads like a designed learning moment, not a plain quiz card.
-- During active play, the game should use a compact in-flow progress strip instead of the full large Learn activity header.
+- During active play, the current `very_basic` and `basic` arcade games should use a compact in-board HUD instead of the full large Learn activity header and should rely on direct playfield manipulation instead of button-heavy quiz cards.
 - Keep the richer unit header only for the game `brief` and `summary` phases.
-- The current `very_basic`, `basic`, `intermediate`, and `advanced` games should rely primarily on tap-first mechanics:
-  - `assemble`
-  - `spotlight`
-  - `state_switch`
-  - `priority_board`
-- The current `very_basic` and `basic` games should use richer Stage 4 layout variants where appropriate:
-  - `slot_strip`
-  - `dialogue_pick`
-  - `voice_focus`
-  - `planner_dense`
-  - `scene_focus`
-  - `map_focus`
-- On pointer devices, slot-and-board stages may add drag-and-drop as an enhancement, but tap/select must remain the canonical path for touch, keyboard, and accessibility coverage.
-- Do not let every game collapse back to a repeated `quiz card + CTA` rhythm. The board, helper copy, and interaction should change with the game kind.
+- Keep one metrics HUD only on current-12 arcade games during active play. Do not duplicate timer, hearts, score, or combo in both the outer shell and the board.
+- Keep the pale Learn frame quiet so the dark board reads as the product during active arcade play.
+- The current `very_basic` and `basic` games should use the Stage 9 direct-playfield foundation, with Stage 10 applying a deeper showcase pass to `Name Tag Mixer`, `Map Route`, `Story Chain`, and `Scene Scan`:
+  - `lane_runner`
+  - `sort_rush`
+  - `route_race`
+  - `reaction_pick`
+  - `voice_burst`
+- Stage 9 current-12 arcade stages should declare their interaction model and rich motion assets so the playfield feels like a real game:
+  - `interactionModel`
+  - `spriteRefs`
+  - `motionRules`
+  - `hitBoxes`
+  - `spawnTimeline`
+  - `failWindowMs`
+  - `rewardFx`
+  - `transitionFx`
+- Arcade decision stages should default to `answerRevealMode = postanswer` so the learner cannot infer correctness through detail copy or iconography before choosing.
+- Pre-answer decision states should use neutral iconography only. `spriteRefs.neutral` is the canonical current-12 asset for pre-answer reaction and split-decision stages.
+- Active arcade timers must stay trustworthy: never leave a live board visibly sitting at `0:00`.
+- Current-12 arcade games should use one in-board metrics HUD only during active play. The outer Learn shell should keep stage count and progress quiet rather than duplicating live board metrics.
+- The current 12 arcade games should feel like premium micro-arcade scenes:
+  - stronger color identity per game
+  - animated hit / miss / clear feedback
+  - foreground sprite rendering for active elements, not only board backgrounds
+  - game-specific board and sprite kits on the showcase games so `Name Tag Mixer`, `Map Route`, `Story Chain`, and `Scene Scan` do not read like the same generic arcade shell with different copy
+  - short asset-backed SFX with synth fallback
+  - light ambient loop per arcade family when audio is enabled
+  - visible local timer, hearts, score, combo, and medal
+  - no global coins, XP, or leaderboards
+- Showcase lane-runner boards should visibly mark the next required target in both the rail and the board so the language objective reads immediately.
+- Showcase route-race boards should visually distinguish the clean route from detour branches so wrong turns feel spatial, not only evaluative.
+- All Learn games, including `intermediate` and `advanced`, should now share a compact feel layer:
+  - correct / incorrect audio feedback
+  - animated stage transitions instead of instant swaps
+  - a short completion celebration before the summary settles
+- On pointer devices, drag may enhance sorting interactions, but tap/select must remain the canonical path for touch, keyboard, and accessibility coverage.
+- Do not let every game collapse back to a repeated `quiz card + CTA` rhythm. The board, HUD, helper copy, and interaction should change with the game kind.
 - Keep the dominant action clear even when the visual treatment is richer.
-- Use voice only on stages where it materially helps the learning task; do not force voice chrome across every stage.
-- On voice-enabled game stages, `Say it` and `Quick backup` should both be visible at the top of the board. Backup must not look like a degraded path.
+- Use voice only on the selected arcade stages where it materially helps the learning task; do not force voice into every current game. The current voice set remains `Name Tag Mixer`, `Snack Counter`, `Story Chain`, `Scene Scan`, `Station Help`, and `Choice Showdown`.
+- On `voice_burst` stages, `Say it` and `Quick backup` should both be visible at the top of the board. Backup must not look like a degraded path.
+- On showcase `voice_burst` stages, keep the mode choice and primary action in one compact decision area so the capstone reads like one move, not a stacked form.
+- `intermediate` and `advanced` games remain board-first and should retain authored exercise shells rather than the Stage 9 micro-arcade HUD, but they should not run silently during active play; use `ambientSet = neutral` unless a calmer authored override exists.
 - Stage-complete feedback should feel resolved and specific:
-  - compact success pulse
-  - one short coaching note
+  - compact result banner
+  - visible medal/rank
+  - score-delta and combo-carry treatment when arcade metrics apply
+  - one short why-it-worked note
   - one clear next-stage CTA
+  - short stage-clear interstitial timing before the next board appears
 
 ## 7. Home Screen Hierarchy Contract
 

@@ -33,6 +33,10 @@ The app combines:
 - assessment-based level assignment and promotion (`very_basic`, `basic`, `intermediate`, `advanced`)
 - fixed English curricula with sequential units and required activity completion
 - personalized curriculum continuation flow in Learn
+- a split Learn game layer:
+  - the current `very_basic` and `basic` units use the Stage 9 direct-playfield foundation, and Stage 10 gives `Name Tag Mixer`, `Map Route`, `Story Chain`, and `Scene Scan` a deeper showcase pass
+  - all Learn games now share a compact sound / motion / celebration layer, while `intermediate` and `advanced` remain structurally board-first with a neutral ambient bed instead of silence
+  - `intermediate` and `advanced` keep structured scenario-driven game experiences
 - urgent one-tap `Homework Help now` path from Home
 - a dedicated Tools pillar for Homework Help and Test Prep Sprint
 - teacher-authored and placeholder curriculum content as primary learning source

@@ -70,6 +70,42 @@ Runtime context must include:
   - `recommendationReason`
   - `activeTopic` when available
 
+## 3.1 Shared Live Turn Disposition Contract
+
+Applies to:
+- Learn speaking realtime sessions
+- Speak realtime voice sessions
+- onboarding/full-diagnostic live voice
+
+After realtime transcription, each candidate learner turn must be classified before it counts for progress or receives normal coaching.
+
+Allowed dispositions:
+- `accepted_answer`
+- `clarification_request`
+- `acknowledgement_only`
+- `noise_or_unintelligible`
+- `off_task_short`
+
+Rules:
+- only `accepted_answer` turns may count toward mission progress, benchmark thresholds, or captured assessment evidence
+- `clarification_request` must trigger one simpler English rephrase of the last question and must not count
+- `acknowledgement_only` must trigger a brief prompt to answer the active question and must not count
+- `noise_or_unintelligible` must trigger repair language rather than a normal conversational follow-up and must not count
+- `off_task_short` must redirect the learner back to one full answer and must not count
+
+Persisted reason codes:
+- `accepted`
+- `clarification_repeat`
+- `clarification_non_english`
+- `acknowledgement_only`
+- `ambient_noise`
+- `unintelligible_audio`
+- `fragment_answer`
+
+Coaching rule:
+- accepted turns may emit normal coaching
+- rejected turns must emit repair guidance instead of normal coaching
+
 ## 4. Canonical Prompt Templates
 
 ## 4.1 Assessment Conversation Facilitator (System Prompt)

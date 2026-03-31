@@ -1,23 +1,38 @@
 import { inferLearnOpeningQuestion } from "@/server/learn-speaking-prompts";
 import { AUTHORED_SPEAKING_MISSIONS } from "@/server/curriculum-speaking-missions";
 import type {
+  ArcadeComboRules,
+  ArcadeHitBoxes,
+  ArcadeInteractionModel,
+  ArcadeMotionRules,
+  ArcadePathRules,
+  ArcadeRewardFx,
+  ArcadeScoreRules,
+  ArcadeSpawnTimeline,
+  ArcadeSpawnRules,
+  ArcadeSpriteRefs,
+  ArcadeTransitionFx,
   AssembleGameStage,
   ChoiceGameStage,
   GameActivityPayload,
   GameChoiceOption,
   GameLayoutVariant,
   GameMapNode,
-  GameMatchItem,
+  GameLane,
+  GameSoundSet,
   GameSummaryContent,
   GameStagePresentation,
   GameThemeToken,
   GameStage,
-  MapGameStage,
-  MatchGameStage,
+  LaneRunnerGameStage,
   PriorityBoardGameStage,
+  ReactionPickGameStage,
+  ReactionPickRound,
+  RouteRaceGameStage,
   SequenceGameStage,
+  SortRushGameStage,
   SpotlightGameStage,
-  StateSwitchGameStage,
+  VoiceBurstGameStage,
   VoicePromptGameStage,
 } from "@/server/learn-game-types";
 import type { MissionEvidenceTarget } from "@/server/learn-speaking-types";
@@ -433,16 +448,26 @@ function stageId(level: CurriculumLevel, unitIndex: number, suffix: string) {
   return `${level}-${unitIndex}-game-${suffix}`;
 }
 
-function choiceOption(id: string, label: string, detail?: string): GameChoiceOption {
+function choiceOption(
+  id: string,
+  label: string,
+  detail?: string,
+  isNearMiss = false
+): GameChoiceOption {
   return {
     id,
     label,
     detail,
+    isNearMiss,
   };
 }
 
 function gameAsset(assetName: string) {
   return `/games/stage1/${assetName}.svg`;
+}
+
+function spriteAsset(assetName: string) {
+  return `/games/stage6/${assetName}.svg`;
 }
 
 function gamePresentation(
@@ -503,31 +528,6 @@ function makeAssembleStage(
   };
 }
 
-function makeMatchStage(
-  id: string,
-  title: string,
-  prompt: string,
-  leftItems: GameMatchItem[],
-  rightItems: GameMatchItem[],
-  correctMatches: Array<{ leftId: string; rightId: string }>,
-  correctMessage: string,
-  retryMessage: string,
-  presentation?: GameStagePresentation
-): MatchGameStage {
-  return {
-    id,
-    kind: "match",
-    title,
-    prompt,
-    leftItems,
-    rightItems,
-    correctMatches,
-    correctMessage,
-    retryMessage,
-    presentation,
-  };
-}
-
 function makeSpotlightStage(
   id: string,
   title: string,
@@ -578,31 +578,6 @@ function makeSequenceStage(
   };
 }
 
-function makeStateSwitchStage(
-  id: string,
-  title: string,
-  prompt: string,
-  states: StateSwitchGameStage["states"],
-  responseOptions: GameChoiceOption[],
-  correctAssignments: Array<{ stateId: string; optionId: string }>,
-  correctMessage: string,
-  retryMessage: string,
-  presentation?: GameStagePresentation
-): StateSwitchGameStage {
-  return {
-    id,
-    kind: "state_switch",
-    title,
-    prompt,
-    states,
-    responseOptions,
-    correctAssignments,
-    correctMessage,
-    retryMessage,
-    presentation,
-  };
-}
-
 function makePriorityBoardStage(
   id: string,
   title: string,
@@ -622,29 +597,6 @@ function makePriorityBoardStage(
     lanes,
     cards,
     correctAssignments,
-    correctMessage,
-    retryMessage,
-    presentation,
-  };
-}
-
-function makeMapStage(
-  id: string,
-  title: string,
-  prompt: string,
-  nodes: GameMapNode[],
-  correctPathIds: string[],
-  correctMessage: string,
-  retryMessage: string,
-  presentation?: GameStagePresentation
-): MapGameStage {
-  return {
-    id,
-    kind: "map",
-    title,
-    prompt,
-    nodes,
-    correctPathIds,
     correctMessage,
     retryMessage,
     presentation,
@@ -684,6 +636,471 @@ function makeVoicePromptStage(
   };
 }
 
+type ArcadeStageOptions = {
+  presentation?: GameStagePresentation;
+  timerMs?: number;
+  lives?: number;
+  soundSet?: GameSoundSet;
+  theme?: GameThemeToken;
+  interactionModel?: ArcadeInteractionModel;
+  scoreRules?: Partial<ArcadeScoreRules>;
+  comboRules?: Partial<ArcadeComboRules>;
+  spawnRules?: ArcadeSpawnRules;
+  pathRules?: ArcadePathRules;
+  spriteRefs?: ArcadeSpriteRefs;
+  motionRules?: ArcadeMotionRules;
+  hitBoxes?: ArcadeHitBoxes;
+  spawnTimeline?: ArcadeSpawnTimeline;
+  failWindowMs?: number;
+  rewardFx?: ArcadeRewardFx;
+  transitionFx?: ArcadeTransitionFx;
+};
+
+function arcadeSpriteDefaults(kind: LaneRunnerGameStage["kind"] | SortRushGameStage["kind"] | RouteRaceGameStage["kind"] | ReactionPickGameStage["kind"] | VoiceBurstGameStage["kind"]): ArcadeSpriteRefs {
+  switch (kind) {
+    case "lane_runner":
+      return {
+        player: spriteAsset("runner-player"),
+        target: spriteAsset("runner-target"),
+        hazard: spriteAsset("runner-hazard"),
+        board: spriteAsset("lane-board"),
+        neutral: spriteAsset("runner-target"),
+      };
+    case "sort_rush":
+      return {
+        target: spriteAsset("sort-card"),
+        board: spriteAsset("sort-board"),
+        accent: spriteAsset("sort-accent"),
+        neutral: spriteAsset("sort-accent"),
+      };
+    case "route_race":
+      return {
+        player: spriteAsset("route-marker"),
+        target: spriteAsset("route-node"),
+        hazard: spriteAsset("route-detour"),
+        board: spriteAsset("route-board"),
+        neutral: spriteAsset("route-marker"),
+      };
+    case "reaction_pick":
+      return {
+        neutral: spriteAsset("reaction-neutral"),
+        target: spriteAsset("reaction-good"),
+        hazard: spriteAsset("reaction-bad"),
+        board: spriteAsset("reaction-board"),
+      };
+    case "voice_burst":
+      return {
+        player: spriteAsset("voice-mic"),
+        target: spriteAsset("voice-wave"),
+        board: spriteAsset("voice-board"),
+        neutral: spriteAsset("voice-mic"),
+      };
+  }
+}
+
+function arcadeScoreRules(overrides: Partial<ArcadeScoreRules> = {}): ArcadeScoreRules {
+  return {
+    correct: 100,
+    miss: 35,
+    streakBonus: 16,
+    clearBonus: 120,
+    timeBonusMultiplier: 0.02,
+    ...overrides,
+  };
+}
+
+function arcadeComboRules(overrides: Partial<ArcadeComboRules> = {}): ArcadeComboRules {
+  return {
+    maxCombo: 5,
+    breakOnMiss: true,
+    ...overrides,
+  };
+}
+
+function arcadeMotionDefaults(kind: ArcadeStageOptions["interactionModel"]): ArcadeMotionRules {
+  switch (kind) {
+    case "cross_dash":
+      return { dashStep: 1, driftPx: 8, travelMs: 170 };
+    case "conveyor_bins":
+      return { conveyorSpeed: 1.15, travelMs: 210, driftPx: 4 };
+    case "grid_runner":
+      return { routeSnapMs: 180, travelMs: 210, driftPx: 6 };
+    case "target_tag":
+      return { targetFloatPx: 14, travelMs: 160 };
+    case "split_decision":
+      return { targetFloatPx: 8, travelMs: 140 };
+    case "burst_callout":
+      return { driftPx: 3, travelMs: 120 };
+    default:
+      return {};
+  }
+}
+
+function arcadeHitBoxDefaults(kind: ArcadeStageOptions["interactionModel"]): ArcadeHitBoxes {
+  switch (kind) {
+    case "cross_dash":
+      return { targetRadius: 0.74, lanePadding: 0.12 };
+    case "conveyor_bins":
+      return { targetRadius: 0.82, binPadding: 0.1 };
+    case "grid_runner":
+      return { targetRadius: 0.78, nodeRadius: 0.24 };
+    case "target_tag":
+      return { targetRadius: 0.76 };
+    case "split_decision":
+      return { targetRadius: 0.88 };
+    case "burst_callout":
+      return { targetRadius: 0.9 };
+    default:
+      return {};
+  }
+}
+
+function arcadeSpawnTimelineDefaults(kind: ArcadeStageOptions["interactionModel"]): ArcadeSpawnTimeline {
+  switch (kind) {
+    case "cross_dash":
+      return { introMs: 600, rampEveryMs: 2800, spawnEveryMs: 1200 };
+    case "conveyor_bins":
+      return { introMs: 450, rampEveryMs: 2400, spawnEveryMs: 1100, closeLaneEveryMs: 5200 };
+    case "grid_runner":
+      return { introMs: 500, rampEveryMs: 2600, spawnEveryMs: 1250 };
+    case "target_tag":
+      return { introMs: 350, rampEveryMs: 2100, spawnEveryMs: 950 };
+    case "split_decision":
+      return { introMs: 320, rampEveryMs: 1900, spawnEveryMs: 900 };
+    case "burst_callout":
+      return { introMs: 300, rampEveryMs: 1600, spawnEveryMs: 1000 };
+    default:
+      return {};
+  }
+}
+
+function arcadeRewardFxDefaults(kind: ArcadeStageOptions["interactionModel"]): ArcadeRewardFx {
+  switch (kind) {
+    case "cross_dash":
+      return {
+        hitBurst: "lane-hit",
+        missFlash: "lane-miss",
+        comboGlow: "lane-streak",
+        medalReveal: "lane-medal",
+      };
+    case "conveyor_bins":
+      return {
+        hitBurst: "sort-snap",
+        missFlash: "sort-jam",
+        comboGlow: "sort-streak",
+        medalReveal: "sort-medal",
+      };
+    case "grid_runner":
+      return {
+        hitBurst: "route-snap",
+        missFlash: "route-detour",
+        comboGlow: "route-streak",
+        medalReveal: "route-medal",
+      };
+    case "target_tag":
+      return {
+        hitBurst: "target-pop",
+        missFlash: "target-fade",
+        comboGlow: "target-streak",
+        medalReveal: "target-medal",
+      };
+    case "split_decision":
+      return {
+        hitBurst: "decision-lock",
+        missFlash: "decision-slip",
+        comboGlow: "decision-streak",
+        medalReveal: "decision-medal",
+      };
+    case "burst_callout":
+      return {
+        hitBurst: "voice-pulse",
+        missFlash: "voice-drop",
+        comboGlow: "voice-rise",
+        medalReveal: "voice-medal",
+      };
+    default:
+      return {};
+  }
+}
+
+function arcadeTransitionDefaults(kind: ArcadeStageOptions["interactionModel"]): ArcadeTransitionFx {
+  switch (kind) {
+    case "cross_dash":
+      return { introMs: 260, clearMs: 360, stageSwapMs: 320 };
+    case "conveyor_bins":
+      return { introMs: 220, clearMs: 340, stageSwapMs: 300 };
+    case "grid_runner":
+      return { introMs: 240, clearMs: 360, stageSwapMs: 320 };
+    case "target_tag":
+      return { introMs: 180, clearMs: 300, stageSwapMs: 280 };
+    case "split_decision":
+      return { introMs: 160, clearMs: 280, stageSwapMs: 260 };
+    case "burst_callout":
+      return { introMs: 180, clearMs: 320, stageSwapMs: 280 };
+    default:
+      return {};
+  }
+}
+
+function arcadeFailWindowDefault(kind: ArcadeStageOptions["interactionModel"]) {
+  switch (kind) {
+    case "cross_dash":
+      return 900;
+    case "conveyor_bins":
+      return 850;
+    case "grid_runner":
+      return 880;
+    case "target_tag":
+      return 760;
+    case "split_decision":
+      return 720;
+    case "burst_callout":
+      return 1200;
+    default:
+      return 900;
+  }
+}
+
+function makeLaneRunnerStage(
+  id: string,
+  title: string,
+  prompt: string,
+  lanes: GameLane[],
+  tokens: LaneRunnerGameStage["tokens"],
+  targetSequenceIds: string[],
+  correctMessage: string,
+  retryMessage: string,
+  options: ArcadeStageOptions = {}
+): LaneRunnerGameStage {
+  const interactionModel = options.interactionModel ?? "cross_dash";
+  return {
+    id,
+    kind: "lane_runner",
+    title,
+    prompt,
+    lanes,
+    tokens,
+    targetSequenceIds,
+    timerMs: options.timerMs ?? 24000,
+    lives: options.lives ?? 3,
+    scoreRules: arcadeScoreRules(options.scoreRules),
+    comboRules: arcadeComboRules(options.comboRules),
+    hudVariant: "lane_runner",
+    interactionModel,
+    soundSet: options.soundSet ?? "hallway",
+    theme: options.theme,
+    spriteRefs: {
+      ...arcadeSpriteDefaults("lane_runner"),
+      ...(options.spriteRefs ?? {}),
+    },
+    spawnRules: options.spawnRules,
+    pathRules: options.pathRules,
+    motionRules: { ...arcadeMotionDefaults(interactionModel), ...(options.motionRules ?? {}) },
+    hitBoxes: { ...arcadeHitBoxDefaults(interactionModel), ...(options.hitBoxes ?? {}) },
+    spawnTimeline: { ...arcadeSpawnTimelineDefaults(interactionModel), ...(options.spawnTimeline ?? {}) },
+    failWindowMs: options.failWindowMs ?? arcadeFailWindowDefault(interactionModel),
+    rewardFx: { ...arcadeRewardFxDefaults(interactionModel), ...(options.rewardFx ?? {}) },
+    transitionFx: { ...arcadeTransitionDefaults(interactionModel), ...(options.transitionFx ?? {}) },
+    correctMessage,
+    retryMessage,
+    presentation: options.presentation,
+  };
+}
+
+function makeSortRushStage(
+  id: string,
+  title: string,
+  prompt: string,
+  lanes: GameLane[],
+  cards: SortRushGameStage["cards"],
+  correctAssignments: SortRushGameStage["correctAssignments"],
+  correctMessage: string,
+  retryMessage: string,
+  options: ArcadeStageOptions = {}
+): SortRushGameStage {
+  const interactionModel = options.interactionModel ?? "conveyor_bins";
+  return {
+    id,
+    kind: "sort_rush",
+    title,
+    prompt,
+    lanes,
+    cards,
+    correctAssignments,
+    timerMs: options.timerMs ?? 22000,
+    lives: options.lives ?? 3,
+    scoreRules: arcadeScoreRules(options.scoreRules),
+    comboRules: arcadeComboRules(options.comboRules),
+    hudVariant: "sort_rush",
+    interactionModel,
+    soundSet: options.soundSet ?? "planner",
+    theme: options.theme,
+    spriteRefs: {
+      ...arcadeSpriteDefaults("sort_rush"),
+      ...(options.spriteRefs ?? {}),
+    },
+    spawnRules: options.spawnRules,
+    pathRules: options.pathRules,
+    motionRules: { ...arcadeMotionDefaults(interactionModel), ...(options.motionRules ?? {}) },
+    hitBoxes: { ...arcadeHitBoxDefaults(interactionModel), ...(options.hitBoxes ?? {}) },
+    spawnTimeline: { ...arcadeSpawnTimelineDefaults(interactionModel), ...(options.spawnTimeline ?? {}) },
+    failWindowMs: options.failWindowMs ?? arcadeFailWindowDefault(interactionModel),
+    rewardFx: { ...arcadeRewardFxDefaults(interactionModel), ...(options.rewardFx ?? {}) },
+    transitionFx: { ...arcadeTransitionDefaults(interactionModel), ...(options.transitionFx ?? {}) },
+    correctMessage,
+    retryMessage,
+    presentation: options.presentation,
+  };
+}
+
+function makeRouteRaceStage(
+  id: string,
+  title: string,
+  prompt: string,
+  nodes: GameMapNode[],
+  correctPathIds: string[],
+  correctMessage: string,
+  retryMessage: string,
+  options: ArcadeStageOptions = {}
+): RouteRaceGameStage {
+  const interactionModel = options.interactionModel ?? "grid_runner";
+  return {
+    id,
+    kind: "route_race",
+    title,
+    prompt,
+    nodes,
+    correctPathIds,
+    timerMs: options.timerMs ?? 24000,
+    lives: options.lives ?? 3,
+    scoreRules: arcadeScoreRules(options.scoreRules),
+    comboRules: arcadeComboRules(options.comboRules),
+    hudVariant: "route_race",
+    interactionModel,
+    soundSet: options.soundSet ?? "route",
+    theme: options.theme,
+    spriteRefs: {
+      ...arcadeSpriteDefaults("route_race"),
+      ...(options.spriteRefs ?? {}),
+    },
+    spawnRules: options.spawnRules,
+    pathRules: options.pathRules,
+    motionRules: { ...arcadeMotionDefaults(interactionModel), ...(options.motionRules ?? {}) },
+    hitBoxes: { ...arcadeHitBoxDefaults(interactionModel), ...(options.hitBoxes ?? {}) },
+    spawnTimeline: { ...arcadeSpawnTimelineDefaults(interactionModel), ...(options.spawnTimeline ?? {}) },
+    failWindowMs: options.failWindowMs ?? arcadeFailWindowDefault(interactionModel),
+    rewardFx: { ...arcadeRewardFxDefaults(interactionModel), ...(options.rewardFx ?? {}) },
+    transitionFx: { ...arcadeTransitionDefaults(interactionModel), ...(options.transitionFx ?? {}) },
+    correctMessage,
+    retryMessage,
+    presentation: options.presentation,
+  };
+}
+
+function makeReactionPickStage(
+  id: string,
+  title: string,
+  prompt: string,
+  rounds: ReactionPickRound[],
+  correctMessage: string,
+  retryMessage: string,
+  options: ArcadeStageOptions = {}
+): ReactionPickGameStage {
+  const interactionModel = options.interactionModel ?? "split_decision";
+  return {
+    id,
+    kind: "reaction_pick",
+    title,
+    prompt,
+    rounds,
+    timerMs: options.timerMs ?? 18000,
+    lives: options.lives ?? 3,
+    scoreRules: arcadeScoreRules(options.scoreRules),
+    comboRules: arcadeComboRules(options.comboRules),
+    hudVariant: "reaction_pick",
+    interactionModel,
+    soundSet: options.soundSet ?? "comparison",
+    theme: options.theme,
+    spriteRefs: {
+      ...arcadeSpriteDefaults("reaction_pick"),
+      ...(options.spriteRefs ?? {}),
+    },
+    spawnRules: options.spawnRules,
+    pathRules: options.pathRules,
+    motionRules: { ...arcadeMotionDefaults(interactionModel), ...(options.motionRules ?? {}) },
+    hitBoxes: { ...arcadeHitBoxDefaults(interactionModel), ...(options.hitBoxes ?? {}) },
+    spawnTimeline: { ...arcadeSpawnTimelineDefaults(interactionModel), ...(options.spawnTimeline ?? {}) },
+    failWindowMs: options.failWindowMs ?? arcadeFailWindowDefault(interactionModel),
+    rewardFx: { ...arcadeRewardFxDefaults(interactionModel), ...(options.rewardFx ?? {}) },
+    transitionFx: { ...arcadeTransitionDefaults(interactionModel), ...(options.transitionFx ?? {}) },
+    correctMessage,
+    retryMessage,
+    presentation: options.presentation
+      ? {
+          ...options.presentation,
+          answerRevealMode: options.presentation.answerRevealMode ?? "postanswer",
+        }
+      : undefined,
+  };
+}
+
+function makeVoiceBurstStage(
+  id: string,
+  title: string,
+  prompt: string,
+  targetPhrase: string,
+  coachFocus: string,
+  fallbackOptions: GameChoiceOption[],
+  correctOptionId: string,
+  correctMessage: string,
+  retryMessage: string,
+  options?: ArcadeStageOptions & {
+    requiredPhrases?: string[];
+    acceptedResponses?: string[];
+  }
+): VoiceBurstGameStage {
+  const interactionModel = options?.interactionModel ?? "burst_callout";
+  return {
+    id,
+    kind: "voice_burst",
+    title,
+    prompt,
+    targetPhrase,
+    coachFocus,
+    requiredPhrases: options?.requiredPhrases,
+    acceptedResponses: options?.acceptedResponses,
+    fallbackOptions,
+    correctOptionId,
+    timerMs: options?.timerMs ?? 18000,
+    lives: options?.lives ?? 3,
+    scoreRules: arcadeScoreRules(options?.scoreRules),
+    comboRules: arcadeComboRules({
+      maxCombo: 3,
+      breakOnMiss: false,
+      ...(options?.comboRules ?? {}),
+    }),
+    hudVariant: "voice_burst",
+    interactionModel,
+    soundSet: options?.soundSet ?? "neutral",
+    theme: options?.theme,
+    spriteRefs: {
+      ...arcadeSpriteDefaults("voice_burst"),
+      ...(options?.spriteRefs ?? {}),
+    },
+    spawnRules: options?.spawnRules,
+    pathRules: options?.pathRules,
+    motionRules: { ...arcadeMotionDefaults(interactionModel), ...(options?.motionRules ?? {}) },
+    hitBoxes: { ...arcadeHitBoxDefaults(interactionModel), ...(options?.hitBoxes ?? {}) },
+    spawnTimeline: { ...arcadeSpawnTimelineDefaults(interactionModel), ...(options?.spawnTimeline ?? {}) },
+    failWindowMs: options?.failWindowMs ?? arcadeFailWindowDefault(interactionModel),
+    rewardFx: { ...arcadeRewardFxDefaults(interactionModel), ...(options?.rewardFx ?? {}) },
+    transitionFx: { ...arcadeTransitionDefaults(interactionModel), ...(options?.transitionFx ?? {}) },
+    correctMessage,
+    retryMessage,
+    presentation: options?.presentation,
+  };
+}
+
 function createGamePayload(
   gameId: string,
   gameTitle: string,
@@ -693,18 +1110,39 @@ function createGamePayload(
   options?: {
     theme?: GameThemeToken;
     layoutVariant?: GameLayoutVariant;
+    ambientSet?: GameSoundSet;
+    celebrationVariant?: GameActivityPayload["celebrationVariant"];
     assetName?: string;
     sceneAssetName?: string;
     summaryAssetName?: string;
     summary?: GameSummaryContent;
+    maxRetriesPerStage?: number;
   }
 ): GameActivityPayload {
+  const hasArcadeStages = stages.some((stage) =>
+    ["lane_runner", "sort_rush", "route_race", "reaction_pick", "voice_burst"].includes(stage.kind)
+  );
+  const defaultAmbientSet = stages.reduce<GameSoundSet | undefined>((current, stage) => {
+    if (current) {
+      return current;
+    }
+
+    if ("soundSet" in stage && typeof stage.soundSet === "string") {
+      return stage.soundSet;
+    }
+
+    return undefined;
+  }, undefined);
+
   return {
     gameId,
     gameTitle,
     gameKind,
     theme: options?.theme ?? "teal",
     layoutVariant: options?.layoutVariant ?? "generic",
+    ambientSet: options?.ambientSet ?? defaultAmbientSet ?? "neutral",
+    celebrationVariant:
+      options?.celebrationVariant ?? (hasArcadeStages ? "arcade_pulse" : "structured_glow"),
     assetRefs: {
       hero: gameAsset(options?.assetName ?? "name-tag-mixer"),
       scene: options?.sceneAssetName ? gameAsset(options.sceneAssetName) : undefined,
@@ -721,7 +1159,7 @@ function createGamePayload(
       } satisfies GameSummaryContent),
     completionRule: {
       requiredStageCount: stages.length,
-      maxRetriesPerStage: 1,
+      maxRetriesPerStage: options?.maxRetriesPerStage ?? 1,
     },
   };
 }
@@ -807,99 +1245,165 @@ function createStageOneGame(
         `${level}-${unitIndex}-game`,
         "Name Tag Mixer",
         "name_tag_mixer",
-        "Build a clean first introduction before you start the unit conversation.",
+        "Sprint through a school hallway, collect the clean intro pieces, and burst out one confident first-meeting line.",
         [
-          makeAssembleStage(
-            stageId(level, unitIndex, "assemble"),
-            "Build the name tag",
-            "Fill the intro slots so the first meeting sounds clean and natural.",
+          makeLaneRunnerStage(
+            stageId(level, unitIndex, "runner"),
+            "Hallway dash",
+            "Cross the hallway, collect the greeting, name, country, and question-back pieces, and skip the extra-detail decoys.",
             [
-              { id: "greeting", label: "Greeting", detail: "Open the intro" },
-              { id: "name", label: "Name", detail: "Say who you are" },
-              { id: "country", label: "Country", detail: "Add where you are from" },
-              { id: "question", label: "Question back", detail: "Keep the talk moving" },
+              { id: "lane-1", label: "Front doors" },
+              { id: "lane-2", label: "Locker glow" },
+              { id: "lane-3", label: "Poster wall" },
+              { id: "lane-4", label: "Window side" },
             ],
             [
-              choiceOption("opt-hi", "Hi", "A natural opening"),
-              choiceOption("opt-ana", "I'm Ana.", "Your name detail"),
-              choiceOption("opt-brazil", "I'm from Brazil.", "Country detail"),
-              choiceOption("opt-question", "What about you?", "Question back"),
-              choiceOption("opt-age", "I'm sixteen.", "Extra detail, not needed here"),
+              { id: "token-hi", label: "Hi", lane: 3, column: 1, role: "target" },
+              { id: "token-ana", label: "I'm Ana.", lane: 2, column: 2, role: "target" },
+              { id: "token-brazil", label: "I'm from Brazil.", lane: 1, column: 3, role: "target" },
+              { id: "token-question", label: "What about you?", lane: 0, column: 4, role: "target" },
+              { id: "token-age", label: "I'm sixteen.", lane: 1, column: 1, role: "hazard" },
+              { id: "token-weekend", label: "I'm on the robotics team.", lane: 2, column: 4, role: "hazard" },
             ],
-            [
-              { slotId: "greeting", optionId: "opt-hi" },
-              { slotId: "name", optionId: "opt-ana" },
-              { slotId: "country", optionId: "opt-brazil" },
-              { slotId: "question", optionId: "opt-question" },
-            ],
-            "Good. The intro badge is complete and ready to use.",
-            "Fill each slot so the intro has a greeting, name, country, and question back.",
-            gamePresentation("slot_strip", {
-              boardTitle: "Intro board",
-              helperLabel: "Intro cards",
-              helperText: "Build one smooth intro by placing the greeting, name, country, and question-back in the right slots.",
-              callToAction: "Lock the intro",
-            })
+            ["token-hi", "token-ana", "token-brazil", "token-question"],
+            "Good. You crossed cleanly and picked up the full intro line in order.",
+            "Run it again and collect the intro pieces in the order a real first meeting needs.",
+            {
+              timerMs: 24000,
+              soundSet: "hallway",
+              theme: "ocean",
+              scoreRules: { correct: 120, miss: 40, streakBonus: 18, clearBonus: 150 },
+              spriteRefs: {
+                board: spriteAsset("name-tag-hallway-board"),
+                player: spriteAsset("name-tag-player"),
+                target: spriteAsset("name-tag-target"),
+                hazard: spriteAsset("name-tag-hazard"),
+                neutral: spriteAsset("name-tag-neutral"),
+              },
+              presentation: gamePresentation("arcade_lane_runner", {
+                boardTitle: "Hallway run",
+                helperLabel: "Intro rail",
+                helperText: "Build the intro rail in order as you cross the hallway. Skip details that come too early.",
+                resolvedTitle: "Intro rail locked",
+                resolvedNote: "You built a first-meeting opener in the order a real introduction needs.",
+              }),
+            }
           ),
-          makeChoiceStage(
-            stageId(level, unitIndex, "choice"),
-            "Pick the reply card",
-            "Which reply card best keeps a first meeting going?",
+          makeReactionPickStage(
+            stageId(level, unitIndex, "reply-rush"),
+            "Reply rush",
+            "Clear the best first-meeting question before the hallway clock runs out.",
             [
-              choiceOption("good", "Where are you from?", "Simple and natural for a first meeting"),
-              choiceOption("class", "What school are you in?", "Reasonable, but less natural than asking where someone is from first"),
-              choiceOption("weekend", "What do you usually do after class?", "Possible later, but less natural in the first exchange"),
+              {
+                id: "round-1",
+                prompt: "A new classmate says: Hi, I'm Ana.",
+                dialoguePrompt: "Pick the simple question that naturally comes next.",
+                correctOptionId: "from",
+                options: [
+                  choiceOption("from", "Where are you from?", "Best first follow-up after only the name."),
+                  choiceOption(
+                    "class",
+                    "What class are you in?",
+                    "Possible at school, but it skips past the simplest personal follow-up.",
+                    true
+                  ),
+                  choiceOption(
+                    "city",
+                    "How old are you?",
+                    "Too personal for the first question in a new exchange."
+                  ),
+                ],
+              },
+              {
+                id: "round-2",
+                prompt: "You say: Hi, I'm Leo. I'm from Mexico.",
+                correctOptionId: "question-back",
+                options: [
+                  choiceOption("question-back", "What about you?", "Short, natural, and easy to answer."),
+                  choiceOption(
+                    "stay",
+                    "And you?",
+                    "Close, but a little thinner than the strongest question-back.",
+                    true
+                  ),
+                  choiceOption(
+                    "meet",
+                    "What is your phone number?",
+                    "Too personal for the first exchange, even if the tone sounds friendly."
+                  ),
+                ],
+              },
             ],
-            "good",
-            "Good. That keeps the intro moving naturally.",
-            "Pick the reply card that fits a first meeting best.",
-            gamePresentation("dialogue_pick", {
-              boardTitle: "First-meeting reply",
-              helperLabel: "Reply cards",
-              helperText: "Choose the question that sounds the most natural right after a simple introduction.",
-              dialoguePrompt: "You say: Hi, I'm Ana. I'm from Brazil.",
-              callToAction: "Choose reply",
-            })
+            "Good. Your reply choices kept the first meeting sounding natural.",
+            "Clear the quickest, most natural replies instead of jumping too far ahead.",
+            {
+              timerMs: 18000,
+              soundSet: "hallway",
+              theme: "ocean",
+              interactionModel: "target_tag",
+              spriteRefs: {
+                board: spriteAsset("name-tag-chat-board"),
+                target: spriteAsset("name-tag-target"),
+                hazard: spriteAsset("name-tag-hazard"),
+                neutral: spriteAsset("name-tag-neutral"),
+              },
+              presentation: gamePresentation("arcade_reaction_pick", {
+                boardTitle: "First-meeting reactions",
+                helperLabel: "Keep it moving",
+                helperText: "Choose the reply that keeps the exchange light and easy for the other person to answer.",
+                callToAction: "Lock reply",
+                resolvedTitle: "Reply line ready",
+                resolvedNote: "You kept the exchange open without making it too personal too fast.",
+              }),
+            }
           ),
-          makeVoicePromptStage(
-            stageId(level, unitIndex, "voice"),
-            "Say your intro",
-            "Say a short intro that includes your name, your country, and a question back.",
+          makeVoiceBurstStage(
+            stageId(level, unitIndex, "voice-burst"),
+            "Intro burst",
+            "Say one short first-meeting line with your name, country, and one question back.",
             "Hi, I'm Ana from Brazil. What about you?",
-            "Keep your name, country, and question back in one smooth line.",
+            "Keep the line short, bright, and easy for the other person to answer.",
             [
               choiceOption("good", "Hi, I'm Ana from Brazil. What about you?"),
               choiceOption("alt-1", "Hi, I'm Ana. I'm from Brazil."),
               choiceOption("alt-2", "Hello, I'm Ana from Brazil."),
             ],
             "good",
-            "Good. You are ready to introduce yourself in the speaking step.",
-            "Stay closer to a short intro with your country and one question back.",
+            "Good. That burst line sounds ready for the speaking conversation.",
+            "Keep the name, country, and question back together in one short burst.",
             {
+              timerMs: 18000,
+              soundSet: "neutral",
+              theme: "ocean",
               requiredPhrases: ["from", "what about you"],
+              spriteRefs: {
+                board: spriteAsset("name-tag-chat-board"),
+                target: spriteAsset("name-tag-target"),
+              },
               acceptedResponses: [
                 "Hi, I'm Ana from Brazil. What about you?",
                 "Hello, I'm Ana from Brazil. What about you?",
                 "Hi, my name is Ana. I'm from Brazil. What about you?",
               ],
               presentation: gamePresentation("voice_focus", {
-                boardTitle: "Intro line",
-                helperLabel: "Try the full line once",
-                helperText: "Say the intro once or use the quick backup. Keep the name, country, and question-back together.",
-                callToAction: "Check intro",
+                boardTitle: "Voice burst",
+                helperText: "Say it once or use the quick backup. This is the same line you want ready for speaking.",
+                resolvedTitle: "Voice burst cleared",
+                resolvedNote: "You kept the intro short enough to sound like a real first meeting, not a speech.",
               }),
             }
           ),
         ],
         {
           theme: "ocean",
-          layoutVariant: "mixer",
+          layoutVariant: "arcade_lane_runner",
           assetName: "name-tag-mixer",
           summary: {
-            strength: "Your intro now has a clean opening, a country detail, and a natural question back.",
-            nextFocus: "Keep the question back short so the conversation opens smoothly.",
-            bridgeToSpeaking: "Use the same intro to open the speaking conversation with confidence.",
+            strength: "You built a fast, clean first-meeting intro and kept the replies natural instead of random.",
+            nextFocus: "Keep your opener short enough that the other person can answer easily.",
+            bridgeToSpeaking: "Open the speaking mission with the same short intro burst and let the other person in quickly.",
           },
+          maxRetriesPerStage: 2,
         }
       );
     case "family-friends-and-classroom-language":
@@ -907,104 +1411,137 @@ function createStageOneGame(
         `${level}-${unitIndex}-game`,
         "Borrow and Describe",
         "borrow_and_describe",
-        "Match a simple person description and finish with the right classroom request.",
+        "Sort people and classroom language quickly so your description and request feel ready in the same scene.",
         [
-          makeMatchStage(
-            stageId(level, unitIndex, "match"),
-            "Who is who?",
-            "Match each person to the best simple detail.",
+          makeSortRushStage(
+            stageId(level, unitIndex, "people-sort"),
+            "People sort",
+            "Drop each person card into the lane that fits the best simple description.",
             [
-              { id: "brother", label: "My brother" },
-              { id: "friend", label: "My friend" },
-              { id: "teacher", label: "My teacher" },
+              { id: "family", label: "Family detail" },
+              { id: "friend", label: "Friend detail" },
+              { id: "teacher", label: "Teacher detail" },
             ],
             [
-              { id: "friendly", label: "is friendly and funny" },
-              { id: "music", label: "likes music after class" },
-              { id: "kind", label: "is kind and helpful" },
+              { id: "brother", label: "My brother likes soccer after school." },
+              { id: "friend-card", label: "My friend is funny and easy to talk to." },
+              { id: "teacher-card", label: "My teacher is kind and helpful in class." },
             ],
             [
-              { leftId: "brother", rightId: "friendly" },
-              { leftId: "friend", rightId: "music" },
-              { leftId: "teacher", rightId: "kind" },
+              { cardId: "brother", laneId: "family" },
+              { cardId: "friend-card", laneId: "friend" },
+              { cardId: "teacher-card", laneId: "teacher" },
             ],
-            "Good. Each person now has one clear detail.",
-            "Match each person to the detail that sounds the most natural.",
-            gamePresentation("character_cards", {
-              boardTitle: "People board",
-              helperLabel: "People cards",
-              helperText: "Match each person to one simple detail before you ask for help in class.",
-              callToAction: "Save matches",
-            })
-          ),
-          makeAssembleStage(
-            stageId(level, unitIndex, "assemble"),
-            "Build the request",
-            "Fill the request slots so the classroom ask sounds polite and specific.",
-            [
-              { id: "polite", label: "Polite start", detail: "Open the request politely" },
-              { id: "need", label: "Need", detail: "Say what you need" },
-              { id: "time", label: "Time frame", detail: "Keep it short and easy" },
-            ],
-            [
-              choiceOption("opt-excuse", "Excuse me,", "Polite start"),
-              choiceOption("opt-borrow", "can I borrow your pencil", "Clear classroom need"),
-              choiceOption("opt-minute", "for a minute?", "Short time frame"),
-              choiceOption("opt-demand", "give me your pencil", "Too direct"),
-            ],
-            [
-              { slotId: "polite", optionId: "opt-excuse" },
-              { slotId: "need", optionId: "opt-borrow" },
-              { slotId: "time", optionId: "opt-minute" },
-            ],
-            "Good. That request sounds polite and classroom-ready.",
-            "Build the request so it sounds polite, specific, and short.",
-            gamePresentation("slot_strip", {
-              boardTitle: "Request board",
-              helperLabel: "Classroom request",
-              helperText: "Assemble the ask you would actually use in class.",
-              callToAction: "Lock request",
-            })
-          ),
-          makeVoicePromptStage(
-            stageId(level, unitIndex, "voice"),
-            "Say the request",
-            "Say the classroom request you are most likely to need.",
-            "Excuse me, can I borrow your pencil for a minute?",
-            "Keep the request polite and clear.",
-            [
-              choiceOption("good", "Excuse me, can I borrow your pencil for a minute?"),
-              choiceOption("alt-1", "Can I borrow your pencil?"),
-              choiceOption("alt-2", "Could I borrow your pencil for a minute?"),
-            ],
-            "good",
-            "Good. You are ready to use that request in the conversation.",
-            "Stay closer to the polite classroom request.",
+            "Good. The people details are sorted cleanly.",
+            "Sort each person detail into the strongest lane so the scene stays easy to follow.",
             {
-              requiredPhrases: ["borrow", "pencil"],
-              acceptedResponses: [
-                "Excuse me, can I borrow your pencil for a minute?",
-                "Can I borrow your pencil for a minute?",
-                "Could I borrow your pencil for a minute?",
-              ],
-              presentation: gamePresentation("voice_focus", {
-                boardTitle: "Request line",
-                helperLabel: "One clean classroom line",
-                helperText: "Say the request once, clearly and politely.",
-                callToAction: "Check request",
+              timerMs: 21000,
+              soundSet: "classroom",
+              theme: "mint",
+              presentation: gamePresentation("arcade_sort_rush", {
+                boardTitle: "People trays",
+                helperText: "Sort the people details fast so the family, friend, and teacher cards stop colliding.",
+                resolvedTitle: "People scene sorted",
+                resolvedNote: "You separated the people details clearly enough to use them in a real conversation.",
+              }),
+            }
+          ),
+          makeReactionPickStage(
+            stageId(level, unitIndex, "request-pick"),
+            "Request pick",
+            "Clear the polite classroom request before the queue backs up.",
+            [
+              {
+                id: "round-1",
+                prompt: "You need a pencil in class.",
+                dialoguePrompt: "Choose the line that sounds polite and specific, not demanding.",
+                correctOptionId: "borrow",
+                options: [
+                  choiceOption("borrow", "Excuse me, can I borrow your pencil for a minute?", "Polite and specific"),
+                  choiceOption(
+                    "demand",
+                    "Can I use your pencil after class?",
+                    "Polite, but it misses the right class-time moment",
+                    true
+                  ),
+                  choiceOption("vague", "Do you have an extra pencil today?", "Possible, but less clear about borrowing"),
+                ],
+              },
+              {
+                id: "round-2",
+                prompt: "Now make the request sound short enough for class.",
+                correctOptionId: "minute",
+                options: [
+                  choiceOption("minute", "for a minute?", "Keeps it short"),
+                  choiceOption(
+                    "forever",
+                    "for this class?",
+                    "Possible, but longer than the clean short borrow request",
+                    true
+                  ),
+                  choiceOption("after-school", "until the end of class?", "Related, but less light than the quickest classroom ask"),
+                ],
+              },
+            ],
+            "Good. The classroom request now sounds polite and usable.",
+            "Pick the request pieces that sound like real classroom English, not direct or vague language.",
+            {
+              timerMs: 18000,
+              soundSet: "classroom",
+              theme: "mint",
+              presentation: gamePresentation("arcade_reaction_pick", {
+                boardTitle: "Classroom queue",
+                helperText: "Clear the request choices that sound polite enough to use with a classmate or teacher.",
+                resolvedTitle: "Request line ready",
+                resolvedNote: "You kept the request polite, short, and realistic for class.",
+              }),
+            }
+          ),
+          makeSortRushStage(
+            stageId(level, unitIndex, "scene-sort"),
+            "Scene split",
+            "Sort the final cards into Describe or Ask so the mini-scene feels complete.",
+            [
+              { id: "describe", label: "Describe" },
+              { id: "ask", label: "Ask in class" },
+            ],
+            [
+              { id: "kind-detail", label: "My teacher is kind and helpful." },
+              { id: "music-detail", label: "My friend likes music after class." },
+              { id: "borrow-line", label: "Can I borrow your notebook for a minute?" },
+              { id: "repeat-line", label: "Could you repeat that, please?" },
+            ],
+            [
+              { cardId: "kind-detail", laneId: "describe" },
+              { cardId: "music-detail", laneId: "describe" },
+              { cardId: "borrow-line", laneId: "ask" },
+              { cardId: "repeat-line", laneId: "ask" },
+            ],
+            "Good. You can now separate people details from classroom language without mixing the two.",
+            "Sort the final scene so descriptions stay separate from classroom requests.",
+            {
+              timerMs: 20000,
+              soundSet: "classroom",
+              theme: "mint",
+              presentation: gamePresentation("arcade_sort_rush", {
+                boardTitle: "Describe or ask",
+                helperText: "Finish the mini-scene by sorting description language away from classroom request language.",
+                resolvedTitle: "Scene split locked",
+                resolvedNote: "You kept the people descriptions and classroom requests from blending together awkwardly.",
               }),
             }
           ),
         ],
         {
           theme: "mint",
-          layoutVariant: "character_cards",
+          layoutVariant: "arcade_sort_rush",
           assetName: "borrow-and-describe",
           summary: {
-            strength: "You matched the people cleanly and built a polite classroom request.",
-            nextFocus: "Keep the request short and direct when the speaking step starts.",
-            bridgeToSpeaking: "Use the same polite request line when the class conversation opens.",
+            strength: "You sorted the people details and classroom requests into a scene that sounds real instead of mixed together.",
+            nextFocus: "Keep the request polite and short so it lands quickly in speaking.",
+            bridgeToSpeaking: "Carry the same polite request and simple people details into the class conversation next.",
           },
+          maxRetriesPerStage: 2,
         }
       );
     case "daily-routines-time-and-schedules":
@@ -1012,85 +1549,127 @@ function createStageOneGame(
         `${level}-${unitIndex}-game`,
         "Day Path",
         "day_path",
-        "Build your day in order so the routine sounds easy to follow.",
+        "Race through the day, hit the right time gates, and keep the schedule from breaking into random details.",
         [
-          makeSequenceStage(
-            stageId(level, unitIndex, "sequence"),
-            "Build the timeline",
-            "Put the routine cards in order from morning to evening.",
+          makeRouteRaceStage(
+            stageId(level, unitIndex, "route-1"),
+            "Morning to evening",
+            "Run the clean route from wake-up to after-school work without taking the wrong branch.",
             [
-              choiceOption("morning", "7:00 - I wake up and get ready."),
-              choiceOption("class", "9:00 - I go to class."),
-              choiceOption("homework", "4:00 - I do homework."),
+              { id: "wake", label: "Wake up", detail: "Morning", x: 10, y: 70 },
+              { id: "bus", label: "Bus stop", detail: "Morning", x: 28, y: 52 },
+              { id: "class", label: "Class", detail: "School day", x: 48, y: 35 },
+              { id: "lunch", label: "Lunch", detail: "Midday", x: 66, y: 45 },
+              { id: "homework", label: "Homework", detail: "Evening", x: 84, y: 68 },
             ],
-            ["morning", "class", "homework"],
-            "Good. The day now moves in a clear order.",
-            "Try an order that moves from morning to after school.",
-            gamePresentation("timeline", {
-              boardTitle: "Day timeline",
-              helperLabel: "Daily timeline",
-              helperText: "Lay out the day in order so the routine feels easy to follow.",
-              callToAction: "Set the timeline",
-            })
+            ["wake", "bus", "class", "lunch", "homework"],
+            "Good. The timeline route now sounds like one real day.",
+            "Race the routine in order from morning to after-school time instead of skipping around.",
+            {
+              timerMs: 23000,
+              soundSet: "route",
+              theme: "sunset",
+              pathRules: {
+                startNodeId: "wake",
+                finishNodeId: "homework",
+                branchPenalty: 1,
+              },
+              presentation: gamePresentation("arcade_route_race", {
+                boardTitle: "Day track",
+                helperText: "Hit the time gates in order so the schedule feels smooth from morning to evening.",
+                resolvedTitle: "Day route clear",
+                resolvedNote: "You kept the schedule chronological instead of turning it into a random list.",
+                connections: [
+                  { fromId: "wake", toId: "bus" },
+                  { fromId: "bus", toId: "class" },
+                  { fromId: "class", toId: "lunch" },
+                  { fromId: "lunch", toId: "homework" },
+                ],
+              }),
+            }
           ),
-          makeAssembleStage(
-            stageId(level, unitIndex, "assemble"),
-            "Fill the time slot",
-            "Build the strongest after-school routine line.",
+          makeRouteRaceStage(
+            stageId(level, unitIndex, "route-2"),
+            "After-school branch",
+            "Take the clean after-school branch and avoid the detour that breaks the routine.",
             [
-              { id: "time", label: "Time phrase", detail: "Say when it happens" },
-              { id: "action", label: "Action", detail: "Say the routine activity" },
-              { id: "follow", label: "Follow-up", detail: "Keep the day moving" },
+              { id: "class-end", label: "Class ends", x: 12, y: 42 },
+              { id: "homework-stop", label: "Homework", x: 40, y: 55 },
+              { id: "practice-stop", label: "Practice", x: 65, y: 35 },
+              { id: "home", label: "Home", x: 86, y: 62 },
+              { id: "mall", label: "Mall", x: 54, y: 78 },
             ],
-            [
-              choiceOption("opt-after", "After school", "Time phrase"),
-              choiceOption("opt-homework", "I do homework", "Routine action"),
-              choiceOption("opt-relax", "then I relax at home.", "Natural follow-up"),
-              choiceOption("opt-library", "near the library", "Place phrase, wrong fit here"),
-            ],
-            [
-              { slotId: "time", optionId: "opt-after" },
-              { slotId: "action", optionId: "opt-homework" },
-              { slotId: "follow", optionId: "opt-relax" },
-            ],
-            "Good. That line sounds like a clear part of the day.",
-            "Build the line so it sounds like one connected weekday routine.",
-            gamePresentation("slot_strip", {
-              boardTitle: "After-school line",
-              helperLabel: "Time slot",
-              helperText: "Fill the line with the time phrase, routine action, and one natural follow-up.",
-              callToAction: "Place the phrase",
-            })
+            ["class-end", "homework-stop", "home"],
+            "Good. You chose the branch that sounds like a believable weekday.",
+            "Take the branch that keeps the after-school routine clear and believable.",
+            {
+              timerMs: 18000,
+              soundSet: "route",
+              theme: "sunset",
+              pathRules: {
+                startNodeId: "class-end",
+                finishNodeId: "home",
+              },
+              presentation: gamePresentation("arcade_route_race", {
+                boardTitle: "After-school branch",
+                helperText: "Pick the route that still sounds like a normal school day, not a random detour.",
+                resolvedTitle: "After-school route set",
+                resolvedNote: "You kept the routine believable by choosing the branch that supports the day.",
+                connections: [
+                  { fromId: "class-end", toId: "homework-stop" },
+                  { fromId: "homework-stop", toId: "home" },
+                  { fromId: "class-end", toId: "practice-stop" },
+                  { fromId: "practice-stop", toId: "mall" },
+                ],
+              }),
+            }
           ),
-          makeChoiceStage(
-            stageId(level, unitIndex, "choice-2"),
-            "Pick the day summary",
-            "Which summary sounds the clearest for this routine?",
+          makeReactionPickStage(
+            stageId(level, unitIndex, "reaction"),
+            "Best day line",
+            "Clear the strongest routine line before the timer empties.",
             [
-              choiceOption("good", "After school I do homework, then I relax at home.", "Clear and connected"),
-              choiceOption("bad-1", "Homework after school because library water.", "The ideas are not connected"),
-              choiceOption("bad-2", "I like my teacher and my cousin.", "Off the routine"),
+              {
+                id: "round-1",
+                prompt: "Which summary sounds easiest to say in one smooth line?",
+                correctOptionId: "good",
+                options: [
+                  choiceOption("good", "After school I do homework, then I relax at home.", "Clear and connected"),
+                  choiceOption(
+                    "flat",
+                    "After school I do homework, and then I go to practice before I get home.",
+                    "Possible, but it changes the route you just built",
+                    true
+                  ),
+                  choiceOption("off", "After school I usually go to the mall for a while.", "Related, but it breaks the weekday routine path"),
+                ],
+              },
             ],
-            "good",
-            "Good. That summary sounds ready for speaking.",
-            "Pick the routine line that sounds clear from start to finish.",
-            gamePresentation("timeline", {
-              boardTitle: "Day summary",
-              helperLabel: "End-of-day summary",
-              helperText: "Choose the routine line that sounds most natural to say out loud.",
-              callToAction: "Lock summary",
-            })
+            "Good. That final line sounds ready for speaking.",
+            "Pick the routine line that sounds natural from start to finish, not like disconnected words.",
+            {
+              timerMs: 12000,
+              soundSet: "planner",
+              theme: "sunset",
+              presentation: gamePresentation("arcade_reaction_pick", {
+                boardTitle: "Routine finish",
+                helperText: "Clear the line that sounds like something a learner could really say out loud.",
+                resolvedTitle: "Routine line locked",
+                resolvedNote: "You finished with one connected line instead of a list of separate pieces.",
+              }),
+            }
           ),
         ],
         {
           theme: "sunset",
-          layoutVariant: "timeline",
+          layoutVariant: "arcade_route_race",
           assetName: "day-path",
           summary: {
-            strength: "Your routine now moves in a clear order from school to after-school time.",
-            nextFocus: "Keep your time phrases first so the listener can follow the day easily.",
-            bridgeToSpeaking: "Use the same routine flow when you describe your day in speaking.",
+            strength: "You raced the day in order and kept the schedule believable instead of scattered.",
+            nextFocus: "Lead with the time gate first so the listener can follow your day easily.",
+            bridgeToSpeaking: "Use the same morning-to-evening flow when you describe your routine in speaking.",
           },
+          maxRetriesPerStage: 2,
         }
       );
     case "food-shopping-and-likes-dislikes":
@@ -1098,98 +1677,132 @@ function createStageOneGame(
         `${level}-${unitIndex}-game`,
         "Snack Counter",
         "snack_counter",
-        "Build a quick snack exchange before you order in the speaking step.",
+        "Work a moving snack counter fast, lock the clean order, then burst out the final line once.",
         [
-          makeAssembleStage(
-            stageId(level, unitIndex, "assemble"),
-            "Build the order",
-            "Fill the counter slots so the snack order sounds complete and polite.",
+          makeSortRushStage(
+            stageId(level, unitIndex, "order-rush"),
+            "Order rush",
+            "Sort the moving order cards into the receipt lanes before the counter gets crowded.",
             [
-              { id: "starter", label: "Order start", detail: "Open the request politely" },
-              { id: "food", label: "Food", detail: "Choose the main item" },
-              { id: "drink", label: "Drink", detail: "Add the drink" },
-              { id: "ending", label: "Polite ending", detail: "Close the order politely" },
+              { id: "starter", label: "Starter" },
+              { id: "food", label: "Food" },
+              { id: "drink", label: "Drink" },
+              { id: "finish", label: "Finish" },
             ],
             [
-              choiceOption("opt-idlike", "I'd like", "Polite order start"),
-              choiceOption("opt-sandwich", "a sandwich", "Main item"),
-              choiceOption("opt-water", "and water", "Drink"),
-              choiceOption("opt-please", "please.", "Polite ending"),
-              choiceOption("opt-pencil", "your pencil", "Wrong setting"),
+              { id: "id-like", label: "I'd like", detail: "Polite order start" },
+              { id: "sandwich", label: "a sandwich", detail: "Main item" },
+              { id: "water", label: "and water", detail: "Drink choice" },
+              { id: "please", label: "please.", detail: "Polite finish" },
             ],
             [
-              { slotId: "starter", optionId: "opt-idlike" },
-              { slotId: "food", optionId: "opt-sandwich" },
-              { slotId: "drink", optionId: "opt-water" },
-              { slotId: "ending", optionId: "opt-please" },
+              { cardId: "id-like", laneId: "starter" },
+              { cardId: "sandwich", laneId: "food" },
+              { cardId: "water", laneId: "drink" },
+              { cardId: "please", laneId: "finish" },
             ],
-            "Good. That order sounds ready to use at the counter.",
-            "Fill the counter line so the order is complete and polite.",
-            gamePresentation("counter", {
-              boardTitle: "Order builder",
-              helperLabel: "Counter order",
-              helperText: "Build the full counter line first so the order sounds complete and easy to say.",
-              callToAction: "Place order",
-            })
+            "Good. The counter receipt is complete and ready to say.",
+            "Sort the receipt in order so the counter line sounds complete and polite.",
+            {
+              timerMs: 22000,
+              soundSet: "counter",
+              theme: "gold",
+              presentation: gamePresentation("arcade_sort_rush", {
+                boardTitle: "Receipt lanes",
+                helperText: "Sort the moving counter pieces into one clean order receipt.",
+                resolvedTitle: "Receipt built",
+                resolvedNote: "You kept the order in the sequence a real customer would use at the counter.",
+              }),
+            }
           ),
-          makeChoiceStage(
-            stageId(level, unitIndex, "choice-2"),
-            "Add the price question",
-            "Which line keeps the snack exchange moving?",
+          makeReactionPickStage(
+            stageId(level, unitIndex, "counter-pick"),
+            "Counter follow-up",
+            "Clear the follow-up lines that keep the order moving.",
             [
-              choiceOption("good", "How much is it?", "Natural next question after the order"),
-              choiceOption("bad-1", "Can I get it without cheese?", "Possible, but only if you still need to change the order"),
-              choiceOption("bad-2", "Can I pay by card?", "Useful later, but not the clearest next question here"),
+              {
+                id: "round-1",
+                prompt: "You already said: I'd like a sandwich and water, please.",
+                dialoguePrompt: "Which line is the strongest next move right after the order?",
+                correctOptionId: "price",
+                options: [
+                  choiceOption("price", "How much is it?", "Best next question"),
+                  choiceOption("card", "Can I pay by card?", "Useful later"),
+                  choiceOption(
+                    "cheese",
+                    "Can I get it without cheese?",
+                    "Possible, but it changes the order instead of moving it forward",
+                    true
+                  ),
+                ],
+              },
+              {
+                id: "round-2",
+                prompt: "Now keep the exchange quick and polite.",
+                correctOptionId: "thanks",
+                options: [
+                  choiceOption("thanks", "Thanks.", "Simple close"),
+                  choiceOption("homework", "That's everything, thanks.", "Close, but a little longer than the cleanest finish", true),
+                  choiceOption("favorite", "Can I also get a fork?", "Possible, but it adds a new request instead of closing the exchange"),
+                ],
+              },
             ],
-            "good",
-            "Good. That is the right next question.",
-            "Choose the question that still fits the snack counter.",
-            gamePresentation("dialogue_pick", {
-              boardTitle: "Counter follow-up",
-              helperLabel: "Counter follow-up",
-              helperText: "Pick the next line a real customer would ask right after placing the order.",
-              dialoguePrompt: "You say: I'd like a sandwich and water, please.",
-              callToAction: "Ask the price",
-            })
+            "Good. Those follow-ups fit a real snack exchange.",
+            "Clear the lines that keep the counter moving instead of changing the scene.",
+            {
+              timerMs: 18000,
+              soundSet: "counter",
+              theme: "gold",
+              presentation: gamePresentation("arcade_reaction_pick", {
+                boardTitle: "Counter reactions",
+                helperText: "Pick the next lines a customer would really use right after ordering.",
+                resolvedTitle: "Counter flow ready",
+                resolvedNote: "You kept the exchange moving instead of piling on extra changes and side details.",
+              }),
+            }
           ),
-          makeVoicePromptStage(
-            stageId(level, unitIndex, "voice"),
-            "Say the order",
-            "Say the order line clearly.",
+          makeVoiceBurstStage(
+            stageId(level, unitIndex, "voice-burst"),
+            "Order burst",
+            "Say the final order once, clearly and politely.",
             "I'd like a sandwich and water, please.",
-            "Keep the item names together and the request polite.",
+            "Keep the food, drink, and polite finish in one short burst.",
             [
               choiceOption("good", "I'd like a sandwich and water, please."),
               choiceOption("alt-1", "Can I get a sandwich and water, please?"),
               choiceOption("alt-2", "I'd like a sandwich and a water, please."),
             ],
             "good",
-            "Good. You are ready for the snack conversation.",
-            "Stay closer to the short order line.",
+            "Good. That order line is ready for the snack conversation.",
+            "Keep the order short and steady so the cashier can answer quickly.",
             {
+              timerMs: 17000,
+              soundSet: "neutral",
+              theme: "gold",
               requiredPhrases: ["sandwich", "water"],
               acceptedResponses: [
                 "I'd like a sandwich and water, please.",
                 "Can I get a sandwich and water, please?",
               ],
               presentation: gamePresentation("voice_focus", {
-                boardTitle: "Final order",
-                helperLabel: "Say the final order",
-                helperText: "Say the order once with the food, drink, and polite ending together.",
-                callToAction: "Check order",
+                boardTitle: "Voice burst",
+                helperText: "Say it once or use the quick backup. Keep the food, drink, and polite ending together.",
+                resolvedTitle: "Order burst cleared",
+                resolvedNote: "You kept the order smooth enough to sound like a real counter exchange.",
               }),
             }
           ),
         ],
         {
           theme: "gold",
-          layoutVariant: "counter",
+          layoutVariant: "arcade_sort_rush",
           assetName: "snack-counter",
           summary: {
-            strength: "Your counter order is complete and the follow-up question fits the exchange.",
-            nextFocus: "Keep the price question quick so the order keeps moving.",
-            bridgeToSpeaking: "Carry the same order line into the snack-counter conversation next.",
+            strength: "You built a full snack order, kept the counter moving, and finished with one clean order burst.",
+            nextFocus: "Keep your follow-up question short so the cashier can answer right away.",
+            bridgeToSpeaking: "Carry the same order burst and price question straight into the snack-counter conversation next.",
           },
+          maxRetriesPerStage: 2,
         }
       );
     case "home-school-and-neighborhood":
@@ -1197,90 +1810,145 @@ function createStageOneGame(
         `${level}-${unitIndex}-game`,
         "Map Route",
         "map_route",
-        "Trace a simple route so you can guide someone clearly in the speaking step.",
+        "Race across the neighborhood grid, stay on the clean route, and lock the strongest landmark line.",
         [
-          makeMapStage(
-            stageId(level, unitIndex, "map"),
-            "Find the route",
-            "Tap the route from the school gate to the library.",
+          makeRouteRaceStage(
+            stageId(level, unitIndex, "route-main"),
+            "Street race",
+            "Trace the clean walk from the school gate to the library before the timer drains.",
             [
               { id: "gate", label: "Front gate", x: 12, y: 78 },
-              { id: "office", label: "School office", x: 38, y: 60 },
-              { id: "garden", label: "Garden", x: 58, y: 76 },
-              { id: "library", label: "Library", x: 82, y: 42 },
-              { id: "cafeteria", label: "Cafeteria", x: 62, y: 22 },
+              { id: "office", label: "School office", detail: "Turn here first", x: 30, y: 60 },
+              { id: "crosswalk", label: "Crosswalk", detail: "Fastest crossing", x: 54, y: 46 },
+              { id: "garden", label: "Garden path", detail: "Longer branch", x: 56, y: 80 },
+              { id: "parking", label: "Parking lot", detail: "Dead-end detour", x: 76, y: 84 },
+              { id: "library", label: "Library", detail: "Finish", x: 84, y: 42 },
             ],
-            ["gate", "office", "library"],
-            "Good. That route is short and easy to follow.",
-            "Build the path from the gate to the library in the right order.",
-            gamePresentation("map_focus", {
-              boardTitle: "Campus route",
-              helperLabel: "Campus route",
-              helperText: "Trace the route first, then use one landmark to make the direction easier to follow.",
-              callToAction: "Trace route",
-              assetRef: gameAsset("map-route"),
-              connections: [
-                { fromId: "gate", toId: "office" },
-                { fromId: "office", toId: "library" },
-                { fromId: "office", toId: "garden" },
-                { fromId: "garden", toId: "cafeteria" },
-                { fromId: "cafeteria", toId: "library" },
-              ],
-            })
-          ),
-          makeSpotlightStage(
-            stageId(level, unitIndex, "spotlight"),
-            "Find the landmark",
-            "Tap the landmark that makes the route easier to explain after the gate.",
-            [
-              { id: "office", label: "Office", detail: "Best landmark after the gate", x: 38, y: 60 },
-              { id: "garden", label: "Garden", detail: "Possible landmark, but off the clean route", x: 58, y: 76 },
-              { id: "cafeteria", label: "Cafeteria", detail: "Too far from the shortest route", x: 62, y: 22 },
-            ],
-            ["office"],
-            "Good. The office is the clearest landmark for this route.",
-            "Tap the landmark that helps the route make sense quickly.",
+            ["gate", "office", "crosswalk", "library"],
+            "Good. That route is short, direct, and easy to explain.",
+            "Race the path that gets to the library cleanly instead of drifting into the longer street detours.",
             {
-              selectionMode: "single",
-              presentation: gamePresentation("map_focus", {
-                boardTitle: "Landmark clue",
-                helperLabel: "Landmark clue",
-                helperText: "Spot the landmark a classmate would need to hear after the first direction.",
-                callToAction: "Use landmark",
+              timerMs: 23000,
+              soundSet: "route",
+              theme: "sky",
+              pathRules: {
+                startNodeId: "gate",
+                finishNodeId: "library",
+              },
+              spriteRefs: {
+                board: spriteAsset("map-route-showcase-board"),
+                player: spriteAsset("map-route-player"),
+                target: spriteAsset("map-route-target"),
+                hazard: spriteAsset("map-route-hazard"),
+                neutral: spriteAsset("map-route-player"),
+              },
+              presentation: gamePresentation("arcade_route_race", {
+                boardTitle: "Neighborhood grid",
+                helperText: "Trace the quickest walk first. Wrong turns should feel like real detours, not random moves.",
+                resolvedTitle: "Main route clear",
+                resolvedNote: "You stayed on the shortest, easiest route instead of wandering into side streets.",
                 assetRef: gameAsset("map-route"),
+                connections: [
+                  { fromId: "gate", toId: "office" },
+                  { fromId: "office", toId: "crosswalk" },
+                  { fromId: "crosswalk", toId: "library" },
+                  { fromId: "office", toId: "garden" },
+                  { fromId: "garden", toId: "parking" },
+                ],
               }),
             }
           ),
-          makeChoiceStage(
-            stageId(level, unitIndex, "choice-2"),
-            "Best direction line",
-            "Which short direction line would help next?",
+          makeRouteRaceStage(
+            stageId(level, unitIndex, "route-branch"),
+            "Landmark branch",
+            "Choose the landmark branch that keeps the directions easy after the gate.",
             [
-              choiceOption("good", "Go through the gate, then walk to the office.", "Starts the route clearly"),
-              choiceOption("bad-1", "Walk to the garden first, then maybe ask someone there.", "Sounds possible, but it breaks the clean route"),
-              choiceOption("bad-2", "The library is across from the cafeteria after you turn right twice.", "Too complicated and not the clean next direction"),
+              { id: "start", label: "Gate", x: 10, y: 62 },
+              { id: "office-mark", label: "Office sign", detail: "Easy landmark", x: 34, y: 52 },
+              { id: "garden-mark", label: "Garden gate", detail: "Long branch", x: 52, y: 78 },
+              { id: "alley-mark", label: "Side alley", detail: "Messy detour", x: 70, y: 82 },
+              { id: "finish", label: "Library", detail: "Finish", x: 88, y: 52 },
             ],
-            "good",
-            "Good. That keeps the route easy to follow.",
-            "Choose the line that sounds like a real next direction.",
-            gamePresentation("dialogue_pick", {
-              boardTitle: "Direction line",
-              helperLabel: "Route line",
-              helperText: "Pick the sentence that would help someone move from the gate to the landmark.",
-              dialoguePrompt: "A classmate asks: Can you help me find the library?",
-              callToAction: "Lock direction",
-            })
+            ["start", "office-mark", "finish"],
+            "Good. You picked the landmark branch that makes the route easy to explain.",
+            "Take the branch with the strongest landmark instead of the longer, messier detour.",
+            {
+              timerMs: 18000,
+              soundSet: "route",
+              theme: "sky",
+              pathRules: {
+                startNodeId: "start",
+                finishNodeId: "finish",
+              },
+              spriteRefs: {
+                board: spriteAsset("map-route-showcase-board"),
+                player: spriteAsset("map-route-player"),
+                target: spriteAsset("map-route-target"),
+                hazard: spriteAsset("map-route-hazard"),
+                neutral: spriteAsset("map-route-player"),
+              },
+              presentation: gamePresentation("arcade_route_race", {
+                boardTitle: "Landmark split",
+                helperText: "Pick the branch with the landmark you would actually say out loud in simple directions.",
+                resolvedTitle: "Landmark route set",
+                resolvedNote: "You chose the landmark that helps the listener orient quickly instead of memorizing too much.",
+                connections: [
+                  { fromId: "start", toId: "office-mark" },
+                  { fromId: "office-mark", toId: "finish" },
+                  { fromId: "start", toId: "garden-mark" },
+                  { fromId: "garden-mark", toId: "alley-mark" },
+                ],
+              }),
+            }
+          ),
+          makeReactionPickStage(
+            stageId(level, unitIndex, "direction-pick"),
+            "Direction finish",
+            "Clear the direction line that sounds easiest to follow.",
+            [
+              {
+                id: "round-1",
+                prompt: "A classmate asks: Can you help me find the library?",
+                correctOptionId: "good",
+                options: [
+                  choiceOption("good", "Go through the gate, then walk past the office to the crosswalk.", "Clear first direction plus landmark."),
+                  choiceOption("garden", "Walk past the garden and then head toward the library.", "Possible, but it sends the listener onto the longer branch.", true),
+                  choiceOption("cafeteria", "Go by the parking lot and cut across later.", "Too vague, and it points to the dead-end side instead of the clean route."),
+                ],
+              },
+            ],
+            "Good. That direction line sounds clean and usable.",
+            "Pick the line that moves the listener one step at a time instead of overloading them.",
+            {
+              timerMs: 12000,
+              soundSet: "route",
+              theme: "sky",
+              interactionModel: "split_decision",
+              spriteRefs: {
+                board: spriteAsset("map-route-showcase-board"),
+                target: spriteAsset("map-route-target"),
+                hazard: spriteAsset("map-route-hazard"),
+                neutral: spriteAsset("map-route-player"),
+              },
+              presentation: gamePresentation("arcade_reaction_pick", {
+                boardTitle: "Direction finish",
+                helperText: "Hit the line that sounds like real simple directions, not a long confusing explanation.",
+                resolvedTitle: "Direction line ready",
+                resolvedNote: "You finished with a line that a classmate could actually follow while walking.",
+              }),
+            }
           ),
         ],
         {
           theme: "sky",
-          layoutVariant: "map_route",
+          layoutVariant: "arcade_route_race",
           assetName: "map-route",
           summary: {
-            strength: "You traced a clean route and used the strongest landmark to support it.",
-            nextFocus: "Keep each direction short so the listener can move step by step.",
-            bridgeToSpeaking: "Use the same route and landmark when you give directions in speaking.",
+            strength: "You raced the clean route, picked the strongest landmark, and finished with a direction line someone could actually follow.",
+            nextFocus: "Keep each direction to one move at a time so the listener can walk with you.",
+            bridgeToSpeaking: "Use the same route, landmark, and short direction line when you guide someone in speaking.",
           },
+          maxRetriesPerStage: 2,
         }
       );
     case "simple-plans-weather-and-practical-review":
@@ -1288,102 +1956,132 @@ function createStageOneGame(
         `${level}-${unitIndex}-game`,
         "Weather Switch",
         "weather_switch",
-        "Lock in a weekend plan and react when the weather changes.",
+        "React fast as the weather flips and keep the weekend plan realistic under pressure.",
         [
-          makeChoiceStage(
-            stageId(level, unitIndex, "choice-1"),
-            "Pick the plan",
-            "Which line clearly states a weekend plan?",
+          makeReactionPickStage(
+            stageId(level, unitIndex, "plan-pick"),
+            "Weekend plan pick",
+            "Lock the clear weekend plan before the forecast starts shifting.",
             [
-              choiceOption("good", "I'm going to visit my friend on Saturday.", "Clear plan plus time"),
-              choiceOption("bad-1", "I like sunny weather at the park.", "Related idea, but not a plan"),
-              choiceOption("bad-2", "My friend lives near the station.", "Useful detail, not the actual plan"),
+              {
+                id: "round-1",
+                prompt: "Your friend asks: What are you going to do this weekend?",
+                correctOptionId: "good",
+                options: [
+                  choiceOption("good", "I'm going to visit my friend on Saturday.", "Clear plan plus time"),
+                  choiceOption("weather", "I want good weather for the park this weekend.", "Preference, but not the actual plan"),
+                  choiceOption("station", "My friend is free on Saturday afternoon.", "Useful detail, but still not the plan itself"),
+                ],
+              },
             ],
-            "good",
-            "Good. That plan is clear right away.",
-            "Choose the option that sounds like a real weekend plan.",
-            gamePresentation("dialogue_pick", {
-              boardTitle: "Weekend plan",
-              helperLabel: "Weekend plan card",
-              helperText: "Start with one clear plan before the weather changes.",
-              dialoguePrompt: "Your friend asks: What are you going to do this weekend?",
-              callToAction: "Choose plan",
-            })
+            "Good. The plan is clear before the weather changes.",
+            "Choose the line that actually states the plan before you try to adapt it.",
+            {
+              timerMs: 12000,
+              soundSet: "weather",
+              theme: "rose",
+              interactionModel: "target_tag",
+              presentation: gamePresentation("arcade_reaction_pick", {
+                boardTitle: "Weekend lock-in",
+                helperText: "Start with one real plan first. The weather shift only works if the plan is clear.",
+                resolvedTitle: "Plan locked",
+                resolvedNote: "You started with a real plan instead of a preference or side detail.",
+              }),
+            }
           ),
-          makeStateSwitchStage(
-            stageId(level, unitIndex, "state-switch"),
-            "Switch the plan",
-            "Move through the weather states and choose the plan that fits each one best.",
+          makeReactionPickStage(
+            stageId(level, unitIndex, "weather-flip"),
+            "Forecast flip",
+            "React to each weather change before the timer drops and the plan stops making sense.",
             [
               {
                 id: "sunny",
-                label: "Sunny afternoon",
-                detail: "Keep the outdoor plan active.",
-                assetRef: gameAsset("weather-switch"),
+                prompt: "Sunny afternoon",
+                correctOptionId: "park",
+                options: [
+                  choiceOption("park", "Go to the park", "Best in good weather"),
+                  choiceOption("movie", "Stay home and watch a movie", "Possible, but stronger as a rainy backup"),
+                  choiceOption("cafe", "Meet at a cafe for a while", "Works, but less natural than using the good weather"),
+                ],
               },
               {
                 id: "rainy",
-                label: "Rainy afternoon",
-                detail: "Switch to an indoor backup.",
-                assetRef: gameAsset("weather-switch"),
+                prompt: "Now it starts raining.",
+                correctOptionId: "movie",
+                options: [
+                  choiceOption("movie", "Stay home and watch a movie", "Best rainy backup"),
+                  choiceOption("cafe", "Meet at a cafe instead", "Possible backup, but weaker for the original plan"),
+                  choiceOption("park", "Still go to the park", "Weak backup"),
+                ],
               },
               {
                 id: "cool",
-                label: "Cool evening",
-                detail: "Choose a lighter evening option.",
-                assetRef: gameAsset("weather-switch"),
+                prompt: "The rain stops, but the evening turns cool.",
+                correctOptionId: "cafe",
+                options: [
+                  choiceOption("cafe", "Meet at a cafe", "Good cooler-weather switch"),
+                  choiceOption("park", "Go back to the park", "Possible, but less smooth after the forecast change"),
+                  choiceOption("movie", "Stay home and watch a movie", "Works, but gives up too much after the rain stops"),
+                ],
               },
             ],
-            [
-              choiceOption("park", "Go to the park", "Best in good weather"),
-              choiceOption("movie", "Stay home and watch a movie", "Best rainy backup"),
-              choiceOption("cafe", "Meet at a cafe", "Good cooler-weather swap"),
-            ],
-            [
-              { stateId: "sunny", optionId: "park" },
-              { stateId: "rainy", optionId: "movie" },
-              { stateId: "cool", optionId: "cafe" },
-            ],
-            "Good. The plan changes make sense for the weather.",
-            "Switch each weather state to the plan that fits it best.",
-            gamePresentation("scene_focus", {
-              boardTitle: "Weather switch",
-              helperLabel: "Weather switch",
-              helperText: "Tap through the weather states and lock the plan that keeps the weekend realistic.",
-              scenePrompt: "The weather changes. Keep the weekend plan realistic as the scene shifts.",
-              callToAction: "Save changes",
-            })
+            "Good. You adapted the plan fast enough to keep the weekend realistic.",
+            "React to the forecast change with the strongest backup instead of vague or weak switches.",
+            {
+              timerMs: 20000,
+              soundSet: "weather",
+              theme: "rose",
+              interactionModel: "target_tag",
+              presentation: gamePresentation("arcade_reaction_pick", {
+                boardTitle: "Forecast switch",
+                helperText: "The forecast changes live. Hit the backup that keeps the weekend plan believable.",
+                resolvedTitle: "Forecast handled",
+                resolvedNote: "You changed the plan when the weather actually demanded it instead of pretending nothing changed.",
+              }),
+            }
           ),
-          makeChoiceStage(
-            stageId(level, unitIndex, "choice-2"),
-            "Best backup line",
-            "If it rains, which backup line fits best?",
+          makeReactionPickStage(
+            stageId(level, unitIndex, "backup-line"),
+            "Backup line",
+            "Finish with the one backup sentence that sounds ready to say aloud.",
             [
-              choiceOption("good", "If it rains, we can stay home and watch a movie instead.", "Clear switch plus backup plan"),
-              choiceOption("bad-1", "If it rains, we can still go to the park for a short time.", "Possible, but it does not really solve the weather problem"),
-              choiceOption("bad-2", "If it rains, we can decide later.", "Too vague to count as a real backup"),
+              {
+                id: "round-1",
+                prompt: "If it rains, what should you say next?",
+                correctOptionId: "good",
+                options: [
+                  choiceOption("good", "If it rains, we can stay home and watch a movie instead.", "Clear switch plus backup"),
+                  choiceOption("cafe", "If it rains, we can meet at a cafe instead.", "Possible, but less direct than the strongest backup"),
+                  choiceOption("later", "If it rains, we can decide later.", "Too open to feel like a real backup"),
+                ],
+              },
             ],
-            "good",
-            "Good. That backup idea matches the weather change.",
-            "Pick the option that still sounds like a real weekend plan.",
-            gamePresentation("dialogue_pick", {
-              boardTitle: "Backup line",
-              helperLabel: "Backup line",
-              helperText: "Choose the sentence that sounds like a real backup plan after the weather changes.",
-              dialoguePrompt: "Now it starts raining. What do you say next?",
-              callToAction: "Use backup",
-            })
+            "Good. That backup line sounds practical and ready to use.",
+            "Choose the backup line that actually solves the weather problem.",
+            {
+              timerMs: 12000,
+              soundSet: "weather",
+              theme: "rose",
+              interactionModel: "target_tag",
+              presentation: gamePresentation("arcade_reaction_pick", {
+                boardTitle: "Backup finish",
+                helperText: "Clear the sentence that sounds like a real plan change, not an unfinished idea.",
+                resolvedTitle: "Backup line ready",
+                resolvedNote: "You finished with one usable backup sentence instead of leaving the plan open.",
+              }),
+            }
           ),
         ],
         {
           theme: "rose",
-          layoutVariant: "weather_cards",
+          layoutVariant: "arcade_reaction_pick",
           assetName: "weather-switch",
           summary: {
-            strength: "You kept the plan clear and adapted it well when the weather changed.",
-            nextFocus: "Use one simple backup sentence instead of overexplaining the change.",
+            strength: "You locked the plan fast and changed it quickly when the forecast forced a new move.",
+            nextFocus: "Use one simple backup sentence instead of talking around the weather problem.",
             bridgeToSpeaking: "Carry the same plan-and-backup language into the weekend conversation next.",
           },
+          maxRetriesPerStage: 2,
         }
       );
     case "habits-and-routines-in-more-detail":
@@ -1391,16 +2089,16 @@ function createStageOneGame(
         `${level}-${unitIndex}-game`,
         "Routine Builder",
         "routine_builder",
-        "Assemble a fuller routine so your speaking answer sounds connected instead of list-like.",
+        "Sort a fuller weekday under pressure so your routine answer sounds planned instead of list-like.",
         [
-          makePriorityBoardStage(
-            stageId(level, unitIndex, "priority"),
-            "Build the planner",
-            "Place each routine card in the part of the day where it belongs.",
+          makeSortRushStage(
+            stageId(level, unitIndex, "planner-rush"),
+            "Planner rush",
+            "Drop each routine block into the right lane before the planner closes.",
             [
-              { id: "morning", label: "Morning" },
+              { id: "morning", label: "Morning block" },
               { id: "school", label: "School day" },
-              { id: "after", label: "After school" },
+              { id: "after", label: "After-school plan" },
             ],
             [
               { id: "wake", label: "6:30 - I usually wake up and stretch." },
@@ -1412,82 +2110,99 @@ function createStageOneGame(
               { cardId: "class", laneId: "school" },
               { cardId: "practice", laneId: "after" },
             ],
-            "Good. That routine now sounds easy to follow.",
-            "Place the routine cards so the planner moves through the day clearly.",
-            gamePresentation("planner_dense", {
-              boardTitle: "Weekday planner",
-              helperLabel: "Weekday planner",
-              helperText: "Build the day on the planner first, then add one stronger routine sentence.",
-              callToAction: "Arrange routine",
-            })
-          ),
-          makeAssembleStage(
-            stageId(level, unitIndex, "assemble"),
-            "Build the detail line",
-            "Fill the slots so the routine sentence sounds connected, not list-like.",
-            [
-              { id: "time", label: "Time phrase", detail: "Place the routine in the day" },
-              { id: "frequency", label: "Frequency", detail: "Show that it happens often" },
-              { id: "task", label: "Task", detail: "Say what you do" },
-            ],
-            [
-              choiceOption("opt-after", "After school,", "Time phrase"),
-              choiceOption("opt-usually", "I usually", "Frequency marker"),
-              choiceOption("opt-homework", "finish homework before practice.", "Routine task"),
-              choiceOption("opt-yesterday", "yesterday I went downtown.", "Wrong time frame"),
-            ],
-            [
-              { slotId: "time", optionId: "opt-after" },
-              { slotId: "frequency", optionId: "opt-usually" },
-              { slotId: "task", optionId: "opt-homework" },
-            ],
-            "Good. That sentence now sounds like a routine you actually say.",
-            "Fill the line with a time phrase, a frequency marker, and the routine task.",
-            gamePresentation("slot_strip", {
-              boardTitle: "Routine detail line",
-              helperLabel: "Routine detail chip",
-              helperText: "Assemble one strong routine sentence you can carry into speaking.",
-              callToAction: "Add detail",
-            })
-          ),
-          makeVoicePromptStage(
-            stageId(level, unitIndex, "voice"),
-            "Say the routine line",
-            "Say one strong routine sentence you can reuse in speaking.",
-            "After school, I usually finish homework before practice.",
-            "Keep the time phrase, frequency word, and activity in one line.",
-            [
-              choiceOption("good", "After school, I usually finish homework before practice."),
-              choiceOption("alt-1", "I usually finish homework before practice after school."),
-              choiceOption("alt-2", "After school, I finish homework before practice."),
-            ],
-            "good",
-            "Good. That line is ready for the speaking mission.",
-            "Stay closer to the full routine line with the time phrase first.",
+            "Good. The planner now moves through the day clearly.",
+            "Sort the routine blocks by part of the day instead of stacking them in random order.",
             {
-              requiredPhrases: ["after school", "before practice"],
-              acceptedResponses: [
-                "After school, I usually finish homework before practice.",
-                "I usually finish homework after school before practice.",
-              ],
-              presentation: gamePresentation("voice_focus", {
-                boardTitle: "Planner summary",
-                helperLabel: "Say the planner summary",
-                helperText: "Say the routine sentence once with the time phrase first.",
-                callToAction: "Check summary",
+              timerMs: 22000,
+              soundSet: "planner",
+              theme: "emerald",
+              presentation: gamePresentation("arcade_sort_rush", {
+                boardTitle: "Weekday planner",
+                helperText: "Sort the routine blocks into the planner lanes before the schedule window closes.",
+                resolvedTitle: "Planner clear",
+                resolvedNote: "You built a routine the listener can picture instead of a loose list of habits.",
+              }),
+            }
+          ),
+          makeSortRushStage(
+            stageId(level, unitIndex, "detail-rush"),
+            "Detail rush",
+            "Sort the frequency and detail chips into the right routine lanes.",
+            [
+              { id: "time", label: "Time phrase" },
+              { id: "frequency", label: "Frequency" },
+              { id: "task", label: "Task" },
+            ],
+            [
+              { id: "after", label: "After school," },
+              { id: "usually", label: "I usually" },
+              { id: "homework", label: "finish homework before practice." },
+            ],
+            [
+              { cardId: "after", laneId: "time" },
+              { cardId: "usually", laneId: "frequency" },
+              { cardId: "homework", laneId: "task" },
+            ],
+            "Good. The routine details are now lined up cleanly.",
+            "Sort the chips into time, frequency, and task so the sentence lands clearly.",
+            {
+              timerMs: 18000,
+              soundSet: "planner",
+              theme: "emerald",
+              presentation: gamePresentation("arcade_sort_rush", {
+                boardTitle: "Detail lanes",
+                helperText: "Move the routine chips into the lane that makes the sentence feel connected.",
+                resolvedTitle: "Detail line set",
+                resolvedNote: "You lined up the time, frequency, and task in a way that sounds natural aloud.",
+              }),
+            }
+          ),
+          makeReactionPickStage(
+            stageId(level, unitIndex, "summary-pick"),
+            "Routine finish",
+            "Clear the strongest final routine line before time runs out.",
+            [
+              {
+                id: "round-1",
+                prompt: "Which line sounds like a connected weekday routine?",
+                correctOptionId: "good",
+                options: [
+                  choiceOption("good", "After school, I usually finish homework before practice.", "Connected and natural"),
+                  choiceOption(
+                    "flat",
+                    "After school, I finish homework and sometimes I practice later.",
+                    "Possible, but it sounds less steady than the strongest routine line",
+                    true
+                  ),
+                  choiceOption("off", "On weekends, I usually go downtown with my cousin.", "Related, but it shifts away from the weekday routine"),
+                ],
+              },
+            ],
+            "Good. That final line sounds ready for the speaking mission.",
+            "Pick the line that sounds like a real routine sentence, not a pile of disconnected pieces.",
+            {
+              timerMs: 12000,
+              soundSet: "planner",
+              theme: "emerald",
+              presentation: gamePresentation("arcade_reaction_pick", {
+                boardTitle: "Routine finish",
+                helperText: "Hit the final line that sounds easiest to say out loud in one smooth sentence.",
+                resolvedTitle: "Routine finish locked",
+                resolvedNote: "You finished with a sentence that sounds planned and connected, not list-like.",
               }),
             }
           ),
         ],
         {
           theme: "emerald",
-          layoutVariant: "planner",
+          layoutVariant: "arcade_sort_rush",
           assetName: "routine-builder",
           summary: {
-            strength: "Your weekday routine now sounds planned instead of list-like.",
+            strength: "You built a planner-style weekday and finished with one line that sounds connected instead of list-like.",
             nextFocus: "Keep the frequency phrase close to the activity so the sentence stays natural.",
-            bridgeToSpeaking: "Use the same routine sentence when you describe your day in speaking.",
+            bridgeToSpeaking: "Use the same routine line when you describe your weekday in speaking.",
           },
+          maxRetriesPerStage: 2,
         }
       );
     case "past-events-and-weekend-stories":
@@ -1495,96 +2210,207 @@ function createStageOneGame(
         `${level}-${unitIndex}-game`,
         "Story Chain",
         "story_chain",
-        "Build the weekend story in order before you tell it aloud.",
+        "Race through the weekend beats so the story sounds smooth when you tell it.",
         [
-          makeSequenceStage(
-            stageId(level, unitIndex, "sequence"),
-            "Lay out the comic",
-            "Order the story cards so the weekend story feels complete.",
+          makeRouteRaceStage(
+            stageId(level, unitIndex, "route-race"),
+            "Weekend run",
+            "Trace the weekend panels in the order that keeps the story moving.",
             [
-              choiceOption("first", "First I visited my cousin downtown."),
-              choiceOption("later", "Later we cooked dinner together."),
-              choiceOption("finally", "Finally I went home tired but happy."),
+              { id: "start", label: "Saturday start", detail: "Panel 1", x: 14, y: 58 },
+              { id: "visit", label: "Visit cousin", detail: "Panel 2", x: 32, y: 34 },
+              { id: "dinner", label: "Cook dinner", detail: "Panel 3", x: 52, y: 58 },
+              { id: "movie", label: "Movie night", detail: "Panel 4", x: 72, y: 34 },
+              { id: "home", label: "Bus home", detail: "Final panel", x: 88, y: 58 },
             ],
-            ["first", "later", "finally"],
-            "Good. The story now moves in a clear order.",
-            "Try a stronger order from first event to final reaction.",
-            gamePresentation("comic", {
-              boardTitle: "Comic strip",
-              helperLabel: "Story cards",
-              helperText: "Lay out the story from start to finish before you tell any part aloud.",
-              callToAction: "Build story",
-              lanes: [
-                { id: "panel-1", label: "Start" },
-                { id: "panel-2", label: "Middle" },
-                { id: "panel-3", label: "End" },
-              ],
-            })
-          ),
-          makeAssembleStage(
-            stageId(level, unitIndex, "assemble"),
-            "Build the ending panel",
-            "Fill the ending slots so the story lands on one clear final reaction.",
-            [
-              { id: "ending", label: "Ending move", detail: "Say what happened last" },
-              { id: "reaction", label: "Reaction", detail: "Add one feeling at the end" },
-            ],
-            [
-              choiceOption("opt-home", "Finally I went home", "Strong final move"),
-              choiceOption("opt-happy", "tired but happy.", "Clear reaction"),
-              choiceOption("opt-city", "we were in the city.", "Too weak for the ending"),
-            ],
-            [
-              { slotId: "ending", optionId: "opt-home" },
-              { slotId: "reaction", optionId: "opt-happy" },
-            ],
-            "Good. That ending gives the story a real final feeling.",
-            "Fill the ending panel with the last move and one simple reaction.",
-            gamePresentation("slot_strip", {
-              boardTitle: "Ending panel",
-              helperLabel: "Ending panel",
-              helperText: "Build the last panel so the story sounds complete before speaking.",
-              callToAction: "Choose ending",
-            })
-          ),
-          makeVoicePromptStage(
-            stageId(level, unitIndex, "voice"),
-            "Say the middle step",
-            "Say the story step that keeps the events moving.",
-            "Later we cooked dinner and watched a movie.",
-            "Keep the time marker and the action together.",
-            [
-              choiceOption("good", "Later we cooked dinner and watched a movie."),
-              choiceOption("alt-1", "Later, we cooked dinner and watched a movie."),
-              choiceOption("alt-2", "We cooked dinner later and watched a movie."),
-            ],
-            "good",
-            "Good. You are ready to tell the story in speaking.",
-            "Stay closer to the past story line with later.",
+            ["start", "visit", "dinner", "movie", "home"],
+            "Good. The weekend run now lands in a clear story order.",
+            "Stay on the route that moves from the first event to the final beat.",
             {
-              requiredPhrases: ["later", "watched a movie"],
+              timerMs: 24000,
+              theme: "indigo",
+              soundSet: "route",
+              pathRules: {
+                startNodeId: "start",
+                finishNodeId: "home",
+              },
+              spriteRefs: {
+                board: spriteAsset("story-comic-board"),
+                player: spriteAsset("story-chain-neutral"),
+                target: spriteAsset("story-chain-target"),
+                hazard: spriteAsset("story-chain-hazard"),
+                neutral: spriteAsset("story-chain-neutral"),
+              },
+              presentation: gamePresentation("arcade_route_race", {
+                boardTitle: "Weekend comic",
+                helperLabel: "Story route",
+                helperText: "Trace the comic-strip order so the story sounds like one weekend, not scattered moments.",
+                callToAction: "Lock route",
+                resolvedTitle: "Route cleared",
+                resolvedNote: "You kept the story moving instead of skipping beats.",
+              }),
+            }
+          ),
+          makeReactionPickStage(
+            stageId(level, unitIndex, "reaction-pick"),
+            "Next beat rush",
+            "Pick the strongest next story beat before the lane closes.",
+            [
+              {
+                id: "round-dinner",
+                prompt: "Panel 2 just ended. Which panel snaps in next and keeps the weekend moving?",
+                options: [
+                  choiceOption("good-dinner", "Later we cooked dinner together.", "Best next panel after the visit."),
+                  choiceOption(
+                    "near-talk",
+                    "We talked there for a while.",
+                    "Possible, but it is a softer side detail than the main next beat.",
+                    true
+                  ),
+                  choiceOption("bad-home", "Finally I went home right away.", "It jumps to the ending and skips the middle panels."),
+                ],
+                correctOptionId: "good-dinner",
+              },
+              {
+                id: "round-movie",
+                prompt: "Dinner panel lands. Which evening panel keeps the story moving cleanly?",
+                options: [
+                  choiceOption("good-movie", "Then we watched a movie on the couch.", "Natural next panel after dinner."),
+                  choiceOption(
+                    "near-dessert",
+                    "Then we made dessert in the kitchen.",
+                    "Possible, but it is a weaker panel than the stronger evening beat.",
+                    true
+                  ),
+                  choiceOption("bad-start", "First I visited my cousin downtown.", "It jumps back to the beginning of the story."),
+                ],
+                correctOptionId: "good-movie",
+              },
+            ],
+            "Good. You picked the beats that make the middle feel smooth instead of jumpy.",
+            "Choose the beat that keeps the story moving forward.",
+            {
+              timerMs: 17000,
+              theme: "indigo",
+              soundSet: "comparison",
+              interactionModel: "split_decision",
+              spriteRefs: {
+                board: spriteAsset("story-comic-board"),
+                target: spriteAsset("story-chain-target"),
+                hazard: spriteAsset("story-chain-hazard"),
+                neutral: spriteAsset("story-chain-neutral"),
+              },
+              presentation: gamePresentation("arcade_reaction_pick", {
+                boardTitle: "Next beat rush",
+                helperLabel: "Story beats",
+                helperText: "Pick the next panel that keeps the weekend story moving forward, not sideways.",
+                callToAction: "Use beat",
+                resolvedTitle: "Beat locked",
+                resolvedNote: "You kept the middle of the story clear and believable.",
+              }),
+            }
+          ),
+          makeReactionPickStage(
+            stageId(level, unitIndex, "ending-rush"),
+            "Ending rush",
+            "Grab the ending line that gives the story a real finish.",
+            [
+              {
+                id: "round-ending",
+                prompt: "Which ending panel gives the weekend story the cleanest final frame?",
+                options: [
+                  choiceOption("good-ending", "At the end of the night, I went home tired but happy.", "Final move plus feeling."),
+                  choiceOption(
+                    "near-ending",
+                    "After that, I went home.",
+                    "Complete, but flatter and less vivid.",
+                    true
+                  ),
+                  choiceOption("bad-ending", "Finally we cooked dinner together.", "It repeats a middle panel instead of ending the story."),
+                ],
+                correctOptionId: "good-ending",
+              },
+            ],
+            "Good. The ending now lands with a clear final reaction.",
+            "Pick the ending that sounds complete instead of unfinished.",
+            {
+              timerMs: 12000,
+              theme: "indigo",
+              soundSet: "comparison",
+              interactionModel: "split_decision",
+              spriteRefs: {
+                board: spriteAsset("story-comic-board"),
+                target: spriteAsset("story-chain-target"),
+                hazard: spriteAsset("story-chain-hazard"),
+                neutral: spriteAsset("story-chain-neutral"),
+              },
+              presentation: gamePresentation("arcade_reaction_pick", {
+                boardTitle: "Ending rush",
+                helperLabel: "Ending card",
+                helperText: "Finish with the line that sounds strongest out loud.",
+                callToAction: "Finish story",
+                resolvedTitle: "Ending cleared",
+                resolvedNote: "You landed the story with a clean final beat and feeling.",
+              }),
+            }
+          ),
+          makeVoiceBurstStage(
+            stageId(level, unitIndex, "story-burst"),
+            "Story burst",
+            "Say the weekend story in one short start-middle-end line.",
+            "First I visited my cousin, then we cooked dinner, later we watched a movie, and finally I went home happy.",
+            "Keep the sequence clear enough that the listener hears the full weekend story quickly.",
+            [
+              choiceOption(
+                "good-story",
+                "First I visited my cousin, then we cooked dinner, later we watched a movie, and finally I went home happy."
+              ),
+              choiceOption(
+                "alt-story-1",
+                "First I visited my cousin, then we watched a movie, and finally I went home."
+              ),
+              choiceOption(
+                "alt-story-2",
+                "I visited my cousin, cooked dinner, watched a movie, and went home happy."
+              ),
+            ],
+            "good-story",
+            "Good. That story burst sounds ready for the speaking mission.",
+            "Keep the weekend beats in one smooth order so the listener can follow the story easily.",
+            {
+              timerMs: 17000,
+              theme: "indigo",
+              soundSet: "story",
+              requiredPhrases: ["first", "then", "finally"],
+              spriteRefs: {
+                board: spriteAsset("story-comic-board"),
+                target: spriteAsset("story-chain-target"),
+                neutral: spriteAsset("story-chain-neutral"),
+              },
               acceptedResponses: [
-                "Later we cooked dinner and watched a movie.",
-                "Later, we cooked dinner and watched a movie.",
+                "First I visited my cousin, then we cooked dinner, later we watched a movie, and finally I went home happy.",
+                "First I visited my cousin, then we cooked dinner, then we watched a movie, and finally I went home happy.",
+                "I visited my cousin, then we cooked dinner, watched a movie, and finally I went home happy.",
               ],
               presentation: gamePresentation("voice_focus", {
-                boardTitle: "Middle panel retell",
-                helperLabel: "Retell one panel",
-                helperText: "Say the middle event once so the story keeps moving naturally.",
-                callToAction: "Check retell",
+                boardTitle: "Story burst",
+                helperText: "Say the weekend story once or use the quick backup. Keep the cousin, dinner, movie, and home beats in order.",
+                resolvedTitle: "Story burst cleared",
+                resolvedNote: "You turned the exact comic-strip sequence into one spoken story instead of a loose list of events.",
               }),
             }
           ),
         ],
         {
           theme: "indigo",
-          layoutVariant: "comic",
+          layoutVariant: "arcade_route_race",
           assetName: "story-chain",
           summary: {
-            strength: "Your story now has a clear order and a real ending reaction.",
-            nextFocus: "Keep one time marker in the line so the listener hears where the story is moving.",
-            bridgeToSpeaking: "Use the same start-middle-end flow when you tell the weekend story in speaking.",
+            strength: "You raced through the weekend story in a clean order and landed it with a real ending.",
+            nextFocus: "Keep a time marker in each beat so the listener hears where the story is moving.",
+            bridgeToSpeaking: "Use the same start-middle-end rhythm when you tell the weekend story in speaking.",
           },
+          maxRetriesPerStage: 2,
         }
       );
     case "what-is-happening-now":
@@ -1592,108 +2418,214 @@ function createStageOneGame(
         `${level}-${unitIndex}-game`,
         "Scene Scan",
         "scene_scan",
-        "Spot what is happening now so the speaking benchmark feels vivid and specific.",
+        "Dash across the scene, tag the real action, and lock one strong present-time line.",
         [
-          makeSpotlightStage(
-            stageId(level, unitIndex, "spotlight"),
-            "Find the action hotspot",
-            "Tap the part of the classroom that matches the reader near the window.",
+          makeLaneRunnerStage(
+            stageId(level, unitIndex, "lane-runner"),
+            "Scene sprint",
+            "Cross the classroom lanes, collect live-action tags, and dodge the time-frame traps.",
             [
-              {
-                id: "spot-reader",
-                label: "Reader",
-                detail: "Book open near the left window",
-                x: 22,
-                y: 54,
-              },
-              {
-                id: "spot-speaker",
-                label: "Speaker",
-                detail: "Standing near the board",
-                x: 66,
-                y: 42,
-              },
-              {
-                id: "spot-group",
-                label: "Group",
-                detail: "Three students together",
-                x: 78,
-                y: 74,
-              },
+              { id: "window", label: "Window row" },
+              { id: "center", label: "Center desks" },
+              { id: "board", label: "Board side" },
             ],
-            ["spot-reader"],
-            "Good. You found the right action in the scene.",
-            "Tap the hotspot that matches the live classroom detail.",
+            [
+              { id: "tok-reader", lane: 0, column: 1, label: "is reading now", detail: "Live action", role: "target" },
+              { id: "tok-writer", lane: 1, column: 2, label: "is writing now", detail: "Live action", role: "target" },
+              { id: "tok-speaking", lane: 2, column: 3, label: "is talking now", detail: "Live action", role: "target" },
+              { id: "tok-yesterday", lane: 0, column: 4, label: "studied yesterday", detail: "Past, not now", role: "hazard" },
+              { id: "tok-usually", lane: 1, column: 1, label: "usually studies", detail: "Habit, not now", role: "hazard" },
+              { id: "tok-tomorrow", lane: 2, column: 4, label: "will present later", detail: "Future, not now", role: "hazard" },
+            ],
+            ["tok-reader", "tok-writer", "tok-speaking"],
+            "Good. You tagged the live actions instead of the wrong time clues.",
+            "Collect the actions happening right now and avoid the past, habit, and future traps.",
             {
-              selectionMode: "single",
-              presentation: gamePresentation("scene_focus", {
-                boardTitle: "Classroom scene",
-                helperLabel: "Classroom scene",
-                helperText: "Scan the scene first, then build the live detail that fits it.",
-                scenePrompt: "Find the student who is reading near the window right now.",
-                callToAction: "Use hotspot",
-                assetRef: gameAsset("scene-scan"),
+              timerMs: 22000,
+              theme: "violet",
+              soundSet: "hallway",
+              spriteRefs: {
+                board: spriteAsset("scene-classroom-board"),
+                player: spriteAsset("scene-scan-player"),
+                target: spriteAsset("scene-scan-target"),
+                hazard: spriteAsset("scene-scan-hazard"),
+                neutral: spriteAsset("scene-scan-neutral"),
+              },
+              spawnRules: {
+                spawnRateMs: 900,
+                speed: 1.05,
+                laneCount: 3,
+              },
+              presentation: gamePresentation("arcade_lane_runner", {
+                boardTitle: "Scene sprint",
+                helperLabel: "Live tags",
+                helperText: "Grab the actions happening now. Skip past, habit, and future traps.",
+                callToAction: "Clear scene",
+                resolvedTitle: "Scene tagged",
+                resolvedNote: "You stayed in the live scene instead of drifting into other time frames.",
               }),
             }
           ),
-          makeAssembleStage(
-            stageId(level, unitIndex, "assemble"),
-            "Build the live detail",
-            "Fill the slots so the scene description sounds vivid and present.",
+          makeReactionPickStage(
+            stageId(level, unitIndex, "scene-pick"),
+            "Live line pick",
+            "Choose the strongest live line from the scene details you just tagged.",
             [
-              { id: "place", label: "Place", detail: "Anchor the scene" },
-              { id: "person", label: "Person", detail: "Name who is in focus" },
-              { id: "action", label: "Action", detail: "Describe what is happening now" },
+              {
+                id: "round-reader",
+                prompt: "Which line best matches the reader you found near the window?",
+                options: [
+                  choiceOption("good-reader", "Near the window, one student is reading quietly right now.", "Best live line from the scene."),
+                  choiceOption(
+                    "near-reader",
+                    "Near the window, one student reads there every morning.",
+                    "Close, but it turns the live scene into a habit.",
+                    true
+                  ),
+                  choiceOption("bad-reader", "Before class, one student read near the window.", "Wrong time frame for the live scene."),
+                ],
+                correctOptionId: "good-reader",
+              },
+              {
+                id: "round-writer",
+                prompt: "Which extra line keeps the classroom scene alive?",
+                options: [
+                  choiceOption("good-writer", "In the center, another student is writing notes now.", "Matches the live scene."),
+                  choiceOption(
+                    "near-writer",
+                    "In the center, another student usually writes notes at this time.",
+                    "Close, but it sounds like a routine instead of a live detail.",
+                    true
+                  ),
+                  choiceOption("bad-writer", "In the center, another student wrote notes before lunch.", "Past instead of now."),
+                ],
+                correctOptionId: "good-writer",
+              },
             ],
-            [
-              choiceOption("opt-place", "Near the window,", "Place phrase"),
-              choiceOption("opt-person", "one student", "Subject"),
-              choiceOption("opt-action", "is reading quietly right now.", "Present action"),
-              choiceOption("opt-yesterday", "read yesterday.", "Wrong time frame"),
-            ],
-            [
-              { slotId: "place", optionId: "opt-place" },
-              { slotId: "person", optionId: "opt-person" },
-              { slotId: "action", optionId: "opt-action" },
-            ],
-            "Good. That scene line sounds clear and alive.",
-            "Build the sentence with the place, the person, and the action happening now.",
-            gamePresentation("slot_strip", {
-              boardTitle: "Live detail",
-              helperLabel: "Scene detail",
-              helperText: "Use the hotspot you found, then build one strong present-time line around it.",
-              callToAction: "Save detail",
-            })
+            "Good. You picked the lines that sound live instead of generic.",
+            "Stay with the line that still sounds like it is happening now.",
+            {
+              timerMs: 16000,
+              theme: "violet",
+              soundSet: "comparison",
+              interactionModel: "target_tag",
+              spriteRefs: {
+                board: spriteAsset("scene-classroom-board"),
+                target: spriteAsset("scene-scan-target"),
+                hazard: spriteAsset("scene-scan-hazard"),
+                neutral: spriteAsset("scene-scan-neutral"),
+              },
+              presentation: gamePresentation("arcade_reaction_pick", {
+                boardTitle: "Live line pick",
+                helperLabel: "Present-time line",
+                helperText: "Choose the line that still sounds alive inside the scene.",
+                callToAction: "Use line",
+                resolvedTitle: "Line locked",
+                resolvedNote: "You kept the description anchored in what is happening right now.",
+              }),
+            }
           ),
-          makeChoiceStage(
-            stageId(level, unitIndex, "choice-2"),
-            "Pick the strongest live detail",
-            "Which line best strengthens the scene description?",
+          makeReactionPickStage(
+            stageId(level, unitIndex, "finish-line"),
+            "Finish the scene",
+            "Grab the final detail that makes the scene more vivid.",
             [
-              choiceOption("good", "Near the window, one student is reading quietly right now.", "Clear present action plus place"),
-              choiceOption("bad-1", "One student near the window every day reads.", "Unnatural order"),
-              choiceOption("bad-2", "Yesterday one student read near the window.", "Wrong time frame"),
+              {
+                id: "round-finish",
+                prompt: "Which final detail best strengthens the live classroom scene?",
+                options: [
+                  choiceOption("good-finish", "Near the board, one student is talking to the teacher right now.", "Strong final live detail."),
+                  choiceOption(
+                    "near-finish",
+                    "Near the board, one student often talks to the teacher after class.",
+                    "Close, but it slips into a habit instead of the live moment.",
+                    true
+                  ),
+                  choiceOption("bad-finish", "Near the board, one student talked to the teacher yesterday.", "Past event instead of the live scene."),
+                ],
+                correctOptionId: "good-finish",
+              },
             ],
-            "good",
-            "Good. That line sounds vivid and present.",
-            "Choose the detail that still describes what is happening right now.",
-            gamePresentation("scene_hotspots", {
-              boardTitle: "Best live line",
-              helperLabel: "Live description",
-              helperText: "Choose the version that sounds most natural to say in the benchmark conversation.",
-              callToAction: "Lock detail",
-            })
+            "Good. The scene now has one more live detail to carry into speaking.",
+            "Pick the detail that still sounds present and specific.",
+            {
+              timerMs: 12000,
+              theme: "violet",
+              soundSet: "comparison",
+              interactionModel: "target_tag",
+              spriteRefs: {
+                board: spriteAsset("scene-classroom-board"),
+                target: spriteAsset("scene-scan-target"),
+                hazard: spriteAsset("scene-scan-hazard"),
+                neutral: spriteAsset("scene-scan-neutral"),
+              },
+              presentation: gamePresentation("arcade_reaction_pick", {
+                boardTitle: "Finish the scene",
+                helperLabel: "Last detail",
+                helperText: "Finish with one more present-time detail that sounds easy to say aloud.",
+                callToAction: "Finish scene",
+                resolvedTitle: "Scene cleared",
+                resolvedNote: "You built a scene that sounds specific, live, and ready to describe.",
+              }),
+            }
+          ),
+          makeVoiceBurstStage(
+            stageId(level, unitIndex, "scene-burst"),
+            "Scene burst",
+            "Say one short live scene line with two actions happening now.",
+            "Near the window, one student is reading, another is writing notes, and near the board a student is talking to the teacher right now.",
+            "Keep the description in the present so the listener can picture the scene right now.",
+            [
+              choiceOption(
+                "good-scene",
+                "Near the window, one student is reading, another is writing notes, and near the board a student is talking to the teacher right now."
+              ),
+              choiceOption(
+                "alt-scene-1",
+                "One student is reading near the window, another is writing notes, and a student is talking to the teacher now."
+              ),
+              choiceOption(
+                "alt-scene-2",
+                "Near the window, one student is reading right now, and another student is writing notes."
+              ),
+            ],
+            "good-scene",
+            "Good. That scene burst sounds ready for the speaking task.",
+            "Keep the actions in the present so the listener hears the scene as live, not finished.",
+            {
+              timerMs: 17000,
+              theme: "violet",
+              soundSet: "scene",
+              requiredPhrases: ["is", "now"],
+              spriteRefs: {
+                board: spriteAsset("scene-classroom-board"),
+                target: spriteAsset("scene-scan-target"),
+                neutral: spriteAsset("scene-scan-neutral"),
+              },
+              acceptedResponses: [
+                "Near the window, one student is reading, another is writing notes, and near the board a student is talking to the teacher right now.",
+                "One student is reading near the window, another student is writing notes, and a student is talking to the teacher right now.",
+                "Near the window, one student is reading right now, another student is writing notes, and a student is talking to the teacher.",
+              ],
+              presentation: gamePresentation("voice_focus", {
+                boardTitle: "Scene burst",
+                helperText: "Say the live scene once or use the quick backup. Reuse the actions you just tagged on the board.",
+                resolvedTitle: "Scene burst cleared",
+                resolvedNote: "You turned the tagged actions into one live scene description instead of drifting into habits or past events.",
+              }),
+            }
           ),
         ],
         {
           theme: "violet",
-          layoutVariant: "scene_hotspots",
+          layoutVariant: "arcade_lane_runner",
           assetName: "scene-scan",
           summary: {
-            strength: "You spotted the right action and built a scene line that sounds live, not generic.",
-            nextFocus: "Keep the place phrase short so the action stays central.",
-            bridgeToSpeaking: "Carry the same live scene detail into the present-continuous speaking benchmark.",
+            strength: "You tagged the live actions fast and built lines that sound present instead of generic.",
+            nextFocus: "Keep every line in the now-time frame so the scene never slips into habits or past events.",
+            bridgeToSpeaking: "Carry the same live action details into the present-continuous speaking benchmark.",
           },
+          maxRetriesPerStage: 2,
         }
       );
     case "school-work-and-responsibilities":
@@ -1701,95 +2633,128 @@ function createStageOneGame(
         `${level}-${unitIndex}-game`,
         "Deadline Dash",
         "deadline_dash",
-        "Build a clear task plan before you explain it in speaking.",
+        "Sort the deadline pressure fast so the work plan sounds real when you explain it.",
         [
-          makePriorityBoardStage(
-            stageId(level, unitIndex, "priority"),
-            "Build the task board",
-            "Place each work step into the right part of the plan.",
+          makeSortRushStage(
+            stageId(level, unitIndex, "sort-rush"),
+            "Now / Next / Finish",
+            "Triaging the board fast keeps the plan realistic.",
             [
               { id: "now", label: "Do now" },
               { id: "next", label: "Do next" },
-              { id: "finish", label: "Finish" },
+              { id: "finish", label: "Finish later" },
             ],
             [
-              { id: "outline", label: "Outline my ideas", detail: "Start the project clearly" },
-              { id: "research", label: "Research two sources", detail: "Build the middle step" },
-              { id: "slides", label: "Make the slides", detail: "Finish the presentation" },
+              { id: "outline", label: "Outline the main points", detail: "First real step" },
+              { id: "sources", label: "Check two sources", detail: "Middle step" },
+              { id: "slides", label: "Build the slides", detail: "Final prep" },
+              { id: "colors", label: "Pick slide colors", detail: "Looks urgent, but can wait" },
             ],
             [
               { cardId: "outline", laneId: "now" },
-              { cardId: "research", laneId: "next" },
+              { cardId: "sources", laneId: "next" },
               { cardId: "slides", laneId: "finish" },
+              { cardId: "colors", laneId: "finish" },
             ],
-            "Good. The task board now looks realistic and organized.",
-            "Move each step into the lane where it belongs first, next, or last.",
-            gamePresentation("planner_dense", {
-              boardTitle: "Task board",
-              helperLabel: "Priority card",
-              helperText: "Build the plan on the board before you explain it out loud.",
-              callToAction: "Set board",
-            })
+            "Good. You cleared the board in the order a real deadline plan needs.",
+            "Sort the cards into the lane that makes the plan most believable.",
+            {
+              timerMs: 21000,
+              theme: "coral",
+              soundSet: "planner",
+              presentation: gamePresentation("arcade_sort_rush", {
+                boardTitle: "Now / Next / Finish",
+                helperLabel: "Deadline board",
+                helperText: "Sort fast. Keep urgent work out of the finish lane.",
+                callToAction: "Lock board",
+                resolvedTitle: "Board cleared",
+                resolvedNote: "You sorted the deadline pressure into a plan that makes sense.",
+              }),
+            }
           ),
-          makeAssembleStage(
-            stageId(level, unitIndex, "assemble"),
-            "Build the progress line",
-            "Fill the update slots so the next move sounds concrete and believable.",
+          makeSortRushStage(
+            stageId(level, unitIndex, "tradeoff-rush"),
+            "Tradeoff rush",
+            "Keep the real work moving and push the cosmetic choices late.",
             [
-              { id: "time", label: "Time frame", detail: "Anchor the next move" },
-              { id: "step", label: "Current step", detail: "Say what you will finish" },
-              { id: "reason", label: "Reason", detail: "Show what it unlocks next" },
+              { id: "now", label: "Do now" },
+              { id: "next", label: "Do next" },
+              { id: "finish", label: "Finish later" },
             ],
             [
-              choiceOption("opt-tonight", "Tonight I'll finish", "Time frame"),
-              choiceOption("opt-outline", "the outline", "Current step"),
-              choiceOption("opt-research", "so I can research tomorrow.", "Reason and next step"),
-              choiceOption("opt-difficult", "because projects are difficult.", "Too vague"),
+              { id: "draft", label: "Write the first draft", detail: "Urgent progress step" },
+              { id: "edit", label: "Edit the rough paragraphs", detail: "Next after drafting" },
+              { id: "colors", label: "Pick slide colors", detail: "Can wait" },
             ],
             [
-              { slotId: "time", optionId: "opt-tonight" },
-              { slotId: "step", optionId: "opt-outline" },
-              { slotId: "reason", optionId: "opt-research" },
+              { cardId: "draft", laneId: "now" },
+              { cardId: "edit", laneId: "next" },
+              { cardId: "colors", laneId: "finish" },
             ],
-            "Good. That update makes the plan feel real and immediate.",
-            "Fill the update with a time frame, one concrete step, and the next reason.",
-            gamePresentation("slot_strip", {
-              boardTitle: "Progress update",
-              helperLabel: "Next move",
-              helperText: "Build the one-line update you would actually tell a classmate or teacher.",
-              callToAction: "Build update",
-            })
+            "Good. You protected the real work and pushed the cosmetic choice later.",
+            "Prioritize the work that actually moves the deadline forward.",
+            {
+              timerMs: 18000,
+              theme: "coral",
+              soundSet: "planner",
+              presentation: gamePresentation("arcade_sort_rush", {
+                boardTitle: "Tradeoff rush",
+                helperLabel: "Pressure lane",
+                helperText: "When time is tight, push cosmetic work down the board.",
+                callToAction: "Save plan",
+                resolvedTitle: "Tradeoff cleared",
+                resolvedNote: "You protected the important work instead of polishing too early.",
+              }),
+            }
           ),
-          makeChoiceStage(
-            stageId(level, unitIndex, "choice-2"),
-            "Pick the strongest progress update",
-            "Which update sounds most useful after the plan is set?",
+          makeReactionPickStage(
+            stageId(level, unitIndex, "update-pick"),
+            "Update pick",
+            "Pick the strongest one-line update before the countdown ends.",
             [
-              choiceOption("good", "Tonight I'll finish the outline so I can research tomorrow.", "Shows the next real step"),
-              choiceOption("bad-1", "Tonight I'll work on it for a while and see what happens.", "Possible, but not specific enough"),
-              choiceOption("bad-2", "Tomorrow I might start the slides if I have time.", "A step, but weaker than finishing the outline first"),
+              {
+                id: "round-update",
+                prompt: "What is the strongest update after you sort the task board?",
+                options: [
+                  choiceOption("good-update", "Tonight I'll finish the outline so I can research tomorrow.", "Specific next step"),
+                  choiceOption(
+                    "near-update",
+                    "Tonight I'll work on it for a while and then see.",
+                    "Possible, but too vague",
+                    true
+                  ),
+                  choiceOption("bad-update", "Tomorrow I'll probably work on the slides for a bit.", "Too vague and it skips the first real step"),
+                ],
+                correctOptionId: "good-update",
+              },
             ],
-            "good",
-            "Good. That update makes the plan sound realistic.",
-            "Choose the update that shows the clearest next step.",
-            gamePresentation("dialogue_pick", {
-              boardTitle: "Best update",
-              helperLabel: "Next move",
-              helperText: "Choose the progress update that sounds most specific and useful.",
-              dialoguePrompt: "A classmate asks: What are you doing first to finish this on time?",
-              callToAction: "Lock update",
-            })
+            "Good. The update sounds concrete instead of vague.",
+            "Grab the update that tells the listener exactly what happens first.",
+            {
+              timerMs: 12000,
+              theme: "coral",
+              soundSet: "comparison",
+              presentation: gamePresentation("arcade_reaction_pick", {
+                boardTitle: "Update pick",
+                helperLabel: "Progress line",
+                helperText: "Finish with the line that sounds like a real plan, not a vague promise.",
+                callToAction: "Use update",
+                resolvedTitle: "Update locked",
+                resolvedNote: "You finished with a line that clearly signals the next move.",
+              }),
+            }
           ),
         ],
         {
           theme: "coral",
-          layoutVariant: "kanban",
+          layoutVariant: "arcade_sort_rush",
           assetName: "deadline-dash",
           summary: {
-            strength: "Your board and update now sound like a real plan instead of a vague promise.",
-            nextFocus: "Keep the next step concrete so the listener knows what happens first.",
-            bridgeToSpeaking: "Use the same task board language when you explain your plan in speaking.",
+            strength: "You triaged the deadline pressure into a plan that sounds practical instead of wishful.",
+            nextFocus: "Lead with the first concrete step so the listener hears how the plan actually starts.",
+            bridgeToSpeaking: "Use the same now-next-finish language when you explain your plan in speaking.",
           },
+          maxRetriesPerStage: 2,
         }
       );
     case "health-travel-and-everyday-services":
@@ -1797,60 +2762,93 @@ function createStageOneGame(
         `${level}-${unitIndex}-game`,
         "Station Help",
         "station_help",
-        "Pick the right service questions before you handle the travel exchange in speaking.",
+        "Clear the fast station queue so the help exchange sounds smooth when you say it.",
         [
-          makePriorityBoardStage(
-            stageId(level, unitIndex, "priority"),
-            "Build the help board",
-            "Place each travel detail where it matters most in the station exchange.",
+          makeReactionPickStage(
+            stageId(level, unitIndex, "queue-pick"),
+            "Queue rush",
+            "Pick the fastest useful move for each station question.",
             [
-              { id: "need-now", label: "Need now" },
-              { id: "need-next", label: "Need next" },
-              { id: "good-to-check", label: "Good to check" },
+              {
+                id: "round-route",
+                prompt: "You reach the counter. What should you ask first?",
+                options: [
+                  choiceOption("good-route", "Which bus goes downtown?", "Best first move"),
+                  choiceOption(
+                    "near-ticket",
+                    "I need a one-way ticket to downtown.",
+                    "Useful, but still early if you do not know the route",
+                    true
+                  ),
+                  choiceOption("near-platform", "Which platform is the downtown bus on?", "Related, but easier after the route is clear"),
+                ],
+                correctOptionId: "good-route",
+              },
+              {
+                id: "round-ticket",
+                prompt: "The worker asks for the ticket type. What helps most now?",
+                options: [
+                  choiceOption("good-ticket", "I need a one-way ticket to downtown.", "Route plus ticket type"),
+                  choiceOption("near-time", "What time does it leave?", "Useful, but still one step early", true),
+                  choiceOption("near-return", "Do you have a return ticket too?", "Related, but not the ticket type the worker asked for"),
+                ],
+                correctOptionId: "good-ticket",
+              },
             ],
-            [
-              { id: "route", label: "Which bus goes downtown?", detail: "Start with the route" },
-              { id: "ticket", label: "I need a one-way ticket.", detail: "Add the ticket type" },
-              { id: "time", label: "What time does it leave?", detail: "Confirm the time after the route" },
-            ],
-            [
-              { cardId: "route", laneId: "need-now" },
-              { cardId: "ticket", laneId: "need-next" },
-              { cardId: "time", laneId: "good-to-check" },
-            ],
-            "Good. The service desk board now follows a natural order.",
-            "Place the route, ticket, and timing details where they fit best in the exchange.",
-            gamePresentation("service_desk", {
-              boardTitle: "Service desk board",
-              helperLabel: "Service desk board",
-              helperText: "Build the exchange in the order a station worker would need to hear it.",
-              callToAction: "Save board",
-            })
+            "Good. You cleared the first station moves in a natural order.",
+            "Pick the move that helps the worker answer faster.",
+            {
+              timerMs: 17000,
+              theme: "teal",
+              soundSet: "comparison",
+              interactionModel: "target_tag",
+              presentation: gamePresentation("arcade_reaction_pick", {
+                boardTitle: "Queue rush",
+                helperLabel: "Counter choices",
+                helperText: "Clear the route question first, then the ticket detail.",
+                callToAction: "Use move",
+                resolvedTitle: "Queue cleared",
+                resolvedNote: "You kept the station exchange fast and useful.",
+              }),
+            }
           ),
-          makeChoiceStage(
-            stageId(level, unitIndex, "choice"),
-            "Best ticket detail",
-            "Which follow-up detail would help the station worker most?",
+          makeReactionPickStage(
+            stageId(level, unitIndex, "desk-pick"),
+            "Desk decision",
+            "Pick the final follow-up that keeps the service exchange moving.",
             [
-              choiceOption("good", "I need a one-way ticket to downtown.", "Destination plus ticket type"),
-              choiceOption("bad-1", "I need to go downtown after class today.", "Helpful, but it still leaves out the ticket type"),
-              choiceOption("bad-2", "I want to leave soon if possible.", "Possible, but too incomplete for the worker"),
+              {
+                id: "round-time",
+                prompt: "Once the route and ticket are clear, what should you ask next?",
+                options: [
+                  choiceOption("good-time", "What time does it leave?", "Best next service question"),
+                  choiceOption("near-platform", "Which platform is it on?", "Possible, but usually after timing", true),
+                  choiceOption("near-return", "Can I pay by card?", "Practical, but it does not move the trip details forward"),
+                ],
+                correctOptionId: "good-time",
+              },
             ],
-            "good",
-            "Good. That detail makes the service request more useful.",
-            "Choose the detail that still fits the station exchange.",
-            gamePresentation("dialogue_pick", {
-              boardTitle: "Ticket detail",
-              helperLabel: "Ticket detail",
-              helperText: "Choose the one detail that would help the station worker answer faster.",
-              dialoguePrompt: "The station worker asks: What kind of ticket do you need?",
-              callToAction: "Add detail",
-            })
+            "Good. You finished the desk exchange with the right practical question.",
+            "Grab the detail that still helps the station worker solve your trip.",
+            {
+              timerMs: 12000,
+              theme: "teal",
+              soundSet: "comparison",
+              interactionModel: "target_tag",
+              presentation: gamePresentation("arcade_reaction_pick", {
+                boardTitle: "Desk decision",
+                helperLabel: "Last question",
+                helperText: "Finish with the practical question that helps you leave on time.",
+                callToAction: "Lock question",
+                resolvedTitle: "Desk cleared",
+                resolvedNote: "You kept the station exchange focused on route, ticket, and timing.",
+              }),
+            }
           ),
-          makeVoicePromptStage(
-            stageId(level, unitIndex, "voice"),
-            "Say the route question",
-            "Say the route question clearly.",
+          makeVoiceBurstStage(
+            stageId(level, unitIndex, "voice-burst"),
+            "Question burst",
+            "Say the key service question once and keep the destination and timing together.",
             "Which bus goes downtown, and what time does it leave?",
             "Keep the destination and the time question together.",
             [
@@ -1859,32 +2857,38 @@ function createStageOneGame(
               choiceOption("alt-2", "What bus goes downtown, and what time does it leave?"),
             ],
             "good",
-            "Good. You are ready for the station conversation.",
-            "Stay closer to the route question with downtown and time.",
+            "Good. You cleared the service question and are ready for the station conversation.",
+            "Stay close to the route question with the destination and the timing together.",
             {
+              timerMs: 16000,
+              theme: "teal",
+              soundSet: "neutral",
               requiredPhrases: ["downtown", "time"],
               acceptedResponses: [
                 "Which bus goes downtown, and what time does it leave?",
                 "Which bus goes downtown, and when does it leave?",
               ],
               presentation: gamePresentation("voice_focus", {
-                boardTitle: "Service question",
-                helperLabel: "Say the service question",
-                helperText: "Say the route question once with the destination and time request together.",
-                callToAction: "Check question",
+                boardTitle: "Question burst",
+                helperLabel: "Say it once",
+                helperText: "Say the route question one time. Use quick backup if the mic misses you.",
+                callToAction: "Clear voice burst",
+                resolvedTitle: "Voice burst cleared",
+                resolvedNote: "You kept the service question short, direct, and easy to answer.",
               }),
             }
           ),
         ],
         {
           theme: "teal",
-          layoutVariant: "service_desk",
+          layoutVariant: "arcade_reaction_pick",
           assetName: "station-help",
           summary: {
-            strength: "You built the station exchange in a useful order and kept the request focused.",
-            nextFocus: "Ask the route question first so the worker can answer quickly.",
-            bridgeToSpeaking: "Carry the same route-and-ticket language into the station help conversation next.",
+            strength: "You cleared the station queue in a smart order and finished with one clean service question.",
+            nextFocus: "Lead with the route, then add the ticket and time detail so the worker can answer quickly.",
+            bridgeToSpeaking: "Carry the same route-ticket-time sequence into the station help conversation next.",
           },
+          maxRetriesPerStage: 2,
         }
       );
     case "comparing-choosing-and-short-narratives":
@@ -1892,57 +2896,88 @@ function createStageOneGame(
         `${level}-${unitIndex}-game`,
         "Choice Showdown",
         "choice_showdown",
-        "Make the choice and support it before you defend it in the speaking benchmark.",
+        "Build a winning choice fast, then clear one short defense line before speaking.",
         [
-          makeAssembleStage(
-            stageId(level, unitIndex, "assemble"),
-            "Build the choice board",
-            "Fill the slots so your choice and main reason are clear right away.",
+          makeReactionPickStage(
+            stageId(level, unitIndex, "pick-rush"),
+            "Pick rush",
+            "Lock the better option before the timer expires.",
             [
-              { id: "choice", label: "Choice", detail: "Say which option you pick" },
-              { id: "reason", label: "Reason", detail: "Show why it fits now" },
+              {
+                id: "round-choice",
+                prompt: "Which opening sounds strongest for the benchmark choice question?",
+                options: [
+                  choiceOption("good-choice", "I'd choose the study workshop because it helps me this week.", "Clear choice plus reason"),
+                  choiceOption(
+                    "near-choice",
+                    "Maybe the study workshop could be okay for me.",
+                    "Possible, but hesitant",
+                    true
+                  ),
+                  choiceOption("bad-choice", "Both are fine, so I don't really know.", "Too weak and indirect"),
+                ],
+                correctOptionId: "good-choice",
+              },
             ],
-            [
-              choiceOption("opt-choice", "I'd choose the study workshop", "Clear decision"),
-              choiceOption("opt-reason", "because it helps me this week.", "Main reason"),
-              choiceOption("opt-both", "Both are okay, I guess.", "Too weak and indirect"),
-            ],
-            [
-              { slotId: "choice", optionId: "opt-choice" },
-              { slotId: "reason", optionId: "opt-reason" },
-            ],
-            "Good. That opening makes the choice clear immediately.",
-            "Fill the board with one clear choice and one direct reason.",
-            gamePresentation("comparison_split", {
-              boardTitle: "Choice board",
-              helperLabel: "Main choice",
-              helperText: "Lock the choice first so the benchmark answer does not sound hesitant.",
-              callToAction: "Lock choice",
-            })
+            "Good. You locked the choice fast instead of sounding unsure.",
+            "Grab the opening that sounds direct and easy to defend.",
+            {
+              timerMs: 12000,
+              theme: "amber",
+              soundSet: "comparison",
+              interactionModel: "split_decision",
+              presentation: gamePresentation("arcade_reaction_pick", {
+                boardTitle: "Pick rush",
+                helperLabel: "Main choice",
+                helperText: "Choose the option that sounds strongest right away.",
+                callToAction: "Lock pick",
+                resolvedTitle: "Pick locked",
+                resolvedNote: "You started with a choice that sounds confident, not hesitant.",
+              }),
+            }
           ),
-          makeChoiceStage(
-            stageId(level, unitIndex, "choice-2"),
-            "Add the contrast",
-            "Which line best adds a drawback of the other option?",
+          makeReactionPickStage(
+            stageId(level, unitIndex, "tradeoff-rush"),
+            "Tradeoff rush",
+            "Grab the contrast line that makes the comparison feel real.",
             [
-              choiceOption("good", "On the other hand, the work shift gives me money but leaves me with less study time.", "Real contrast and tradeoff"),
-              choiceOption("bad-1", "The work shift sounds different from the workshop.", "Too vague"),
-              choiceOption("bad-2", "Sometimes jobs can be busy.", "True, but not connected to your choice"),
+              {
+                id: "round-tradeoff",
+                prompt: "Which contrast best shows the weakness of the other option?",
+                options: [
+                  choiceOption("good-tradeoff", "On the other hand, the work shift gives me money but leaves me with less study time.", "Strong tradeoff"),
+                  choiceOption(
+                    "near-tradeoff",
+                    "On the other hand, the work shift helps now but gives me less time to prepare this week.",
+                    "Close, but less pointed than the strongest contrast",
+                    true
+                  ),
+                  choiceOption("bad-tradeoff", "On the other hand, jobs can be tiring after a long day.", "Too generic to compare the two options clearly"),
+                ],
+                correctOptionId: "good-tradeoff",
+              },
             ],
-            "good",
-            "Good. That contrast makes the comparison stronger.",
-            "Pick the line that still compares the two options.",
-            gamePresentation("comparison_split", {
-              boardTitle: "Tradeoff card",
-              helperLabel: "Tradeoff card",
-              helperText: "Choose the contrast that makes the comparison feel real, not generic.",
-              callToAction: "Use contrast",
-            })
+            "Good. The tradeoff now makes the choice feel convincing.",
+            "Pick the contrast that still compares the two options directly.",
+            {
+              timerMs: 12000,
+              theme: "amber",
+              soundSet: "comparison",
+              interactionModel: "split_decision",
+              presentation: gamePresentation("arcade_reaction_pick", {
+                boardTitle: "Tradeoff rush",
+                helperLabel: "Tradeoff line",
+                helperText: "Choose the contrast that makes the other option feel weaker for this situation.",
+                callToAction: "Use tradeoff",
+                resolvedTitle: "Tradeoff locked",
+                resolvedNote: "You gave the choice a real contrast instead of a generic complaint.",
+              }),
+            }
           ),
-          makeVoicePromptStage(
-            stageId(level, unitIndex, "voice"),
-            "Say the choice line",
-            "Say the main choice line you want to carry into the benchmark conversation.",
+          makeVoiceBurstStage(
+            stageId(level, unitIndex, "voice-burst"),
+            "Defense burst",
+            "Say the main defense line once with the choice and the reason together.",
             "I'd choose the study workshop because it fits my goals this week.",
             "Keep the choice and the reason in one clear line.",
             [
@@ -1952,31 +2987,37 @@ function createStageOneGame(
             ],
             "good",
             "Good. You are ready to defend that choice in speaking.",
-            "Stay closer to the choice line with because and the reason.",
+            "Stay close to the main defense line with the choice and because together.",
             {
+              timerMs: 16000,
+              theme: "amber",
+              soundSet: "neutral",
               requiredPhrases: ["choose", "because"],
               acceptedResponses: [
                 "I'd choose the study workshop because it fits my goals this week.",
                 "I would choose the study workshop because it fits my goals this week.",
               ],
               presentation: gamePresentation("voice_focus", {
-                boardTitle: "Defense line",
-                helperLabel: "Say the thesis line",
-                helperText: "Say the choice once with because so the defense sounds direct and confident.",
-                callToAction: "Check thesis",
+                boardTitle: "Defense burst",
+                helperLabel: "Say it once",
+                helperText: "Say the defense line one time. Use quick backup if the mic misses you.",
+                callToAction: "Clear defense burst",
+                resolvedTitle: "Defense cleared",
+                resolvedNote: "You turned the choice into one short line that sounds easy to defend.",
               }),
             }
           ),
         ],
         {
           theme: "amber",
-          layoutVariant: "comparison_split",
+          layoutVariant: "arcade_reaction_pick",
           assetName: "choice-showdown",
           summary: {
-            strength: "Your choice is clear, and the contrast now gives it a real tradeoff.",
-            nextFocus: "Keep the main reason inside the same sentence as the choice so the argument lands fast.",
+            strength: "You locked the better option fast, added a real tradeoff, and finished with one direct defense line.",
+            nextFocus: "Keep the choice and the main reason inside one sentence so the defense lands immediately.",
             bridgeToSpeaking: "Use the same choice-and-tradeoff language when you defend your answer in the speaking benchmark.",
           },
+          maxRetriesPerStage: 2,
         }
       );
     default:

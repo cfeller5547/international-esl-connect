@@ -9,7 +9,7 @@ const schema = z.object({
   unitSlug: z.string().min(1),
   stageId: z.string().min(1),
   inputMode: z.enum(["voice", "fallback"]).optional(),
-  attemptNumber: z.number().int().min(1).max(2),
+  attemptNumber: z.number().int().min(1).max(99),
   answer: z.object({
     selectedOptionId: z.string().optional(),
     assembleAssignments: z
@@ -47,6 +47,51 @@ const schema = z.object({
       )
       .optional(),
     pathIds: z.array(z.string().min(1)).optional(),
+    collectedIds: z.array(z.string().min(1)).optional(),
+    sortAssignments: z
+      .array(
+        z.object({
+          cardId: z.string().min(1),
+          laneId: z.string().min(1),
+        })
+      )
+      .optional(),
+    reactionSelections: z
+      .array(
+        z.object({
+          roundId: z.string().min(1),
+          optionId: z.string().min(1),
+        })
+      )
+      .optional(),
+    arcadeMetrics: z
+      .object({
+        mistakeCount: z.number().int().min(0).optional(),
+        timeRemainingMs: z.number().int().min(0).optional(),
+        comboPeak: z.number().int().min(0).optional(),
+        livesRemaining: z.number().int().min(0).optional(),
+        timeExpired: z.boolean().optional(),
+        completionPath: z.enum(["structural", "arcade", "voice", "fallback", "mixed"]).optional(),
+        muteEnabled: z.boolean().optional(),
+        interactionModel: z
+          .enum([
+            "cross_dash",
+            "conveyor_bins",
+            "grid_runner",
+            "target_tag",
+            "split_decision",
+            "burst_callout",
+          ])
+          .optional(),
+      })
+      .optional(),
+    structuralMetrics: z
+      .object({
+        timeRemainingMs: z.number().int().min(0).optional(),
+        livesRemaining: z.number().int().min(0).optional(),
+        timeExpired: z.boolean().optional(),
+      })
+      .optional(),
     audioDataUrl: z.string().optional(),
     audioMimeType: z.string().optional(),
     fallbackOptionId: z.string().optional(),

@@ -59,24 +59,33 @@ Pass condition:
 1. Open `/app/learn/unit/:unitSlug/game` after completing the unit practice step.
 2. Verify the screen opens in `Brief` with the unit-linked vocabulary focus, richer themed scene/map presentation, and one dominant `Start game` CTA.
 3. Start the game and verify the UI progresses through `Brief` -> `Game` -> `Summary`.
-4. On a Pro account with mic access available, complete the voice-helpful stage(s) in voice mode and verify each such stage returns one coaching note with at most one retry.
-5. Deny mic access or simulate voice-evaluation failure on a voice-enabled stage and verify the game switches to fallback without losing completion progress.
-6. Verify fallback uses the same authored stage items, keeps the game moving, and preserves the richer scene/map layout.
-7. Verify the current `very_basic`, `basic`, `intermediate`, and `advanced` games use authored Stage 3 mechanics rather than falling back to repeated plain multiple choice or the generic game scaffold.
-8. Verify `Map Route`, `Scene Scan`, `Weather Switch`, and `Deadline Dash` visibly behave like their names imply.
-9. Verify active play uses the compact in-flow game strip rather than the large Learn unit header, while the richer unit header still appears in `Brief` and `Summary`.
-10. Verify `Name Tag Mixer` Stage 2 no longer renders a large mostly empty board and instead uses a tighter reply-pick layout.
-11. Verify the stage CTA copy is authored for the current board and does not fall back to generic text like `Check stage`.
-12. Verify a correct first-pass result never shows `Retry` in the stage header or result state.
-13. Verify voice-enabled stages show `Say it` and `Quick backup` together and that backup remains usable without losing progress.
-14. Verify the summary shows completion confirmation, one authored strength pattern, one authored next focus, one authored bridge into speaking, and a dominant `Continue to speaking` CTA.
-15. Complete the underlying game activity and verify `speaking` unlocks immediately.
-16. Confirm no visible numeric score or pass/fail threshold is shown anywhere in the game flow.
-17. Confirm there is no separate Games tab or standalone game route outside `/app/learn/unit/:unitSlug/game`.
+4. Verify the current `very_basic` and `basic` games use the Stage 9 direct-playfield arcade mechanic set (`lane_runner`, `sort_rush`, `route_race`, `reaction_pick`, `voice_burst`) instead of the older board-first mix, and confirm Stage 10 only deepens `Name Tag Mixer`, `Map Route`, `Story Chain`, and `Scene Scan` without changing routes or stage kinds.
+5. Verify the active game phase uses one compact in-board arcade HUD with timer, hearts, score, combo, and mute/pause/restart instead of duplicating those metrics in both the outer shell and the board.
+6. Verify each current-12 arcade stage exposes a valid `interactionModel` and the payload carries `spriteRefs`, `motionRules`, `hitBoxes`, `spawnTimeline`, `failWindowMs`, `rewardFx`, and `transitionFx` where appropriate.
+7. Verify `Name Tag Mixer`, `Map Route`, `Story Chain`, and `Scene Scan` visibly behave like showcase arcade concepts rather than like static quiz boards, and prioritize those four for manual QA before regression-smoke testing the rest of the current 12.
+8. Verify those four showcase games use game-specific board/sprite assets instead of relying only on the shared generic arcade kit.
+9. Verify showcase lane-runner stages visibly mark the next required target in both the rail and the board state.
+10. Verify showcase route-race boards visually distinguish the clean route from detour branches.
+11. Verify showcase `voice_burst` stages keep mode choice and primary action visually connected instead of falling back to a tall stacked form.
+12. On a Pro account with mic access available, complete the selected voice-burst games (`Name Tag Mixer`, `Snack Counter`, `Story Chain`, `Scene Scan`, `Station Help`, and `Choice Showdown`) in voice mode and verify each voice burst stays short, clear, and fallback-safe.
+13. Deny mic access or simulate voice-evaluation failure on a `voice_burst` stage and verify the game switches to fallback without losing completion progress.
+14. Verify fallback uses the same authored stage items and still returns medal / score / completion-path data.
+15. Verify the current 12 arcade games show visible local score, combo, hearts, timer, and medal, but no global coins, XP, or leaderboard UI.
+16. Verify all Learn games now play correct / incorrect feedback sound, structural levels carry the neutral ambient bed, animate stage swaps, and show a compact completion celebration before the summary settles.
+17. Verify `reaction_pick` stages do not reveal the correct answer before selection through iconography, color, or explanatory detail.
+18. Verify no active arcade stage visibly remains live at `0:00`; once time expires, input locks and the stage resolves immediately.
+19. Verify `Quick backup` appears equal-weight to `Say it` on all six current-12 voice games.
+20. Verify current-12 stage clear uses a compact interstitial with medal, score delta, combo carry, one short why-it-worked note, and a dominant `Next stage` action rather than leaving an empty cleared board.
+21. Verify the stage CTA copy is authored for the current stage and does not fall back to generic text like `Check stage`.
+22. Verify a correct clear never shows `Retry` as the active primary path in the result state.
+23. Verify the summary shows completion confirmation, one authored strength pattern, one authored next focus, one authored bridge into speaking, and a dominant `Continue to speaking` CTA.
+24. Complete the underlying game activity and verify `speaking` unlocks immediately.
+25. Confirm there is no separate Games tab or standalone game route outside `/app/learn/unit/:unitSlug/game`.
 
 Pass condition:
-- game feels like a required Learn warm-up, not a detached game surface
-- learners can always complete game even when voice is unavailable
+- game feels like a required Learn arcade warm-up, not a detached game surface
+- selected voice bursts remain optional within the current 12-game mix and learners can still complete those stages when voice is unavailable
+- current `intermediate` and `advanced` games remain board-first and do not expose the Stage 9 micro-arcade HUD
 
 ## 3.2.2 Content Source Precedence
 

@@ -15,28 +15,169 @@ type UnitStatus = "locked" | "unlocked" | "completed";
 function determineGameCompletionPath(responsePayload: Record<string, unknown> | undefined) {
   const review = responsePayload?.gameReview as
     | {
-        stages?: Array<{ resolvedInputMode?: "voice" | "fallback" | null }>;
+        stages?: Array<{
+          resolvedInputMode?: "voice" | "fallback" | null;
+          completionPath?: "structural" | "arcade" | "voice" | "fallback" | "mixed";
+        }>;
       }
     | undefined;
-  const inputModes = new Set(
+  const completionModes = new Set(
     (review?.stages ?? [])
-      .map((stage) => stage.resolvedInputMode)
-      .filter((mode): mode is "voice" | "fallback" => Boolean(mode))
+      .map((stage) => stage.completionPath ?? stage.resolvedInputMode ?? "structural")
+      .filter(Boolean)
   );
 
-  if (inputModes.has("voice") && inputModes.has("fallback")) {
+  if (completionModes.has("mixed")) {
     return "mixed";
   }
 
-  if (inputModes.has("voice")) {
+  if (completionModes.has("voice") && completionModes.has("fallback")) {
+    return "mixed";
+  }
+
+  if (completionModes.has("voice")) {
     return "voice";
   }
 
-  if (inputModes.has("fallback")) {
+  if (completionModes.has("fallback")) {
     return "fallback";
   }
 
+  if (completionModes.has("arcade")) {
+    return "arcade";
+  }
+
   return "structural";
+}
+
+function summarizeGameReviewAnalytics(
+  gamePayload: Record<string, unknown>,
+  responsePayload: Record<string, unknown> | undefined
+) {
+  const review = responsePayload?.gameReview as
+    | {
+        stages?: Array<{
+          stageId?: string;
+          outcome?: string;
+        interactionModel?: string;
+        retryCount?: number;
+        muteEnabled?: boolean;
+        nearMiss?: boolean;
+        combo?: number;
+        livesRemaining?: number;
+        stageResult?: string;
+          resolvedInputMode?: "voice" | "fallback" | null;
+          completionPath?: "structural" | "arcade" | "voice" | "fallback" | "mixed";
+        }>;
+      }
+    | undefined;
+  const payloadStages = Array.isArray(gamePayload.stages)
+    ? (gamePayload.stages as Array<Record<string, unknown>>)
+    : [];
+  const livesByStageId = new Map(
+    payloadStages
+      .filter((stage) => typeof stage.id === "string" && typeof stage.lives === "number")
+      .map((stage) => [String(stage.id), Number(stage.lives)])
+  );
+
+  return {
+    interactionModel: (() => {
+      const models = new Set(
+        (review?.stages ?? [])
+          .map((stage) => (typeof stage.interactionModel === "string" ? stage.interactionModel : null))
+          .filter((value): value is string => Boolean(value))
+      );
+
+      if (models.size === 0) {
+        payloadStages.forEach((stage) => {
+          if (typeof stage.interactionModel === "string") {
+            models.add(String(stage.interactionModel));
+          }
+        });
+      }
+
+      if (models.size === 0) {
+        return "structural";
+      }
+
+      return models.size === 1 ? Array.from(models)[0] : "mixed";
+    })(),
+    surfaceFamily: (() => {
+      const stageKinds = new Set(
+        payloadStages
+          .map((stage) => (typeof stage.kind === "string" ? String(stage.kind) : null))
+          .filter((value): value is string => Boolean(value))
+      );
+
+      if (
+        Array.from(stageKinds).some((kind) =>
+          ["lane_runner", "sort_rush", "route_race", "reaction_pick", "voice_burst"].includes(kind)
+        )
+      ) {
+        return "arcade";
+      }
+
+      return "structured";
+    })(),
+    comboPeak: (review?.stages ?? []).reduce((peak, stage) => {
+      const combo = typeof stage.combo === "number" ? Number(stage.combo) : 0;
+      return Math.max(peak, combo);
+    }, 0),
+    retryCount: (review?.stages ?? []).reduce((count, stage) => {
+      return count + (typeof stage.retryCount === "number" ? Number(stage.retryCount) : 0);
+    }, 0),
+    livesLost: (review?.stages ?? []).reduce((total, stage) => {
+      const stageId = typeof stage.stageId === "string" ? String(stage.stageId) : "";
+      const startingLives = livesByStageId.get(stageId);
+      const livesRemaining =
+        typeof stage.livesRemaining === "number" ? Number(stage.livesRemaining) : undefined;
+
+      if (startingLives === undefined || livesRemaining === undefined) {
+        return total;
+      }
+
+      return total + Math.max(0, startingLives - livesRemaining);
+    }, 0),
+    failCount: (review?.stages ?? []).reduce((count, stage) => {
+      return count + (stage.stageResult === "retry" || stage.outcome === "practice_more" ? 1 : 0);
+    }, 0),
+    voiceUsed: (review?.stages ?? []).some(
+      (stage) =>
+        stage.resolvedInputMode === "voice" ||
+        stage.completionPath === "voice" ||
+        stage.completionPath === "mixed"
+    ),
+    nearMiss: (review?.stages ?? []).some((stage) => stage.nearMiss === true),
+    muteEnabled: (review?.stages ?? []).some((stage) => stage.muteEnabled === true),
+    audioEnabled: !(review?.stages ?? []).some((stage) => stage.muteEnabled === true),
+    answerRevealMode: (() => {
+      const revealModes = new Set(
+        payloadStages
+          .map((stage) => {
+            const presentation =
+              stage.presentation && typeof stage.presentation === "object"
+                ? (stage.presentation as Record<string, unknown>)
+                : null;
+            return typeof presentation?.answerRevealMode === "string"
+              ? String(presentation.answerRevealMode)
+              : null;
+          })
+          .filter((value): value is string => Boolean(value))
+      );
+
+      if (revealModes.size === 0) {
+        return "preanswer";
+      }
+
+      return revealModes.size === 1 ? Array.from(revealModes)[0] : "mixed";
+    })(),
+    ambientSet:
+      typeof gamePayload.ambientSet === "string" ? String(gamePayload.ambientSet) : "neutral",
+    celebrationVariant:
+      typeof gamePayload.celebrationVariant === "string"
+        ? String(gamePayload.celebrationVariant)
+        : "structured_glow",
+  };
 }
 
 export type CurriculumActivityView = {
@@ -453,6 +594,10 @@ async function setActiveCurriculum(userId: string, targetLevel: CurriculumLevel)
     return curriculum.id;
   }
 
+  if (existing.isActive && existing.archivedAt === null) {
+    return curriculum.id;
+  }
+
   await prisma.userCurriculumProgress.update({
     where: { id: existing.id },
     data: {
@@ -467,20 +612,29 @@ async function setActiveCurriculum(userId: string, targetLevel: CurriculumLevel)
 async function resolveCurrentLevel(userId: string): Promise<CurriculumLevel> {
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: userId },
-    include: {
-      reports: {
-        where: {
-          reportType: {
-            in: ["baseline_quick", "baseline_full", "reassessment"],
-          },
-        },
-        orderBy: { createdAt: "desc" },
-        take: 1,
-      },
+    select: {
+      currentLevel: true,
     },
   });
 
-  const normalized = normalizeLevelLabel(user.currentLevel ?? user.reports[0]?.levelLabel);
+  if (user.currentLevel && user.currentLevel !== "foundation") {
+    return normalizeLevelLabel(user.currentLevel);
+  }
+
+  const latestReport = await prisma.report.findFirst({
+    where: {
+      userId,
+      reportType: {
+        in: ["baseline_quick", "baseline_full", "reassessment"],
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    select: {
+      levelLabel: true,
+    },
+  });
+
+  const normalized = normalizeLevelLabel(user.currentLevel ?? latestReport?.levelLabel);
 
   if (user.currentLevel !== normalized) {
     await prisma.user.update({
@@ -497,7 +651,7 @@ async function resolveCurrentLevel(userId: string): Promise<CurriculumLevel> {
 async function ensureAssignedProgress(userId: string) {
   const level = await resolveCurrentLevel(userId);
   const curriculumId = await setActiveCurriculum(userId, level);
-  await reconcileCurriculumProgressForUser(userId);
+  await ensureUserActivityProgressRows(userId, curriculumId);
 
   const activeProgress = await prisma.userCurriculumProgress.findUniqueOrThrow({
     where: {
@@ -792,6 +946,7 @@ export const CurriculumService = {
 
     if (activityType === "game") {
       const gamePayload = unitData.activity.payload as Record<string, unknown>;
+      const gameAnalytics = summarizeGameReviewAnalytics(gamePayload, responsePayload);
       await trackEvent({
         eventName: "learn_game_completed",
         route: activityHref(unitSlug, activityType),
@@ -805,7 +960,20 @@ export const CurriculumService = {
             typeof gamePayload.layoutVariant === "string"
               ? gamePayload.layoutVariant
               : "generic",
+          interaction_model: gameAnalytics.interactionModel,
+          surface_family: gameAnalytics.surfaceFamily,
           completion_path: determineGameCompletionPath(responsePayload),
+          combo_peak: gameAnalytics.comboPeak,
+          lives_lost: gameAnalytics.livesLost,
+          fail_count: gameAnalytics.failCount,
+          retry_count: gameAnalytics.retryCount,
+          near_miss: gameAnalytics.nearMiss,
+          answer_reveal_mode: gameAnalytics.answerRevealMode,
+          ambient_set: gameAnalytics.ambientSet,
+          voice_used: gameAnalytics.voiceUsed,
+          mute_enabled: gameAnalytics.muteEnabled,
+          audio_enabled: gameAnalytics.audioEnabled,
+          celebration_variant: gameAnalytics.celebrationVariant,
         },
       });
     }

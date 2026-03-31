@@ -1,0 +1,26 @@
+<svg width="512" height="320" viewBox="0 0 512 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="24" y1="18" x2="488" y2="302" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F2747"/>
+      <stop offset="1" stop-color="#1B5A7A"/>
+    </linearGradient>
+    <linearGradient id="lane" x1="0" y1="0" x2="512" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#14375F" stop-opacity="0.2"/>
+      <stop offset="0.5" stop-color="#7ED8FF" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#14375F" stop-opacity="0.2"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="320" rx="34" fill="url(#bg)"/>
+  <rect x="28" y="28" width="456" height="264" rx="26" fill="#0A1730" fill-opacity="0.28" stroke="#7ED8FF" stroke-opacity="0.22"/>
+  <rect x="36" y="66" width="440" height="30" rx="15" fill="url(#lane)"/>
+  <rect x="36" y="120" width="440" height="30" rx="15" fill="url(#lane)"/>
+  <rect x="36" y="174" width="440" height="30" rx="15" fill="url(#lane)"/>
+  <rect x="36" y="228" width="440" height="30" rx="15" fill="url(#lane)"/>
+  <path d="M74 81H438" stroke="#D9F3FF" stroke-opacity="0.45" stroke-width="3" stroke-linecap="round" stroke-dasharray="14 12"/>
+  <path d="M74 135H438" stroke="#D9F3FF" stroke-opacity="0.45" stroke-width="3" stroke-linecap="round" stroke-dasharray="14 12"/>
+  <path d="M74 189H438" stroke="#D9F3FF" stroke-opacity="0.45" stroke-width="3" stroke-linecap="round" stroke-dasharray="14 12"/>
+  <path d="M74 243H438" stroke="#D9F3FF" stroke-opacity="0.45" stroke-width="3" stroke-linecap="round" stroke-dasharray="14 12"/>
+  <circle cx="94" cy="64" r="28" fill="#2FC3E9" fill-opacity="0.16"/>
+  <circle cx="418" cy="252" r="38" fill="#F4A261" fill-opacity="0.12"/>
+  <circle cx="436" cy="88" r="18" fill="#8B7BFF" fill-opacity="0.2"/>
+</svg>

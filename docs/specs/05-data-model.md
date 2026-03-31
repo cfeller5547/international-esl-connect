@@ -41,7 +41,7 @@ ORM recommendation:
 
 Streak qualifying activity (MVP):
 - any completion path that explicitly records a qualifying activity through `StreakService`.
-- in the current build this is triggered by completed legacy Learn activities, completed Speak sessions, and completed Homework Help sessions.
+- in the current build this is triggered by completed Learn activities, completed Speak sessions, and completed Homework Help sessions.
 
 ### `guest_onboarding_sessions`
 - `id` (uuid, pk)
@@ -177,7 +177,33 @@ Game activity payload contract:
 - `introText`
 - `stages[]`
   - `id`
-  - `kind` (`assemble` | `spotlight` | `state_switch` | `priority_board` | `choice` | `match` | `sequence` | `map` | `voice_prompt`)
+  - `kind`
+  - `challengeProfile` (`arcade` | `recall` | `construction` | `voice`)
+  - `challenge`
+    - `difficultyBand` (`very_basic` | `basic` | `intermediate` | `advanced`)
+    - `timerMs` (nullable; omitted for untimed stages)
+    - `lives`
+    - `medalWindowAttempts`
+    - `perActionWindowMs` (nullable)
+    - `speedRampStepMs` (nullable)
+    - `fallbackMedalCap` (nullable)
+    - `voiceOnlyGold` (nullable boolean)
+    - board-first kinds remain valid for structural higher-level games:
+      - `assemble`
+      - `spotlight`
+      - `state_switch`
+      - `priority_board`
+      - `choice`
+      - `match`
+      - `sequence`
+      - `map`
+      - `voice_prompt`
+    - the current `very_basic` and `basic` authored set primarily uses the Stage 9 direct-playfield arcade kinds, and Stage 10 deepens the top 4 current-12 showcase games without changing stage kinds:
+      - `lane_runner`
+      - `sort_rush`
+      - `route_race`
+      - `reaction_pick`
+      - `voice_burst`
   - `presentationMetadata` (optional jsonb):
     - `layoutVariant`
     - `assetRef`
@@ -185,12 +211,50 @@ Game activity payload contract:
     - `helperLabel`
     - `helperText`
     - `callToAction`
-    - optional positioned scene/map metadata such as `connections` or authored hotspot data
+    - `ctaLabel`
+    - `resolvedTitle`
+    - `resolvedNote`
+    - optional `resolvedSpeechText` for premium stage-clear spoken playback when the authored stage should read a full line aloud
+    - `answerRevealMode`
+    - optional `scenePrompt`
+    - optional `dialoguePrompt`
+    - optional positioned scene/map metadata such as `sceneHotspots`, `lanes`, or `connections`
+  - game-level metadata:
+    - `ambientSet`
+    - `celebrationVariant`
+  - arcade stages additionally carry:
+    - `timerMs`
+    - `lives`
+    - `scoreRules`
+    - `comboRules`
+    - `hudVariant`
+    - `interactionModel`
+    - `soundSet`
+    - optional `theme`
+    - optional `assetRefs`
+    - optional `spriteRefs`
+      - use `spriteRefs.neutral` when pre-answer decision states should avoid hinting at correctness
+    - optional `spawnRules`
+    - optional `pathRules`
+    - optional `motionRules`
+    - optional `hitBoxes`
+    - optional `spawnTimeline`
+    - optional `failWindowMs`
+    - optional `rewardFx`
+    - optional `transitionFx`
   - stage-specific fields
 - `completionRule`
   - `requiredStageCount`
   - `maxRetriesPerStage`
-- voice should be used only on stages where it materially helps; structural stages must remain completable without it
+- `completionRule.maxRetriesPerStage` now defines the medal window, not a hard retry ceiling:
+  - attempt `1` may earn `gold`
+  - attempt `2` may earn up to `silver`
+  - attempt `3+` may earn up to `bronze`
+  - retries may continue after that medal window; they do not block completion forever
+- voice should be used only on stages where it materially helps
+- only selected current-12 games use `voice_burst`; the current voice set remains `Name Tag Mixer`, `Snack Counter`, `Story Chain`, `Scene Scan`, `Station Help`, and `Choice Showdown`; all voice-enabled arcade stages must remain completable through fallback when mic access or voice evaluation fails
+- fallback on `voice_burst` and `voice_prompt` may earn up to `silver`; `gold` requires real voice completion
+- `intermediate` and `advanced` currently keep the structural game system while the current `very_basic` and `basic` set uses the Stage 9 arcade contract
 
 Rule:
 - every unit must have exactly six required activities in this fixed order:
@@ -239,6 +303,7 @@ Rules:
 - only one curriculum progress row may be active per user at a time.
 - promotion switches the active curriculum immediately and preserves earlier curriculum history.
 - `response_payload` may persist activity-specific completion summaries such as `gameReview` for the Learn game activity and transcript review payloads for Learn speaking.
+- `response_payload.gameReview.stages[]` may persist per-stage outcome details such as `challengeProfile`, `attemptNumber`, `nextAllowedAction`, `medalCap`, `failureReason`, `timeExpired`, `interactionModel`, `retryCount`, `muteEnabled`, `resolvedInputMode`, `scoreDelta`, `combo`, `livesRemaining`, `stageResult`, `completionPath`, and `medal`.
 
 ### `content_items`
 - `id` (uuid, pk)
@@ -397,6 +462,20 @@ Rules:
   - `coachLabel`
   - `microCoaching`
   - `turnSignals`
+- current disposition values are:
+  - `accepted_answer`
+  - `clarification_request`
+  - `acknowledgement_only`
+  - `noise_or_unintelligible`
+  - `off_task_short`
+- current `reasonCode` values are:
+  - `accepted`
+  - `clarification_repeat`
+  - `clarification_non_english`
+  - `acknowledgement_only`
+  - `ambient_noise`
+  - `unintelligible_audio`
+  - `fragment_answer`
 - rejected learner turns remain in the transcript for continuity, but `countsTowardProgress = false` keeps them out of progress thresholds and final evaluation.
 
 ### `phrase_bank_items`

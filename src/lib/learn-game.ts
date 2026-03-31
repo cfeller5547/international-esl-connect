@@ -6,6 +6,13 @@ import type {
 
 function buildStrength(stages: LearnGameReviewStage[], gameTitle: string) {
   const strongCount = stages.filter((stage) => stage.outcome === "strong").length;
+  const goldOrSilverCount = stages.filter(
+    (stage) => stage.medal === "gold" || stage.medal === "silver"
+  ).length;
+
+  if (goldOrSilverCount >= Math.max(stages.length - 1, 1)) {
+    return `${gameTitle} is in strong shape. You handled the fast decision moments cleanly before speaking.`;
+  }
 
   if (strongCount >= Math.max(stages.length - 1, 1)) {
     return `${gameTitle} is in good shape. You handled the main challenge cleanly before speaking.`;
@@ -60,7 +67,11 @@ export function buildInternalGameScore(stages: LearnGameReviewStage[]) {
   }
 
   const total = stages.reduce((score, stage) => {
-    return score + (stage.outcome === "strong" ? 100 : 72);
+    if (typeof stage.scoreDelta === "number") {
+      return score + Math.max(0, Math.min(100, Math.round(stage.scoreDelta)));
+    }
+
+    return score + (stage.outcome === "strong" ? 100 : 0);
   }, 0);
 
   return Math.round(total / stages.length);

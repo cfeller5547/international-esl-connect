@@ -44,10 +44,20 @@ Data model note:
 - Learn with one assigned fixed curriculum based on `currentLevel`
 - sequential unit unlocks and required unit activities (`lesson`, `practice`, `game`, `speaking`, `writing`, `checkpoint`)
 - required Learn game activity in every unit:
-  - Stage 3 game uses richer authored payloads with `theme`, `assetRefs`, `layoutVariant`, stage presentation metadata, and authored summary copy
-  - current `very_basic`, `basic`, `intermediate`, and `advanced` games use authored Stage 3 mechanics drawn from `assemble`, `spotlight`, `state_switch`, `priority_board`, `choice`, `match`, `sequence`, `map`, and `voice_prompt` where they fit the unit
-  - voice is used only where it materially helps, with guaranteed non-voice fallback
-  - game uses coaching-first feedback with no visible numeric score
+  - Learn game uses authored payloads with `theme`, `assetRefs`, `layoutVariant`, stage presentation metadata, and authored summary copy
+  - the current `very_basic` and `basic` games now use the Stage 9 direct-playfield foundation built from `lane_runner`, `sort_rush`, `route_race`, `reaction_pick`, and `voice_burst`, and Stage 10 gives `Name Tag Mixer`, `Map Route`, `Story Chain`, and `Scene Scan` a deeper showcase pass
+  - Stage 9 keeps the arcade contract and Stage 10 keeps the same contract while tightening learning-value guardrails: `answerRevealMode`, `ambientSet`, and `celebrationVariant` are part of the authored game contract, while `interactionModel`, `spriteRefs`, `motionRules`, `hitBoxes`, `spawnTimeline`, `failWindowMs`, `rewardFx`, and `transitionFx` must drive real playfield interaction, feedback, and transitions
+  - the showcase games should use game-specific board/sprite art where needed so they read like distinct scenes rather than the same arcade shell with different copy
+  - current-12 arcade games show one metrics HUD only during active play; the outer Learn shell keeps navigation, unit context, stage progress, and attempt context only
+  - current-12 arcade timers must stay trustworthy: an active stage should never visibly sit at `0:00`; once time expires, input locks and the stage resolves immediately
+  - current-12 arcade decision states should use neutral pre-answer iconography and only reveal rationale after answer lock-in
+  - `intermediate` and `advanced` remain on the authored Stage 3 board-first mechanic set for now
+  - only 6 selected current-12 arcade games use speech overall: `Name Tag Mixer`, `Snack Counter`, `Story Chain`, `Scene Scan`, `Station Help`, and `Choice Showdown`
+  - the current 12 arcade games show visible local score, combo, hearts, timer, and medal inside the game, but do not use global currency, XP, or leaderboards
+  - current-12 arcade stage resolution should use a short stage-clear interstitial with medal, score delta, combo carry-over where applicable, one why-it-worked note, and one clear next-stage CTA
+  - showcase `voice_burst` stages should keep mode choice and primary action in one compact decision area so the capstone reads like one move, not a tall form
+  - all Learn games now share a baseline feel layer: targeted motion, basic game audio, neutral or themed ambient audio, animated stage swaps, and a compact completion celebration before the summary
+  - voice-enabled arcade stages keep guaranteed fallback
   - game completion unlocks `speaking`
 - Learn speaking activity as a structured `Speaking Mission`:
   - prep

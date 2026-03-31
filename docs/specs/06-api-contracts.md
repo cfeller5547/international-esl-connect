@@ -410,32 +410,55 @@ Rules:
 - each unit exposes six required ordered activities: `lesson`, `practice`, `game`, `speaking`, `writing`, `checkpoint`
 - clients should use `orderIndex` from the activity payloads and activity list length to render step position
 - `game` is required for unit completion and for unlocking `speaking`
+- current `very_basic` and `basic` Learn game payloads now require the Stage 9 arcade metadata on every arcade stage, and Stage 10 keeps the same contract while deepening the top 4 current-12 showcase games:
+  - `interactionModel`
+  - `spriteRefs`
+    - use `spriteRefs.neutral` for pre-answer decision states when the learner should not infer correctness yet
+  - `motionRules`
+  - `hitBoxes`
+  - `spawnTimeline`
+  - `failWindowMs`
+  - `rewardFx`
+  - `transitionFx`
+- `intermediate` and `advanced` continue to use the authored board-first stage shapes and are not required to provide Stage 9 arcade-only payload fields.
 
 ### `POST /api/v1/learn/curriculum/activity/complete`
 Request:
 ```json
 {
-  "unitSlug": "basic-past-events-and-weekend-stories",
+  "unitSlug": "very-basic-introductions-and-personal-information",
   "activityType": "game",
-  "score": 86,
+  "score": 100,
   "responsePayload": {
     "gameReview": {
-      "gameId": "basic-2-game",
-      "gameTitle": "Story Chain",
-      "gameKind": "story_chain",
-      "strength": "Your story now has a clear order and a real ending reaction.",
-      "nextFocus": "Keep one time marker in the line so the listener hears where the story is moving.",
-      "bridgeToSpeaking": "Use the same start-middle-end flow when you tell the weekend story in speaking.",
-      "replayStageIds": ["basic-2-game-sequence", "basic-2-game-voice"],
+      "gameId": "very_basic-1-game",
+      "gameTitle": "Name Tag Mixer",
+      "gameKind": "name_tag_mixer",
+      "strength": "You built a fast, clean first-meeting intro and kept the replies natural instead of random.",
+      "nextFocus": "Keep your opener short enough that the other person can answer easily.",
+      "bridgeToSpeaking": "Open the speaking mission with the same short intro burst and let the other person in quickly.",
+      "replayStageIds": ["very_basic-1-game-runner"],
       "stages": [
         {
-          "stageId": "basic-2-game-sequence",
-          "stageKind": "sequence",
-          "stageTitle": "Build the story panels",
+          "stageId": "very_basic-1-game-runner",
+          "stageKind": "lane_runner",
+          "stageTitle": "Hallway dash",
+          "challengeProfile": "arcade",
+          "attemptNumber": 1,
+          "nextAllowedAction": "advance",
+          "medalCap": "gold",
+          "failureReason": null,
+          "timeExpired": false,
           "outcome": "strong",
-          "coachNote": "Good. The day now moves in a clear order.",
+          "coachNote": "Good. You crossed cleanly and picked up the full intro line in order.",
           "transcriptText": null,
-          "resolvedInputMode": null
+          "resolvedInputMode": null,
+          "scoreDelta": 698,
+          "combo": 4,
+          "livesRemaining": 2,
+          "stageResult": "cleared",
+          "completionPath": "arcade",
+          "medal": "gold"
         }
       ]
     }
@@ -452,14 +475,14 @@ Behavior:
 Response:
 ```json
 {
-  "nextActionHref": "/app/learn/unit/basic-past-events-and-weekend-stories/speaking",
+  "nextActionHref": "/app/learn/unit/very-basic-introductions-and-personal-information/speaking",
   "unitCompleted": false,
   "nextAction": {
-    "href": "/app/learn/unit/basic-past-events-and-weekend-stories/speaking",
+    "href": "/app/learn/unit/very-basic-introductions-and-personal-information/speaking",
     "label": "Continue to speaking",
     "title": "Speaking application",
     "description": "Use the unit language in your own words.",
-    "unitTitle": "Past Events and Weekend Stories",
+    "unitTitle": "Introductions and Personal Information",
     "activityType": "speaking",
     "stepIndex": 4,
     "totalSteps": 6
@@ -474,15 +497,20 @@ Request:
 ```json
 {
   "unitSlug": "very-basic-introductions-and-personal-information",
-  "stageId": "very_basic-1-game-assemble",
+  "stageId": "very_basic-1-game-runner",
   "attemptNumber": 1,
   "answer": {
-    "assembleAssignments": [
-      { "slotId": "greeting", "optionId": "opt-hi" },
-      { "slotId": "name", "optionId": "opt-ana" },
-      { "slotId": "country", "optionId": "opt-brazil" },
-      { "slotId": "question", "optionId": "opt-question" }
-    ]
+    "collectedIds": ["token-hi", "token-ana", "token-brazil", "token-question"],
+    "arcadeMetrics": {
+      "mistakeCount": 0,
+      "timeRemainingMs": 9200,
+      "comboPeak": 4,
+      "livesRemaining": 2,
+      "completionPath": "arcade",
+      "timeExpired": false,
+      "muteEnabled": false,
+      "interactionModel": "cross_dash"
+    }
   }
 }
 ```
@@ -491,12 +519,38 @@ Voice request example:
 ```json
 {
   "unitSlug": "very-basic-introductions-and-personal-information",
-  "stageId": "very_basic-1-game-voice",
-  "inputMode": "voice",
+  "stageId": "very_basic-1-game-voice-burst",
+  "inputMode": "fallback",
   "attemptNumber": 1,
   "answer": {
-    "audioDataUrl": "data:audio/webm;base64,...",
-    "audioMimeType": "audio/webm"
+    "fallbackOptionId": "good",
+    "arcadeMetrics": {
+      "mistakeCount": 0,
+      "timeRemainingMs": 7600,
+      "comboPeak": 2,
+      "livesRemaining": 2,
+      "completionPath": "fallback",
+      "timeExpired": false,
+      "muteEnabled": false,
+      "interactionModel": "burst_callout"
+    }
+  }
+}
+```
+
+Structural request example:
+```json
+{
+  "unitSlug": "intermediate-tell-stories-clearly",
+  "stageId": "intermediate-3-game-sequence",
+  "attemptNumber": 2,
+  "answer": {
+    "orderedIds": ["hook", "problem", "turning-point", "ending"],
+    "structuralMetrics": {
+      "timeRemainingMs": null,
+      "livesRemaining": 2,
+      "timeExpired": false
+    }
   }
 }
 ```
@@ -504,24 +558,77 @@ Voice request example:
 Response:
 ```json
 {
-  "stageId": "very_basic-1-game-assemble",
-  "stageKind": "assemble",
-  "stageTitle": "Build the name tag",
+  "stageId": "very_basic-1-game-runner",
+  "stageKind": "lane_runner",
+  "stageTitle": "Hallway dash",
+  "challengeProfile": "arcade",
+  "attemptNumber": 1,
+  "nextAllowedAction": "advance",
+  "medalCap": "gold",
+  "failureReason": null,
+  "timeExpired": false,
   "resolvedInputMode": null,
   "transcriptText": null,
   "outcome": "strong",
-  "coachNote": "Good. The intro badge is complete and ready to use.",
+  "coachNote": "Good. You crossed cleanly and picked up the full intro line in order.",
   "retryAllowed": false,
-  "fallbackRecommended": false
+  "fallbackRecommended": false,
+  "scoreDelta": 698,
+  "combo": 4,
+  "livesRemaining": 2,
+  "stageResult": "cleared",
+  "completionPath": "arcade",
+  "medal": "gold"
 }
 ```
 
 Rules:
 - `game` is required before `speaking`
-- Learn game payloads may include `assemble`, `spotlight`, `state_switch`, `priority_board`, `choice`, `match`, `sequence`, `map`, and `voice_prompt` stages plus `theme`, `assetRefs`, `layoutVariant`, stage presentation metadata, and authored summary copy
-- voice should be used only on stages where it materially helps the learning moment
-- feedback is coaching-first and must not be treated as a visible numeric score gate
+- stage evaluation may accept `muteEnabled` and `interactionModel` inside `arcadeMetrics` so the saved review can emit accurate Stage 9 analytics
+- stage evaluation may accept `structuralMetrics` for timed and untimed non-arcade stages
+- game completion returns the same coaching-first review contract as before, plus the arcade review fields already used by the current 12 games
+- Learn game payloads now support the Stage 9 direct-playfield arcade kinds `lane_runner`, `sort_rush`, `route_race`, `reaction_pick`, and `voice_burst`, while older authored board-first kinds remain valid for non-arcade levels
+- the current `very_basic` and `basic` games use the Stage 9 arcade kinds; `intermediate` and `advanced` remain on the older authored board-first set for now
+- every stage now carries `challengeProfile` plus shared `challenge` config that governs timer/lives/medal behavior
+- challenge difficulty scales by curriculum level through `challenge.difficultyBand` rather than one global timer rule
+- default challenge profiles in this pass are:
+  - `arcade`: `lane_runner`, `sort_rush`, `route_race`, `reaction_pick`, `voice_burst`
+  - `recall`: `choice`, `match`, `spotlight`, `map`
+  - `construction`: `assemble`, `priority_board`, `state_switch`, `sequence`
+  - `voice`: `voice_prompt`
+- game evaluation may accept `collectedIds`, `sortAssignments`, `pathIds`, `reactionSelections`, `arcadeMetrics`, and `structuralMetrics` depending on stage kind
+- `voice_burst` is the current arcade voice stage; voice should be used only on selected games where it materially helps the learning moment
+- the current voice set remains `Name Tag Mixer`, `Snack Counter`, `Story Chain`, `Scene Scan`, `Station Help`, and `Choice Showdown`
+- Stage 9 authored Learn game payloads may also include `answerRevealMode` and optional `resolvedSpeechText` on stage presentation plus `ambientSet` and `celebrationVariant` on the game payload
+- stage evaluation returns challenge-aware review fields (`attemptNumber`, `nextAllowedAction`, `medalCap`, `failureReason`, `timeExpired`, `scoreDelta`, `combo`, `livesRemaining`, `stageResult`, `completionPath`, `medal`, `nearMiss`) in addition to coaching-first feedback
+- the client may only advance when `nextAllowedAction = "advance"`; failed stages must remain on the current stage and offer retry instead
+- retries are stage-local and reset only the current stage runtime state; already-cleared earlier stages remain cleared
+- `completionRule.maxRetriesPerStage` now defines the medal window instead of a hard retry ceiling:
+  - attempt `1` may earn `gold`
+  - attempt `2` may earn up to `silver`
+  - attempt `3+` may earn up to `bronze`
+- timed arcade and recall stages must resolve immediately when `timeExpired = true`; untimed construction and voice stages omit countdown pressure
+- `voice_burst` and `voice_prompt` fallback remain valid completion paths, fallback may earn up to `silver`, and `gold` requires real voice completion
+- Active arcade timer displays must remain trustworthy on the client: once stage time expires, the UI should lock interaction and resolve immediately rather than leaving a live `0:00` state visible.
+- `POST /api/v1/learn/curriculum/game/speech` accepts `{ "text": string }` for authenticated, premium-quality Learn game speech playback and returns `audio/mpeg`; the client should use this for stage-clear and explicit replay moments instead of browser `speechSynthesis`
 - if voice evaluation is unavailable, the API may return `resolvedInputMode = fallback` and `fallbackRecommended = true` so the client can continue without losing progress
+
+### `POST /api/v1/learn/curriculum/game/speech`
+Generates high-quality spoken playback for Learn game preview and stage-clear moments.
+
+Request:
+```json
+{
+  "text": "Hi, I'm Ana. I'm from Brazil. What about you?"
+}
+```
+
+Behavior:
+- requires an authenticated user
+- returns `audio/mpeg` on success
+- uses the configured OpenAI TTS model with clear, learner-friendly pronunciation instructions
+- should be used for authored stage-clear reward lines and explicit replay buttons
+- should not fall back to browser `speechSynthesis` for the premium Learn game path
 
 ### `POST /api/v1/learn/curriculum/speaking/start`
 Starts or retries the scenario-bound Learn speaking mission for the current unit after the required game is complete.

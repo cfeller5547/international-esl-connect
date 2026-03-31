@@ -198,11 +198,22 @@ Required output fields from `RecommendationService`:
 
 ### 9.2.1 Learn Game Flow
 1. Learn loads the game route for `/app/learn/unit/:unitSlug/game`
-2. `LearnGameService` resolves the authored game payload and current game progress for the unit, including `theme`, `assetRefs`, `layoutVariant`, stage presentation metadata, and authored summary copy
-3. browser starts with the authored stage sequence ready, with voice enabled only on stages where it materially helps and fallback available on voice-enabled stages when mic access or voice evaluation is unavailable
-4. `POST /api/v1/learn/curriculum/game/evaluate` returns coaching-first feedback, retry eligibility, fallback guidance, and per-stage evaluation state
-5. final game completion persists `response_payload.gameReview` through `/api/v1/learn/curriculum/activity/complete`
-6. `CurriculumService` recomputes progression so the speaking step unlocks immediately after game completion
+2. `LearnGameService` resolves the authored game payload and current game progress for the unit, including `theme`, `assetRefs`, `layoutVariant`, stage presentation metadata, authored summary copy, Stage 9 / Stage 10 game config where applicable (`answerRevealMode`, `ambientSet`, `celebrationVariant`, `interactionModel`, `spriteRefs`, `motionRules`, `hitBoxes`, `spawnTimeline`, `failWindowMs`, `rewardFx`, `transitionFx`), and the shared stage challenge contract (`challengeProfile`, `challenge`)
+3. browser mounts the active game player:
+   - the current `very_basic` and `basic` units use the direct-playfield Stage 9 arcade surface, with Stage 10 deepening the top 4 current-12 showcase games
+   - `intermediate` and `advanced` keep the structural board-first player
+   - both surfaces now share one feel layer for sound, motion, mute state, ambient audio, and completion celebration
+   - both surfaces now also share one challenge runtime model:
+     - arcade stages are timed, use per-action expiry where authored, and default to `2` lives
+     - recall stages are timed and default to `2` lives
+     - construction stages are untimed and default to `2` or `3` lives based on decision count
+     - voice stages are untimed and allow fallback
+   - current-12 arcade rendering now enforces a single in-board metrics HUD and a timer-lock rule so interactive boards never remain live at `0:00`
+4. only selected current-12 games expose `voice_burst`; the current voice set remains `Name Tag Mixer`, `Snack Counter`, `Story Chain`, `Scene Scan`, `Station Help`, and `Choice Showdown`; fallback remains available on those voice-enabled stages when mic access or voice evaluation is unavailable, fallback may earn up to `silver`, and `gold` requires real voice completion on `voice_burst` and `voice_prompt`
+5. `POST /api/v1/learn/curriculum/game/evaluate` is authoritative for progression and returns coaching-first feedback, retry eligibility, fallback guidance, and per-stage evaluation state including `attemptNumber`, `nextAllowedAction`, `medalCap`, `failureReason`, `timeExpired`, `challengeProfile`, plus result fields such as `scoreDelta`, `combo`, `livesRemaining`, `stageResult`, `completionPath`, and `medal`
+6. the Learn game player must not advance after a failed stage; retry is stage-local, resets only the current stage runtime state, and preserves already-cleared prior stages
+7. final game completion persists `response_payload.gameReview` through `/api/v1/learn/curriculum/activity/complete`, including stage review metrics such as `challengeProfile`, `attemptNumber`, `nextAllowedAction`, `medalCap`, `failureReason`, `timeExpired`, `interactionModel`, `retryCount`, `muteEnabled`, and `nearMiss`
+8. `CurriculumService` recomputes progression so the speaking step unlocks immediately after game completion
 
 ### 9.2.2 Learn Speaking Mission Flow
 1. Learn loads mission view for `/app/learn/unit/:unitSlug/speaking`

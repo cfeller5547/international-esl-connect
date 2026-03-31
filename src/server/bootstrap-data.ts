@@ -175,6 +175,172 @@ const LEGACY_CONTENT_ITEMS: Prisma.ContentItemCreateInput[] = [
 let bootstrapPromise: Promise<void> | null = null;
 let bootstrapComplete = false;
 
+const REQUIRED_ACTIVITY_TYPES = [
+  "lesson",
+  "practice",
+  "game",
+  "speaking",
+  "writing",
+  "checkpoint",
+] as const;
+
+const CURRICULUM_LEVELS = CURRICULUM_BLUEPRINTS.map((curriculum) => curriculum.level);
+const EXPECTED_UNIT_COUNT = CURRICULUM_BLUEPRINTS.reduce(
+  (total, curriculum) => total + curriculum.units.length,
+  0
+);
+const EXPECTED_ACTIVITY_COUNT = EXPECTED_UNIT_COUNT * REQUIRED_ACTIVITY_TYPES.length;
+const EXPECTED_CURRICULUM_CONTENT_IDS = CURRICULUM_BLUEPRINTS.flatMap((curriculum) =>
+  curriculum.units.flatMap((_, index) => {
+    const unitIndex = index + 1;
+    return [
+      getLessonContentId(curriculum.level, unitIndex),
+      getPracticeContentId(curriculum.level, unitIndex),
+    ];
+  })
+);
+const EXPECTED_CONTENT_ITEM_IDS = [
+  ...LEGACY_CONTENT_ITEMS.map((item) => item.id as string),
+  ...EXPECTED_CURRICULUM_CONTENT_IDS,
+];
+
+function getRuntimeBootstrapMode() {
+  return process.env.RUNTIME_BOOTSTRAP_MODE?.toLowerCase() ?? "auto";
+}
+
+function activityPayloadLooksCurrent(payload: unknown) {
+  if (!payload || typeof payload !== "object") {
+    return false;
+  }
+
+  const gamePayload = payload as {
+    completionRule?: { maxRetriesPerStage?: unknown };
+    stages?: Array<{ challengeProfile?: unknown; challenge?: { medalWindowAttempts?: unknown } }>;
+  };
+
+  if (!Array.isArray(gamePayload.stages) || gamePayload.stages.length === 0) {
+    return false;
+  }
+
+  const retries = gamePayload.completionRule?.maxRetriesPerStage;
+  if (typeof retries !== "number" || retries < 3) {
+    return false;
+  }
+
+  return gamePayload.stages.every((stage) => {
+    if (typeof stage.challengeProfile !== "string") {
+      return false;
+    }
+
+    const medalWindowAttempts = stage.challenge?.medalWindowAttempts;
+    return typeof medalWindowAttempts === "number" && medalWindowAttempts >= 3;
+  });
+}
+
+async function getBootstrapStatus() {
+  const mode = getRuntimeBootstrapMode();
+
+  if (mode === "force") {
+    return {
+      needsCurriculumContent: true,
+      needsCurricula: true,
+      needsLegacyDrillBackfill: true,
+      needsCurrentLevelBackfill: true,
+      needsGameProgressBackfill: true,
+    };
+  }
+
+  if (mode === "off") {
+    return {
+      needsCurriculumContent: false,
+      needsCurricula: false,
+      needsLegacyDrillBackfill: false,
+      needsCurrentLevelBackfill: false,
+      needsGameProgressBackfill: false,
+    };
+  }
+
+  const [
+    curriculaCount,
+    unitCount,
+    activityCount,
+    legacyDrillCount,
+    staleUserCount,
+    contentItemCount,
+    contentAssetCount,
+    sampleGameActivity,
+  ] = await Promise.all([
+    prisma.curriculum.count({
+      where: {
+        targetLanguage: "english",
+        level: { in: CURRICULUM_LEVELS },
+        active: true,
+      },
+    }),
+    prisma.curriculumUnit.count({
+      where: {
+        curriculum: {
+          targetLanguage: "english",
+          level: { in: CURRICULUM_LEVELS },
+        },
+      },
+    }),
+    prisma.curriculumUnitActivity.count({
+      where: {
+        activityType: { in: REQUIRED_ACTIVITY_TYPES as unknown as string[] },
+        required: true,
+        unit: {
+          curriculum: {
+            targetLanguage: "english",
+            level: { in: CURRICULUM_LEVELS },
+          },
+        },
+      },
+    }),
+    prisma.curriculumUnitActivity.count({
+      where: { activityType: "drill" },
+    }),
+    prisma.user.count({
+      where: {
+        OR: [{ currentLevel: null }, { currentLevel: "foundation" }],
+      },
+    }),
+    prisma.contentItem.count({
+      where: {
+        id: { in: EXPECTED_CONTENT_ITEM_IDS },
+      },
+    }),
+    prisma.contentAsset.count({
+      where: {
+        contentItemId: { in: EXPECTED_CONTENT_ITEM_IDS },
+      },
+    }),
+    prisma.curriculumUnitActivity.findFirst({
+      where: { activityType: "game" },
+      select: { activityPayload: true },
+    }),
+  ]);
+
+  const needsCurriculumContent =
+    contentItemCount !== EXPECTED_CONTENT_ITEM_IDS.length ||
+    contentAssetCount < EXPECTED_CONTENT_ITEM_IDS.length;
+  const needsCurricula =
+    curriculaCount !== CURRICULUM_BLUEPRINTS.length ||
+    unitCount !== EXPECTED_UNIT_COUNT ||
+    activityCount !== EXPECTED_ACTIVITY_COUNT ||
+    !activityPayloadLooksCurrent(sampleGameActivity?.activityPayload);
+  const needsLegacyDrillBackfill = legacyDrillCount > 0;
+  const needsCurrentLevelBackfill = staleUserCount > 0;
+
+  return {
+    needsCurriculumContent,
+    needsCurricula,
+    needsLegacyDrillBackfill,
+    needsCurrentLevelBackfill,
+    needsGameProgressBackfill: needsCurricula || needsLegacyDrillBackfill,
+  };
+}
+
 async function moveExistingActivityOrderIndexes(unitId: string) {
   const existing = await prisma.curriculumUnitActivity.findMany({
     where: { unitId },
@@ -677,12 +843,40 @@ export async function bootstrapDatabase() {
   }
 
   bootstrapPromise = (async () => {
-    await ensureLegacyContent();
-    await upsertCurriculumContent();
-    await backfillDrillContractToGame();
-    await upsertCurricula();
-    await backfillCurrentLevels();
-    await backfillGameActivityProgress();
+    const status = await getBootstrapStatus();
+
+    if (
+      !status.needsCurriculumContent &&
+      !status.needsCurricula &&
+      !status.needsLegacyDrillBackfill &&
+      !status.needsCurrentLevelBackfill &&
+      !status.needsGameProgressBackfill
+    ) {
+      bootstrapComplete = true;
+      return;
+    }
+
+    if (status.needsCurriculumContent) {
+      await ensureLegacyContent();
+      await upsertCurriculumContent();
+    }
+
+    if (status.needsLegacyDrillBackfill) {
+      await backfillDrillContractToGame();
+    }
+
+    if (status.needsCurricula) {
+      await upsertCurricula();
+    }
+
+    if (status.needsCurrentLevelBackfill) {
+      await backfillCurrentLevels();
+    }
+
+    if (status.needsGameProgressBackfill) {
+      await backfillGameActivityProgress();
+    }
+
     bootstrapComplete = true;
   })();
 

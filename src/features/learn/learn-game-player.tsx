@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react";
+import { useEffect, useState, type DragEvent, type ReactNode } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -13,6 +14,7 @@ import {
   Send,
   Sparkles,
   Volume2,
+  VolumeX,
   WandSparkles,
 } from "lucide-react";
 
@@ -25,12 +27,18 @@ import {
   LearnActivityTransition,
   useLearnActivityCompletion,
 } from "@/features/learn/learn-activity-transition";
+import { LearnArcadeStagePlayer } from "@/features/learn/learn-arcade-stage-surface";
+import {
+  useAnimatedCount,
+  useLearnGameAudio,
+  usePersistentGameAudioMute,
+} from "@/features/learn/use-learn-game-feel";
 import { useVoiceRecorder } from "@/features/speak/use-voice-recorder";
+import { isArcadeStage } from "@/lib/learn-arcade";
 import type {
   AssembleGameStage,
   ChoiceGameStage,
   GameActivityPayload,
-  GameLayoutVariant,
   GameMapNode,
   GameStage,
   GameThemeToken,
@@ -106,7 +114,9 @@ function sortStages(
 }
 
 function stagePreviewLabel(stage: GameStage) {
-  return stage.kind === "voice_prompt" ? stage.targetPhrase : stage.title;
+  return stage.kind === "voice_prompt" || stage.kind === "voice_burst"
+    ? stage.targetPhrase
+    : stage.title;
 }
 
 function describeStageKind(kind: GameStage["kind"]) {
@@ -129,6 +139,16 @@ function describeStageKind(kind: GameStage["kind"]) {
       return "Route";
     case "voice_prompt":
       return "Say";
+    case "lane_runner":
+      return "Run";
+    case "sort_rush":
+      return "Sort";
+    case "route_race":
+      return "Race";
+    case "reaction_pick":
+      return "React";
+    case "voice_burst":
+      return "Burst";
   }
 }
 
@@ -367,6 +387,10 @@ function ActivityStatusIcon({
 
 function getStageActionLabel(stage: GameStage) {
   return stage.presentation?.ctaLabel ?? stage.presentation?.callToAction;
+}
+
+function shouldRevealChoiceDetail(stage: { presentation?: GameStage["presentation"] }) {
+  return (stage.presentation?.answerRevealMode ?? "preanswer") === "preanswer";
 }
 
 function getResolvedStageTitle(
@@ -832,6 +856,7 @@ function ChoiceBuilder({
     stage.presentation.sceneHotspots.length > 0;
   const dialogueLayout = stage.presentation?.layoutVariant === "dialogue_pick";
   const assetRef = stage.presentation?.assetRef ?? defaultAssetRef;
+  const revealChoiceDetail = stage.presentation?.answerRevealMode !== "postanswer";
   const gridClassName =
     dialogueLayout
       ? "grid gap-3 lg:grid-cols-3"
@@ -890,7 +915,7 @@ function ChoiceBuilder({
             onClick={() => onSelect(option.id)}
           >
             <p className="font-semibold text-foreground">{option.label}</p>
-            {option.detail ? (
+            {option.detail && revealChoiceDetail ? (
               <p className="mt-1 text-sm leading-6 text-muted-foreground">{option.detail}</p>
             ) : null}
           </button>
@@ -1024,6 +1049,7 @@ function VoicePromptBuilder({
   theme: ThemeStyles;
 }) {
   const voiceModeLabel = recording ? "Stop and check" : pending ? "Checking..." : "Record once";
+  const revealFallbackDetail = shouldRevealChoiceDetail(stage);
 
   return (
     <div className={`rounded-[1.8rem] border px-5 py-5 ${theme.panel}`}>
@@ -1118,7 +1144,7 @@ function VoicePromptBuilder({
               onClick={() => onFallbackSelect(option.id)}
             >
               <p className="font-semibold text-foreground">{option.label}</p>
-              {option.detail ? (
+              {option.detail && revealFallbackDetail ? (
                 <p className="mt-1 text-sm text-muted-foreground">{option.detail}</p>
               ) : null}
             </button>
@@ -1488,8 +1514,12 @@ export function LearnGamePlayer({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [structuralFeedback, setStructuralFeedback] = useState<
+    "correct" | "incorrect" | "near_miss" | null
+  >(null);
   const theme = getThemeStyles(game.theme);
   const currentStage = game.stages[currentStageIndex] ?? null;
+  const arcadeStage = currentStage && isArcadeStage(currentStage) ? currentStage : null;
   const currentAssetRef =
     currentStage?.presentation?.assetRef ?? game.assetRefs.scene ?? game.assetRefs.hero;
   const currentAttemptCount = currentStage ? (attemptCounts[currentStage.id] ?? 0) : 0;
@@ -1499,13 +1529,23 @@ export function LearnGamePlayer({
   const stageProgress = game.stages.length
     ? Math.max(1, Math.round(((currentStageIndex + 1) / game.stages.length) * 100))
     : 0;
-  const completionProgress = useMemo(() => {
-    if (game.stages.length === 0) {
-      return 0;
-    }
-
-    return Math.round((stageResults.length / game.stages.length) * 100);
-  }, [game.stages.length, stageResults.length]);
+  const { muted, toggleMuted } = usePersistentGameAudioMute();
+  const { playSfx } = useLearnGameAudio({
+    soundSet: arcadeStage?.soundSet ?? game.ambientSet ?? "neutral",
+    muted,
+    ambientEnabled:
+      phase === "game" &&
+      Boolean(currentStage) &&
+      !arcadeStage &&
+      !pending &&
+      !currentEvaluation &&
+      currentStage?.kind !== "voice_prompt" &&
+      currentStage?.kind !== "voice_burst",
+    ambientDucked:
+      currentStage?.kind === "voice_prompt" ||
+      currentStage?.kind === "voice_burst" ||
+      recording,
+  });
   const { pending: completing, error: completionError, completionState, complete } =
     useLearnActivityCompletion({
       endpoint: completionEndpoint,
@@ -1513,6 +1553,14 @@ export function LearnGamePlayer({
       activityType: "game",
       unitTitle,
     });
+  const completionScoreTarget = review
+    ? review.stages.reduce((total, stage) => total + Math.max(0, stage.scoreDelta ?? 0), 0)
+    : 0;
+  const completionScore = useAnimatedCount(completionScoreTarget, phase === "summary" && Boolean(review));
+  const medalCountTarget = review
+    ? review.stages.filter((stage) => stage.medal && stage.medal !== "retry").length
+    : 0;
+  const medalCount = useAnimatedCount(medalCountTarget, phase === "summary" && Boolean(review), 640);
 
   useEffect(() => {
     if (!voiceEnabled || !voiceSupported) {
@@ -1530,6 +1578,37 @@ export function LearnGamePlayer({
   }, [recorderError]);
 
   useEffect(() => {
+    if (!currentEvaluation || arcadeStage) {
+      return;
+    }
+
+    if (currentEvaluation.outcome === "strong") {
+      setStructuralFeedback("correct");
+      playSfx("stage_clear");
+    } else if (currentEvaluation.nearMiss) {
+      setStructuralFeedback("near_miss");
+      playSfx("near_miss");
+    } else {
+      setStructuralFeedback("incorrect");
+      playSfx("incorrect");
+    }
+
+    const timeout = window.setTimeout(
+      () => setStructuralFeedback(null),
+      currentEvaluation.nearMiss ? 420 : 360
+    );
+    return () => window.clearTimeout(timeout);
+  }, [arcadeStage, currentEvaluation, playSfx]);
+
+  useEffect(() => {
+    if (phase !== "summary" || !review) {
+      return;
+    }
+
+    playSfx("completion");
+  }, [phase, playSfx, review]);
+
+  useEffect(() => {
     setAssembleAssignments({});
     setActiveAssembleSlotId(null);
     setSelectedOptionId(null);
@@ -1543,11 +1622,12 @@ export function LearnGamePlayer({
     setPathIds([]);
     setFallbackOptionId(null);
     setCurrentEvaluation(null);
+    setStructuralFeedback(null);
     setError(null);
     setNotice(null);
     resetRecorderError();
 
-    if (currentStage?.kind === "voice_prompt") {
+    if (currentStage?.kind === "voice_prompt" || currentStage?.kind === "voice_burst") {
       setInputMode(voiceEnabled && voiceSupported ? "voice" : "fallback");
     }
     if (currentStage?.kind === "state_switch") {
@@ -1578,7 +1658,10 @@ export function LearnGamePlayer({
         body: JSON.stringify({
           unitSlug,
           stageId: currentStage.id,
-          inputMode: currentStage.kind === "voice_prompt" ? inputMode : undefined,
+          inputMode:
+            currentStage.kind === "voice_prompt" || currentStage.kind === "voice_burst"
+              ? inputMode
+              : undefined,
           attemptNumber: currentAttemptNumber,
           answer,
         }),
@@ -2101,7 +2184,35 @@ export function LearnGamePlayer({
         </Card>
       ) : null}
 
-      {phase === "game" && currentStage ? (
+      {phase === "game" && currentStage && arcadeStage ? (
+          <LearnArcadeStagePlayer
+            backHref="/app/learn"
+            game={game}
+            stage={arcadeStage}
+          stageIndex={currentStageIndex}
+          totalStages={game.stages.length}
+          unitTitle={unitTitle}
+          unitOrder={unitOrder}
+          gameStepIndex={gameStepIndex}
+          activityCount={activities.length}
+          attemptLabel={attemptLabel(currentAttemptNumber)}
+          theme={theme}
+          voiceEnabled={voiceEnabled}
+          evaluation={currentEvaluation}
+          pending={pending}
+          notice={notice}
+          error={error}
+          onSubmit={evaluateStage}
+          onRetry={() => {
+            setCurrentEvaluation(null);
+            setError(null);
+            setNotice(null);
+          }}
+          onNext={finalizeCurrentStage}
+        />
+      ) : null}
+
+      {phase === "game" && currentStage && !arcadeStage ? (
         <div className="space-y-4">
           <Card className="border-border/70 bg-card/95 shadow-sm">
             <CardContent className="space-y-4 px-5 py-4 sm:px-6">
@@ -2113,9 +2224,21 @@ export function LearnGamePlayer({
                   <ArrowLeft className="size-4" />
                   Back
                 </Link>
-                <span className="text-sm text-muted-foreground">
-                  {attemptLabel(currentAttemptNumber)}
-                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="rounded-full"
+                    onClick={toggleMuted}
+                  >
+                    {muted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
+                    {muted ? "Sound off" : "Sound on"}
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    {attemptLabel(currentAttemptNumber)}
+                  </span>
+                </div>
               </div>
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
@@ -2142,9 +2265,45 @@ export function LearnGamePlayer({
             </CardContent>
           </Card>
 
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentStage.id}
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -24 }}
+              transition={{ type: "spring", stiffness: 260, damping: 26 }}
+            >
           <Card className={`surface-glow border-border/70 bg-card/95 ${theme.glow}`}>
             <CardContent className="space-y-5 px-5 py-5 sm:px-6 sm:py-6">
-              <div className={`overflow-hidden rounded-[1.9rem] border px-5 py-5 ${theme.panel}`}>
+              <motion.div
+                className={`overflow-hidden rounded-[1.9rem] border px-5 py-5 ${theme.panel} ${
+                  structuralFeedback === "correct"
+                    ? "shadow-[0_0_0_1px_rgba(16,185,129,0.22),0_22px_60px_-44px_rgba(16,185,129,0.45)]"
+                    : structuralFeedback === "near_miss"
+                      ? "shadow-[0_0_0_1px_rgba(251,191,36,0.2),0_22px_60px_-44px_rgba(251,191,36,0.38)]"
+                    : structuralFeedback === "incorrect"
+                      ? "shadow-[0_0_0_1px_rgba(245,158,11,0.18),0_22px_60px_-44px_rgba(245,158,11,0.38)]"
+                      : ""
+                }`}
+                animate={
+                  structuralFeedback === "correct"
+                    ? { scale: [1, 1.015, 1] }
+                    : structuralFeedback === "near_miss"
+                      ? { scale: [1, 1.01, 1] }
+                      : structuralFeedback === "incorrect"
+                        ? { x: [0, -6, 6, -4, 4, 0] }
+                        : { scale: 1, x: 0 }
+                }
+                transition={
+                  structuralFeedback === "correct"
+                    ? { type: "tween", duration: 0.24, ease: "easeOut", times: [0, 0.45, 1] }
+                    : structuralFeedback === "near_miss"
+                      ? { type: "tween", duration: 0.24, ease: "easeOut", times: [0, 0.45, 1] }
+                    : structuralFeedback === "incorrect"
+                      ? { duration: 0.28, ease: "easeOut" }
+                      : { duration: 0.26, ease: "easeOut" }
+                }
+              >
                 <div
                   className={`grid gap-4 ${
                     activeStageUsesCompactHero ? "xl:grid-cols-[13rem_minmax(0,1fr)] xl:items-start" : ""
@@ -2186,10 +2345,16 @@ export function LearnGamePlayer({
                       ) : null}
                     </div>
 
-                    {activeStageBody}
+                    <motion.div
+                      initial={{ opacity: 0, y: 14 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ type: "spring", stiffness: 280, damping: 24 }}
+                    >
+                      {activeStageBody}
+                    </motion.div>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             {currentStage.kind !== "voice_prompt" ? (
               <div className="flex flex-col gap-3 rounded-[1.4rem] border border-border/70 bg-background/80 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-muted-foreground">
@@ -2419,17 +2584,42 @@ export function LearnGamePlayer({
             ) : null}
 
             {currentEvaluation ? (
-              <div className={`rounded-[1.6rem] border px-5 py-5 ${theme.panel} ${currentEvaluation.outcome === "strong" ? "shadow-[0_20px_60px_-42px_rgba(37,99,235,0.6)]" : ""}`}>
+              <motion.div
+                initial={{ opacity: 0, y: 18, scale: 0.98 }}
+                animate={
+                  currentEvaluation.outcome === "strong"
+                    ? { opacity: 1, y: 0, scale: 1 }
+                    : currentEvaluation.nearMiss
+                      ? { opacity: 1, y: 0, scale: [0.98, 1.02, 1] }
+                      : { opacity: 1, y: 0, scale: 1, x: [0, -6, 6, -4, 4, 0] }
+                }
+                transition={
+                  currentEvaluation.outcome === "strong"
+                    ? { type: "spring", stiffness: 340, damping: 24 }
+                    : currentEvaluation.nearMiss
+                      ? { type: "tween", duration: 0.28, ease: "easeOut", times: [0, 0.45, 1] }
+                      : { duration: 0.28, ease: "easeOut" }
+                }
+                className={`rounded-[1.6rem] border px-5 py-5 ${theme.panel} ${
+                  currentEvaluation.outcome === "strong"
+                    ? "shadow-[0_20px_60px_-42px_rgba(37,99,235,0.6)]"
+                    : currentEvaluation.nearMiss
+                      ? "shadow-[0_18px_48px_-30px_rgba(251,191,36,0.35)]"
+                      : ""
+                }`}
+              >
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge
                     variant="outline"
                     className={`rounded-full px-3 py-1 ${
                       currentEvaluation.outcome === "strong"
                         ? "border-primary/25 bg-primary/8 text-primary"
+                        : currentEvaluation.nearMiss
+                          ? "border-amber-300 bg-amber-50 text-amber-950"
                         : "border-amber-200 bg-amber-50 text-amber-900"
                     }`}
                   >
-                    {renderOutcomeLabel(currentEvaluation.outcome)}
+                    {currentEvaluation.nearMiss ? "Close call" : renderOutcomeLabel(currentEvaluation.outcome)}
                   </Badge>
                   {currentEvaluation.resolvedInputMode ? (
                     <Badge variant="outline" className="rounded-full px-3 py-1">
@@ -2485,10 +2675,12 @@ export function LearnGamePlayer({
                     {currentStageIndex + 1 >= game.stages.length ? "Finish game" : "Next stage"}
                   </Button>
                 </div>
-              </div>
+              </motion.div>
             ) : null}
             </CardContent>
           </Card>
+            </motion.div>
+          </AnimatePresence>
         </div>
       ) : null}
 
@@ -2501,17 +2693,37 @@ export function LearnGamePlayer({
                 alt={`${game.gameTitle} summary`}
                 overlayClassName={`${theme.soft} bg-slate-950/12`}
               />
-              <div className="space-y-3">
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ type: "spring", stiffness: 240, damping: 26 }}
+                className="space-y-3"
+              >
+                <motion.div
+                  initial={{ scale: 0.86, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: "spring", stiffness: 320, damping: 22 }}
+                  className="inline-flex"
+                >
                 <Badge variant="outline" className={`rounded-full px-3 py-1 ${theme.badge}`}>
                   Step complete
                 </Badge>
+                </motion.div>
                 <h2 className="text-3xl font-semibold tracking-tight text-foreground">
                   {game.gameTitle} finished
                 </h2>
                 <p className="text-base leading-7 text-muted-foreground">
                   {review.bridgeToSpeaking}
                 </p>
-              </div>
+                <div className="flex flex-wrap gap-3">
+                  <div className="rounded-full border border-border/70 bg-background/85 px-4 py-2 text-sm font-medium text-foreground">
+                    Score {completionScore}
+                  </div>
+                  <div className="rounded-full border border-border/70 bg-background/85 px-4 py-2 text-sm font-medium text-foreground">
+                    Medals {medalCount}
+                  </div>
+                </div>
+              </motion.div>
             </div>
 
             <div className="grid gap-4 lg:grid-cols-2">

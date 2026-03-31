@@ -74,10 +74,11 @@ Deliver:
 - deterministic recommendation priority logic with documented reason codes
 - unit activity chain via seamless Continue (`lesson` -> `practice` -> `game` -> `speaking` -> `writing` -> `checkpoint`)
 - required Learn game activity in every unit:
-  - Stage 3 game uses richer authored payloads with `theme`, `assetRefs`, `layoutVariant`, stage presentation metadata, authored CTA labels, and authored summary copy
-  - current `very_basic`, `basic`, `intermediate`, and `advanced` games use the richer Stage 3 mechanic set, including `assemble`, `spotlight`, `state_switch`, `priority_board`, `choice`, `match`, `sequence`, `map`, and `voice_prompt` where they fit the unit
-  - voice is used only where it materially helps, with guaranteed non-voice fallback on voice-enabled stages
-  - coaching-first feedback with one retry and no visible numeric score
+  - current `very_basic` and `basic` games use the Stage 9 direct-playfield micro-arcade set with `answerRevealMode`, `ambientSet`, `celebrationVariant`, `interactionModel`, `spriteRefs`, `motionRules`, `hitBoxes`, `spawnTimeline`, `failWindowMs`, `rewardFx`, and `transitionFx`
+  - `intermediate` and `advanced` remain on the authored Stage 3 board-first mechanic set for now
+  - voice is used only on 6 selected current-12 games, with guaranteed non-voice fallback on voice-enabled stages
+  - current 12 arcade games use local score, combo, hearts, timer, and medal, but no global currency or leaderboard
+  - all Learn games now share the compact game-feel layer: targeted motion, basic game audio, neutral or themed ambient audio, and a short completion celebration
   - game completion unlocks speaking
 - Tools landing with Homework Help and Test Prep Sprint
 - Homework Help inside Tools with upload and hint ladder
