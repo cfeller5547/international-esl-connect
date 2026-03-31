@@ -20,7 +20,7 @@ import {
 } from "@/features/learn/learn-flow";
 import { toTitleCase } from "@/lib/utils";
 import { trackEvent } from "@/server/analytics";
-import { getCurrentUser } from "@/server/auth";
+import { getAdminPreviewLevel, getCurrentUser } from "@/server/auth";
 import { CurriculumService } from "@/server/services/curriculum-service";
 
 function UnitStatusBadge({ status }: { status: "locked" | "unlocked" | "completed" }) {
@@ -102,7 +102,10 @@ export default async function LearnPage() {
     return null;
   }
 
-  const curriculum = await CurriculumService.getAssignedCurriculum(user.id);
+  const [curriculum, previewLevel] = await Promise.all([
+    CurriculumService.getAssignedCurriculum(user.id),
+    getAdminPreviewLevel(user.id),
+  ]);
   const currentUnit = curriculum.currentUnit;
   const currentActivity = curriculum.currentActivity;
   const completedUnits = curriculum.units.filter((unit) => unit.status === "completed");
@@ -153,6 +156,11 @@ export default async function LearnPage() {
                   >
                     {currentActivityMeta.label}
                   </Badge>
+                  {previewLevel ? (
+                    <Badge variant="outline" className="rounded-full px-3 py-1 text-foreground">
+                      Previewing {toTitleCase(previewLevel)}
+                    </Badge>
+                  ) : null}
                 </div>
 
                 <div className="space-y-3">
@@ -162,6 +170,12 @@ export default async function LearnPage() {
                   <p className="max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
                     {currentUnit.canDoStatement}
                   </p>
+                  {previewLevel ? (
+                    <p className="max-w-3xl text-sm leading-6 text-primary">
+                      Admin preview is active. Your real assigned level remains{" "}
+                      {user.currentLevel ? toTitleCase(user.currentLevel) : "unchanged"}.
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="rounded-[1.7rem] border border-border/70 bg-muted/15 px-4 py-4 sm:px-5 sm:py-5">

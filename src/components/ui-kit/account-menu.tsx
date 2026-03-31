@@ -1,11 +1,19 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CircleHelp, CreditCard, LogOut, Settings2, UserRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toTitleCase } from "@/lib/utils";
 import {
   Dialog,
   DialogClose,
@@ -43,15 +51,34 @@ const ACCOUNT_LINKS = [
   },
 ] as const;
 
+const PREVIEW_LEVEL_OPTIONS = ["very_basic", "basic", "intermediate", "advanced"] as const;
+
 function subscribeNoop() {
   return () => undefined;
 }
 
-export function AccountMenu() {
+type AccountMenuProps = {
+  isAdmin: boolean;
+  currentLevel: string | null;
+  previewLevel: string | null;
+};
+
+export function AccountMenu({
+  isAdmin,
+  currentLevel,
+  previewLevel,
+}: AccountMenuProps) {
   const router = useRouter();
   const mounted = useSyncExternalStore(subscribeNoop, () => true, () => false);
   const [open, setOpen] = useState(false);
   const [pendingLogout, setPendingLogout] = useState(false);
+  const [pendingPreviewLevel, setPendingPreviewLevel] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [selectedPreviewLevel, setSelectedPreviewLevel] = useState(previewLevel ?? "assigned");
+
+  useEffect(() => {
+    setSelectedPreviewLevel(previewLevel ?? "assigned");
+  }, [previewLevel]);
 
   async function handleLogout() {
     setPendingLogout(true);
@@ -60,6 +87,35 @@ export function AccountMenu() {
     });
     router.push("/login");
     router.refresh();
+  }
+
+  async function handlePreviewLevelChange(value: string) {
+    setSelectedPreviewLevel(value);
+    setPendingPreviewLevel(true);
+    setPreviewError(null);
+
+    try {
+      const response = await fetch("/api/v1/admin/preview-level", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          level: value === "assigned" ? null : value,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Preview level update failed.");
+      }
+
+      router.refresh();
+    } catch {
+      setSelectedPreviewLevel(previewLevel ?? "assigned");
+      setPreviewError("Preview level could not be updated right now.");
+    } finally {
+      setPendingPreviewLevel(false);
+    }
   }
 
   if (!mounted) {
@@ -117,6 +173,69 @@ export function AccountMenu() {
             );
           })}
         </div>
+
+        {isAdmin ? (
+          <div className="rounded-3xl border border-border/70 bg-muted/15 px-4 py-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-secondary">
+              Admin preview
+            </p>
+            <div className="mt-2 space-y-1">
+              <p className="text-sm font-semibold text-foreground">
+                Preview Learn as another level
+              </p>
+              <p className="text-sm leading-6 text-muted-foreground">
+                This only changes your current admin view. It does not rewrite the user&apos;s real
+                assigned level.
+              </p>
+            </div>
+
+            <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_220px] sm:items-end">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-secondary">
+                  Assigned level
+                </p>
+                <p className="text-sm font-medium text-foreground">
+                  {currentLevel ? toTitleCase(currentLevel) : "Not assigned yet"}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-secondary">
+                  Preview level
+                </p>
+                <Select
+                  value={selectedPreviewLevel}
+                  onValueChange={handlePreviewLevelChange}
+                  disabled={pendingPreviewLevel}
+                >
+                  <SelectTrigger className="w-full rounded-2xl bg-background/95">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="assigned">Use assigned level</SelectItem>
+                    {PREVIEW_LEVEL_OPTIONS.map((level) => (
+                      <SelectItem key={level} value={level}>
+                        {toTitleCase(level)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="mt-3 min-h-5 text-sm">
+              {previewError ? (
+                <p className="text-destructive">{previewError}</p>
+              ) : selectedPreviewLevel !== "assigned" ? (
+                <p className="text-muted-foreground">
+                  Previewing {toTitleCase(selectedPreviewLevel)} across Learn and Home.
+                </p>
+              ) : (
+                <p className="text-muted-foreground">Using the real assigned level.</p>
+              )}
+            </div>
+          </div>
+        ) : null}
 
         <div className="flex justify-end">
           <Button

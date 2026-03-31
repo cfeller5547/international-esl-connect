@@ -283,6 +283,7 @@ Pass condition:
 4. Navigate to legacy user-facing routes `/app/learn/homework` and `/app/learn/test-prep`.
 5. Verify both redirect to the matching Tools routes.
 6. Open the account menu and verify `Profile`, `Settings`, `Billing`, and `Help` remain reachable.
+7. Log in as an admin, use the account-menu `Preview level` control, and verify Learn/Home switch to the selected preview level without rewriting the stored canonical `currentLevel`.
 
 Pass condition:
 - helper tools are easy to find without polluting Learn IA

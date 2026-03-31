@@ -335,6 +335,9 @@ Implementation note:
    - trigger: help page viewed
 7. `support_contact_started`
    - trigger: support contact flow started
+8. `admin_preview_level_changed`
+   - trigger: admin updates the account-menu preview level override
+   - properties: `canonical_level`, `previous_preview_level`, `preview_level`
 
 Implementation note:
 - `nav_tab_clicked` is emitted by the current client-side shell tabs on desktop and mobile.

@@ -21,6 +21,7 @@ ORM recommendation:
 - `id` (uuid, pk)
 - `email` (unique)
 - `password_hash`
+- `role` (`learner` | `admin`, default `learner`)
 - `age_band`
 - `native_language`
 - `target_language`
@@ -532,6 +533,7 @@ Rules:
 4. Full diagnostic report should be completed early post-signup and linked to baseline quick report lineage.
 5. Reassessment reports must compare to latest prior report when one exists.
 6. `users.current_level` is the source of truth for assigned curriculum.
+7. `users.role = admin` is an internal QA/testing override that may open locked Learn units and cross-level preview access without changing the learner-facing curriculum assignment model.
 7. Qualifying reports (`baseline_quick`, `baseline_full`, `reassessment`) may initialize or promote `current_level`.
 8. `mini_mock` reports must never change `current_level`.
 9. Reassessment may promote immediately but must never demote `current_level`.

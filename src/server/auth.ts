@@ -4,12 +4,14 @@ import bcrypt from "bcryptjs";
 import { cache } from "react";
 
 import { Prisma } from "@/generated/prisma/client";
+import { CURRICULUM_LEVELS, type CurriculumLevel } from "@/server/curriculum-blueprint";
 import { prisma } from "@/server/prisma";
 
 import { env } from "./env";
 
 export const AUTH_COOKIE = "esl_auth";
 export const APP_SESSION_COOKIE = "esl_app_session";
+export const ADMIN_PREVIEW_LEVEL_COOKIE = "esl_admin_preview_level";
 
 type AuthPayload = {
   userId: string;
@@ -98,6 +100,39 @@ export const getCurrentUser = cache(async function getCurrentUser(): Promise<Cur
   }
 });
 
+export const isAdminUserId = cache(async function isAdminUserId(userId: string) {
+  const rows = await prisma.$queryRaw<Array<{ role: string | null }>>(
+    Prisma.sql`SELECT role FROM users WHERE id = ${userId}::uuid LIMIT 1`
+  );
+
+  return rows[0]?.role === "admin";
+});
+
+export const getAdminPreviewLevel = cache(async function getAdminPreviewLevel(
+  userId: string
+): Promise<CurriculumLevel | null> {
+  if (!(await isAdminUserId(userId))) {
+    return null;
+  }
+
+  let value: string | undefined;
+
+  try {
+    const cookieStore = await cookies();
+    value = cookieStore.get(ADMIN_PREVIEW_LEVEL_COOKIE)?.value;
+  } catch {
+    return null;
+  }
+
+  if (!value) {
+    return null;
+  }
+
+  return CURRICULUM_LEVELS.includes(value as CurriculumLevel)
+    ? (value as CurriculumLevel)
+    : null;
+});
+
 export async function requireCurrentUser() {
   const user = await getCurrentUser();
 
@@ -133,6 +168,7 @@ export async function setAuthSession(user: AuthPayload) {
 export async function clearAuthSession() {
   const cookieStore = await cookies();
   cookieStore.delete(AUTH_COOKIE);
+  cookieStore.delete(ADMIN_PREVIEW_LEVEL_COOKIE);
 }
 
 export async function ensureAppSessionId() {
@@ -150,4 +186,21 @@ export async function ensureAppSessionId() {
   }
 
   return sessionId;
+}
+
+export async function setAdminPreviewLevelCookie(level: CurriculumLevel | null) {
+  const cookieStore = await cookies();
+
+  if (!level) {
+    cookieStore.delete(ADMIN_PREVIEW_LEVEL_COOKIE);
+    return;
+  }
+
+  cookieStore.set(ADMIN_PREVIEW_LEVEL_COOKIE, level, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 30,
+  });
 }

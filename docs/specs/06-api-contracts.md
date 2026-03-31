@@ -46,6 +46,32 @@ Response:
 }
 ```
 
+### `POST /api/v1/admin/preview-level`
+Internal-only admin QA route.
+
+Request:
+```json
+{
+  "level": "very_basic"
+}
+```
+
+Behavior:
+- requires authenticated `admin` user
+- sets or clears a session-scoped preview-level cookie
+- must not rewrite `users.currentLevel`
+
+Request note:
+- send `null` for `level` to clear the preview and return to the assigned canonical level
+
+Response:
+```json
+{
+  "previewLevel": "very_basic",
+  "canonicalLevel": "advanced"
+}
+```
+
 ## 1.1 Plan and Usage Limits
 
 ### `GET /api/v1/usage/limits`

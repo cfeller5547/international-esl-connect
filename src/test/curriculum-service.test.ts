@@ -341,4 +341,67 @@ describe("curriculum service", () => {
     ).toBe("completed");
     expect(refreshedUnit.status).toBe("unlocked");
   });
+
+  it("lets admins open and complete locked activities in other curriculum levels", async () => {
+    const admin = await prisma.user.create({
+      data: {
+        email: `curriculum-admin-${crypto.randomUUID()}@example.com`,
+        passwordHash: "hashed",
+        role: "admin",
+        ageBand: "age_16_18",
+        nativeLanguage: "english",
+        targetLanguage: "english",
+        schoolLevel: "high_school",
+        currentLevel: "basic",
+        fullDiagnosticCompletedAt: new Date(),
+      },
+    });
+
+    const advancedCurriculum = await prisma.curriculum.findFirstOrThrow({
+      where: {
+        level: "advanced",
+        targetLanguage: "english",
+        active: true,
+      },
+      include: {
+        units: {
+          orderBy: { orderIndex: "asc" },
+          include: {
+            activities: {
+              orderBy: { orderIndex: "asc" },
+            },
+          },
+        },
+      },
+    });
+
+    const previewUnit = advancedCurriculum.units[1]!;
+    const previewActivity = previewUnit.activities.find((activity) => activity.activityType === "checkpoint")!;
+
+    const preview = await CurriculumService.getUnitActivity(admin.id, previewUnit.slug, "checkpoint");
+
+    expect(preview.curriculum.curriculum.id).toBe(advancedCurriculum.id);
+    expect(preview.unit.slug).toBe(previewUnit.slug);
+    expect(preview.activity.id).toBe(previewActivity.id);
+
+    const result = await CurriculumService.completeUnitActivity({
+      userId: admin.id,
+      unitSlug: previewUnit.slug,
+      activityType: "checkpoint",
+      score: 87,
+      responsePayload: { answers: { 0: "0" } },
+    });
+
+    const progress = await prisma.userUnitActivityProgress.findUniqueOrThrow({
+      where: {
+        userId_activityId: {
+          userId: admin.id,
+          activityId: previewActivity.id,
+        },
+      },
+    });
+
+    expect(progress.status).toBe("completed");
+    expect(result.nextAction.href).toContain("/app/learn/unit/");
+  });
 });

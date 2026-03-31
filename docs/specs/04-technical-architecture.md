@@ -195,6 +195,7 @@ Required output fields from `RecommendationService`:
 5. auto-transition to the next required activity in the unit
 6. completing all six required activities (`lesson` -> `practice` -> `game` -> `speaking` -> `writing` -> `checkpoint`) unlocks the next unit
 7. inline progress update emitted
+8. internal admin users may use a session-scoped `Preview level` override from the account menu; CurriculumService must honor that override for Learn/Home reads without rewriting the canonical learner-facing active curriculum assignment or `users.currentLevel`
 
 ### 9.2.1 Learn Game Flow
 1. Learn loads the game route for `/app/learn/unit/:unitSlug/game`

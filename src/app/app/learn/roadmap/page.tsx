@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrackedLink } from "@/components/ui-kit/tracked-link";
 import { PageShell } from "@/components/ui-kit/page-shell";
 import { toTitleCase } from "@/lib/utils";
-import { getCurrentUser } from "@/server/auth";
+import { getAdminPreviewLevel, getCurrentUser, isAdminUserId } from "@/server/auth";
 import { trackEvent } from "@/server/analytics";
 import { CurriculumService } from "@/server/services/curriculum-service";
 
@@ -54,7 +54,11 @@ export default async function LearnRoadmapPage() {
     return null;
   }
 
-  const curriculum = await CurriculumService.getAssignedCurriculum(user.id);
+  const [curriculum, admin, previewLevel] = await Promise.all([
+    CurriculumService.getAssignedCurriculum(user.id),
+    isAdminUserId(user.id),
+    getAdminPreviewLevel(user.id),
+  ]);
   const currentUnit = curriculum.currentUnit;
   const heroUnit = currentUnit ?? curriculum.units.at(-1) ?? null;
   const currentPosition = currentUnit
@@ -101,12 +105,21 @@ export default async function LearnRoadmapPage() {
                 Learn roadmap
               </p>
               <h1 className="max-w-4xl text-[2rem] font-semibold tracking-tight text-foreground sm:text-[2.6rem]">
-                See the full path for your current level
+                {previewLevel
+                  ? `Preview the full ${toTitleCase(previewLevel)} path`
+                  : "See the full path for your current level"}
               </h1>
               <p className="max-w-3xl text-sm leading-6 text-muted-foreground sm:text-base">
-                Your assigned curriculum stays focused on one next step at a time. This roadmap lets
-                you zoom out and see all 6 units in order.
+                {previewLevel
+                  ? "You are viewing a temporary admin preview for this level. The roadmap stays focused on these 6 units without rewriting the real assigned level."
+                  : "Your assigned curriculum stays focused on one next step at a time. This roadmap lets you zoom out and see all 6 units in order."}
               </p>
+              {admin && previewLevel ? (
+                <p className="max-w-3xl text-sm leading-6 text-primary">
+                  Admin preview is active for {toTitleCase(previewLevel)}. This does not change your
+                  real assigned level.
+                </p>
+              ) : null}
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row">
@@ -140,7 +153,7 @@ export default async function LearnRoadmapPage() {
         <Card className="border-border/70 bg-card/95">
           <CardHeader className="space-y-3">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-secondary">
-              Current level
+              {previewLevel ? "Preview level" : "Current level"}
             </p>
             <CardTitle className="text-2xl">All units in order</CardTitle>
           </CardHeader>
@@ -149,6 +162,7 @@ export default async function LearnRoadmapPage() {
               const summary = unit.canDoStatement.trim() || unit.summary.trim();
               const isCurrent = unit.status === "unlocked";
               const isCompleted = unit.status === "completed";
+              const canOpen = isCurrent || isCompleted || admin;
 
               return (
                 <div
@@ -214,7 +228,25 @@ export default async function LearnRoadmapPage() {
                       </TrackedLink>
                     ) : null}
 
-                    {unit.status === "locked" ? (
+                    {unit.status === "locked" && admin ? (
+                      <TrackedLink
+                        href={unit.href}
+                        eventName="curriculum_roadmap_unit_clicked"
+                        route="/app/learn/roadmap"
+                        properties={{
+                          level: curriculum.level,
+                          unit_slug: unit.slug,
+                          unit_status: unit.status,
+                          click_target: "admin_locked_unit_card",
+                        }}
+                        className="inline-flex items-center gap-2 text-sm font-semibold text-primary"
+                      >
+                        Open unit
+                        <ArrowRight className="size-4" />
+                      </TrackedLink>
+                    ) : null}
+
+                    {unit.status === "locked" && !canOpen ? (
                       <p className="text-sm text-muted-foreground">
                         Finish the earlier unit and checkpoint to unlock this one.
                       </p>

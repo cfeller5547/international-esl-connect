@@ -177,6 +177,9 @@ This document translates product and UX principles into concrete, testable scree
   - completed-unit review access
   - locked later units visible but muted and not clickable
   - separate archived prior-level curriculum summary section when present
+- Internal admin override:
+  - admins may use the account-menu `Preview level` override to swap the roadmap into another level for the current session
+  - admins may open locked units in the currently viewed level for QA
 - Content sourcing rule: show only the assigned current level in the main roadmap; do not render future levels as selectable alternatives.
 - Loading/empty/error:
   - Loading curriculum skeleton
@@ -195,6 +198,8 @@ This document translates product and UX principles into concrete, testable scree
   - unit progress summary
   - activity checklist in fixed order (`lesson`, `practice`, `game`, `speaking`, `writing`, `checkpoint`)
   - performance task preview
+- Internal admin override:
+  - admins may open locked units and still see `Open step` actions for locked activities
 - Loading/empty/error: if unit is still locked, show explicit locked state and return path to Learn.
 - Exit transition: route to the first available `/app/learn/unit/:unitSlug/:activityType`.
 - Instrumentation: `unit_started`.
@@ -212,7 +217,7 @@ This document translates product and UX principles into concrete, testable scree
   - one lesson overview or one current prompt visible at a time
   - activity-specific body
   - completion feedback and next-step preview
-- Loading/empty/error: preserve completed work; locked later activities must not open early.
+- Loading/empty/error: preserve completed work; locked later activities must not open early for learners, but internal admins may open them for QA preview.
 - Exit transition:
   - if unit not finished, route to the next required activity
   - if unit finished, unlock next unit and route directly to its first activity after the completion transition
@@ -578,6 +583,10 @@ This document translates product and UX principles into concrete, testable scree
 - Primary CTA: none globally; each list item navigates.
 - Secondary actions: `Log out`.
 - Required components: compact trigger, sectioned list of utilities, sign-out action.
+- Internal admin override:
+  - show an admin-only `Preview level` control here
+  - the control must be clearly labeled as a preview/testing override
+  - changing it must not rewrite canonical `users.currentLevel`
 - Loading/empty/error: safe fallback links if specific modules fail.
 
 ### `/app/more/profile`

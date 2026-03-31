@@ -13,9 +13,14 @@ import { AccountMenu } from "./account-menu";
 
 type AppShellProps = {
   children: React.ReactNode;
+  accountMenu: {
+    isAdmin: boolean;
+    currentLevel: string | null;
+    previewLevel: string | null;
+  };
 };
 
-export function AppShell({ children }: AppShellProps) {
+export function AppShell({ children, accountMenu }: AppShellProps) {
   const pathname = usePathname();
 
   return (
@@ -52,7 +57,11 @@ export function AppShell({ children }: AppShellProps) {
             })}
           </nav>
 
-          <AccountMenu />
+          <AccountMenu
+            isAdmin={accountMenu.isAdmin}
+            currentLevel={accountMenu.currentLevel}
+            previewLevel={accountMenu.previewLevel}
+          />
         </div>
       </header>
       {children}

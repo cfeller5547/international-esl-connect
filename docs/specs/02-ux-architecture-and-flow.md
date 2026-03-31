@@ -47,6 +47,7 @@ Content sourcing behavior:
 - Do not mix Homework Help or Test Prep into Learn entry IA.
 - Learn landing should emphasize the current unit and next step, not render all units with equal visual weight.
 - Learn roadmap should be available one tap away on its own route and should show all 6 units for the assigned current level without becoming the default Learn landing.
+- Internal admin users may use an account-menu `Preview level` override for QA. That override may temporarily swap Learn/Home into another curriculum level for the current admin session, but it must not rewrite the canonical assessment-driven `currentLevel`.
 - Unit overview remains available as an optional detail/review route, not a required stop before activity execution.
 - Speaking missions stay inside Learn and are scenario-bound to the unit can-do goal.
 - Learn game is a required curriculum warm-up inside Learn, not a separate game surface.
@@ -217,6 +218,7 @@ Purpose:
 Information architecture guardrail:
 - These utilities should stay out of the primary navigation.
 - They must remain reachable from a compact account/utility menu in the authenticated shell.
+- Internal admin-only QA controls such as `Preview level` should also live here, not on Learn or Settings.
 - Billing currently communicates preview-mode access rather than pushing upgrade decisions, because all accounts are auto-provisioned on Pro for now.
 
 ## 3. Navigation UX Rules

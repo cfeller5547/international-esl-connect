@@ -200,6 +200,11 @@ enum SubscriptionStatus {
   trialing
 }
 
+enum UserRole {
+  learner
+  admin
+}
+
 enum UsageMetricKey {
   speak_voice_seconds
   speak_text_turns
@@ -219,6 +224,7 @@ model User {
   id                        String                 @id @default(uuid()) @db.Uuid
   email                     String                 @unique
   passwordHash              String                 @map("password_hash")
+  role                      UserRole               @default(learner)
   firstName                 String?                @map("first_name")
   ageBand                   String                 @map("age_band")
   nativeLanguage            String                 @map("native_language")

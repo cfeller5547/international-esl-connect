@@ -16,7 +16,7 @@ import {
   getCurrentUnitProgressValue,
   LEARN_ACTIVITY_META,
 } from "@/features/learn/learn-flow";
-import { getCurrentUser } from "@/server/auth";
+import { getCurrentUser, isAdminUserId } from "@/server/auth";
 import { trackEvent } from "@/server/analytics";
 import { CurriculumService } from "@/server/services/curriculum-service";
 
@@ -32,10 +32,12 @@ export default async function CurriculumUnitPage({
     return null;
   }
 
+  const admin = await isAdminUserId(user.id);
   const { unit } = await CurriculumService.getUnit(user.id, unitSlug);
   const activeActivity =
     unit.activities.find((activity) => activity.status === "unlocked") ??
     unit.activities.find((activity) => activity.status === "completed") ??
+    (admin ? unit.activities[0] ?? null : null) ??
     null;
   const progressValue = getCurrentUnitProgressValue(unit);
 
@@ -65,6 +67,14 @@ export default async function CurriculumUnitPage({
                 <Badge variant="outline" className="rounded-full px-3 py-1 text-foreground">
                   Unit {unit.orderIndex}
                 </Badge>
+                {admin ? (
+                  <Badge
+                    variant="outline"
+                    className="rounded-full border-primary/25 bg-primary/8 px-3 py-1 text-primary"
+                  >
+                    Admin access
+                  </Badge>
+                ) : null}
               </div>
 
               <div className="space-y-3">
@@ -194,7 +204,7 @@ export default async function CurriculumUnitPage({
                       <p className="text-sm text-muted-foreground">{activity.description}</p>
                     </div>
 
-                    {activity.status === "locked" ? (
+                    {activity.status === "locked" && !admin ? (
                       <div className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground">
                         <CircleDashed className="size-4" />
                         Complete the earlier steps first
@@ -208,7 +218,11 @@ export default async function CurriculumUnitPage({
                             : "border border-border/70 text-foreground transition hover:border-primary/35 hover:bg-primary/5"
                         }`}
                       >
-                        {activity.status === "completed" ? "Review" : "Open step"}
+                          {activity.status === "completed"
+                            ? "Review"
+                            : activity.status === "locked" && admin
+                              ? "Open step"
+                              : "Open step"}
                       </Link>
                     )}
                   </div>

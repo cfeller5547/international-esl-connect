@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/ui-kit/app-shell";
 import { PageShell } from "@/components/ui-kit/page-shell";
-import { getCurrentUser } from "@/server/auth";
+import { getAdminPreviewLevel, getCurrentUser, isAdminUserId } from "@/server/auth";
 import { bootstrapDatabase } from "@/server/bootstrap-data";
 import { trackEvent } from "@/server/analytics";
 
@@ -21,6 +21,11 @@ export default async function AuthenticatedLayout({
     redirect("/login");
   }
 
+  const [admin, previewLevel] = await Promise.all([
+    isAdminUserId(user.id),
+    getAdminPreviewLevel(user.id),
+  ]);
+
   await trackEvent({
     eventName: "app_shell_viewed",
     route: "/app",
@@ -29,9 +34,14 @@ export default async function AuthenticatedLayout({
   });
 
   return (
-    <AppShell>
+    <AppShell
+      accountMenu={{
+        isAdmin: admin,
+        currentLevel: user.currentLevel,
+        previewLevel,
+      }}
+    >
       <PageShell>{children}</PageShell>
     </AppShell>
   );
 }
-

@@ -7,8 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PageShell } from "@/components/ui-kit/page-shell";
 import { TrackedLink } from "@/components/ui-kit/tracked-link";
 import { buildHomeViewModel } from "@/features/home/home-view-model";
-import { cn } from "@/lib/utils";
-import { getCurrentUser, readAuthPayload } from "@/server/auth";
+import { cn, toTitleCase } from "@/lib/utils";
+import { getAdminPreviewLevel, getCurrentUser, readAuthPayload } from "@/server/auth";
 import { trackEvent } from "@/server/analytics";
 import { prisma } from "@/server/prisma";
 import { RecommendationService } from "@/server/services/recommendation-service";
@@ -18,6 +18,7 @@ type HomeUser = {
   id: string;
   currentLevel: string | null;
   fullDiagnosticCompletedAt: Date | null;
+  previewLevel: string | null;
 };
 
 type HomeRecommendationFallback = {
@@ -36,6 +37,7 @@ async function getHomeUser(): Promise<HomeUser | null> {
         id: user.id,
         currentLevel: user.currentLevel,
         fullDiagnosticCompletedAt: user.fullDiagnosticCompletedAt,
+        previewLevel: await getAdminPreviewLevel(user.id),
       };
     }
   } catch (error) {
@@ -48,7 +50,7 @@ async function getHomeUser(): Promise<HomeUser | null> {
   }
 
   try {
-    return await prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { id: auth.userId },
       select: {
         id: true,
@@ -56,6 +58,15 @@ async function getHomeUser(): Promise<HomeUser | null> {
         fullDiagnosticCompletedAt: true,
       },
     });
+
+    if (!user) {
+      return null;
+    }
+
+    return {
+      ...user,
+      previewLevel: await getAdminPreviewLevel(auth.userId),
+    };
   } catch (error) {
     console.error("home:fallback user lookup failed", error);
     return null;
@@ -151,7 +162,7 @@ export default async function HomePage() {
     recommendation,
     latestReport,
     streak,
-    currentLevel: user.currentLevel,
+    currentLevel: user.previewLevel ?? user.currentLevel,
     fullDiagnosticCompletedAt: user.fullDiagnosticCompletedAt,
   });
 
@@ -170,6 +181,11 @@ export default async function HomePage() {
                 <span className="rounded-full border border-border/70 bg-background px-3 py-1 text-[11px] font-medium text-muted-foreground">
                   {viewModel.hero.contextLabel}
                 </span>
+                {user.previewLevel ? (
+                  <span className="rounded-full border border-border/70 bg-background px-3 py-1 text-[11px] font-medium text-foreground">
+                    Previewing {toTitleCase(user.previewLevel)}
+                  </span>
+                ) : null}
               </div>
 
               <h1 className="mt-4 max-w-3xl text-[2.15rem] leading-[0.98] font-semibold sm:text-[2.65rem] sm:leading-[0.96]">
@@ -178,6 +194,12 @@ export default async function HomePage() {
               <p className="mt-3 max-w-[44rem] text-[0.97rem] leading-6 text-muted-foreground sm:text-[1rem] sm:leading-7">
                 {viewModel.hero.reason}
               </p>
+              {user.previewLevel ? (
+                <p className="mt-2 max-w-[44rem] text-sm leading-6 text-primary">
+                  Admin preview is active. Your real assigned level remains{" "}
+                  {user.currentLevel ? toTitleCase(user.currentLevel) : "unchanged"}.
+                </p>
+              ) : null}
 
               <div className="mt-4 flex flex-wrap items-center gap-3">
                 <TrackedLink

@@ -1,4 +1,5 @@
 import { prisma } from "@/server/prisma";
+import { getAdminPreviewLevel, isAdminUserId } from "@/server/auth";
 
 import {
   type CurriculumLevel,
@@ -609,7 +610,7 @@ async function setActiveCurriculum(userId: string, targetLevel: CurriculumLevel)
   return curriculum.id;
 }
 
-async function resolveCurrentLevel(userId: string): Promise<CurriculumLevel> {
+async function resolveCanonicalCurrentLevel(userId: string): Promise<CurriculumLevel> {
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: userId },
     select: {
@@ -649,7 +650,7 @@ async function resolveCurrentLevel(userId: string): Promise<CurriculumLevel> {
 }
 
 async function ensureAssignedProgress(userId: string) {
-  const level = await resolveCurrentLevel(userId);
+  const level = await resolveCanonicalCurrentLevel(userId);
   const curriculumId = await setActiveCurriculum(userId, level);
   await ensureUserActivityProgressRows(userId, curriculumId);
 
@@ -669,9 +670,7 @@ async function ensureAssignedProgress(userId: string) {
   };
 }
 
-async function getCurriculumGraph(userId: string) {
-  const { level, curriculumId } = await ensureAssignedProgress(userId);
-
+async function ensurePreviewCurriculumProgress(userId: string, curriculumId: string) {
   const curriculum = await prisma.curriculum.findUniqueOrThrow({
     where: { id: curriculumId },
     include: {
@@ -691,10 +690,138 @@ async function getCurriculumGraph(userId: string) {
           },
         },
       },
-      userProgress: {
-        where: { userId, isActive: false },
+    },
+  });
+
+  const firstUnit = curriculum.units[0];
+
+  await prisma.userCurriculumProgress.upsert({
+    where: {
+      userId_curriculumId: {
+        userId,
+        curriculumId,
+      },
+    },
+    update: {},
+    create: {
+      userId,
+      curriculumId,
+      isActive: false,
+      currentUnitId: firstUnit?.id ?? null,
+      archivedAt: null,
+    },
+  });
+
+  for (const unit of curriculum.units) {
+    const isFirstUnit = unit.id === firstUnit?.id;
+    const unitProgress = await prisma.userUnitProgress.upsert({
+      where: {
+        userId_unitId: {
+          userId,
+          unitId: unit.id,
+        },
+      },
+      update: {
+        curriculumId,
+      },
+      create: {
+        userId,
+        curriculumId,
+        unitId: unit.id,
+        status: isFirstUnit ? "unlocked" : "locked",
+        unlockedAt: isFirstUnit ? new Date() : null,
+      },
+    });
+
+    const firstActivity = unit.activities[0];
+
+    for (const activity of unit.activities) {
+      const isFirstActivity = isFirstUnit && activity.id === firstActivity?.id;
+      await prisma.userUnitActivityProgress.upsert({
+        where: {
+          userId_activityId: {
+            userId,
+            activityId: activity.id,
+          },
+        },
+        update: {
+          unitProgressId: unitProgress.id,
+        },
+        create: {
+          userId,
+          unitProgressId: unitProgress.id,
+          activityId: activity.id,
+          status: isFirstActivity ? "unlocked" : "locked",
+        },
+      });
+    }
+  }
+}
+
+async function getArchivedCurriculaForUser(userId: string) {
+  const archivedCurricula = await prisma.userCurriculumProgress.findMany({
+    where: {
+      userId,
+      isActive: false,
+      archivedAt: { not: null },
+    },
+    include: {
+      curriculum: {
         include: {
-          curriculum: true,
+          units: {
+            include: {
+              userProgress: {
+                where: { userId },
+              },
+            },
+          },
+        },
+      },
+    },
+    orderBy: { archivedAt: "desc" },
+  });
+
+  return archivedCurricula.map((entry) => {
+    const completedUnits = entry.curriculum.units.filter(
+      (unit) => unit.userProgress[0]?.status === "completed"
+    ).length;
+
+    return {
+      id: entry.id,
+      level: entry.curriculum.level,
+      title: entry.curriculum.title,
+      completedUnits,
+      totalUnits: entry.curriculum.units.length,
+      archivedAt: entry.archivedAt?.toISOString() ?? null,
+    };
+  });
+}
+
+async function buildCurriculumGraphForCurriculumId(
+  userId: string,
+  curriculumId: string,
+  options?: {
+    level?: CurriculumLevel;
+    includeArchived?: boolean;
+  }
+) {
+  const curriculum = await prisma.curriculum.findUniqueOrThrow({
+    where: { id: curriculumId },
+    include: {
+      units: {
+        orderBy: { orderIndex: "asc" },
+        include: {
+          activities: {
+            orderBy: { orderIndex: "asc" },
+          },
+          userProgress: {
+            where: { userId },
+            include: {
+              activityProgress: {
+                where: { userId },
+              },
+            },
+          },
         },
       },
     },
@@ -742,30 +869,10 @@ async function getCurriculumGraph(userId: string) {
   });
 
   const current = findNextUnitAndActivity(units);
-
-  const archivedCurricula = await prisma.userCurriculumProgress.findMany({
-    where: {
-      userId,
-      isActive: false,
-    },
-    include: {
-      curriculum: {
-        include: {
-          units: {
-            include: {
-              userProgress: {
-                where: { userId },
-              },
-            },
-          },
-        },
-      },
-    },
-    orderBy: { archivedAt: "desc" },
-  });
+  const archivedCurricula = options?.includeArchived === false ? [] : await getArchivedCurriculaForUser(userId);
 
   return {
-    level,
+    level: options?.level ?? normalizeLevelLabel(curriculum.level),
     curriculum: {
       id: curriculum.id,
       title: curriculum.title,
@@ -775,21 +882,35 @@ async function getCurriculumGraph(userId: string) {
     units,
     currentUnit: current.unit,
     currentActivity: current.activity,
-    archivedCurricula: archivedCurricula.map((entry) => {
-      const completedUnits = entry.curriculum.units.filter(
-        (unit) => unit.userProgress[0]?.status === "completed"
-      ).length;
-
-      return {
-        id: entry.id,
-        level: entry.curriculum.level,
-        title: entry.curriculum.title,
-        completedUnits,
-        totalUnits: entry.curriculum.units.length,
-        archivedAt: entry.archivedAt?.toISOString() ?? null,
-      };
-    }),
+    archivedCurricula,
   } satisfies AssignedCurriculumView;
+}
+
+async function getCurriculumGraph(userId: string) {
+  const previewLevel = await getAdminPreviewLevel(userId);
+
+  if (previewLevel) {
+    const previewCurriculum = await prisma.curriculum.findFirstOrThrow({
+      where: {
+        active: true,
+        targetLanguage: "english",
+        level: previewLevel,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    await ensurePreviewCurriculumProgress(userId, previewCurriculum.id);
+
+    return buildCurriculumGraphForCurriculumId(userId, previewCurriculum.id, {
+      level: previewLevel,
+      includeArchived: false,
+    });
+  }
+
+  const { level, curriculumId } = await ensureAssignedProgress(userId);
+  return buildCurriculumGraphForCurriculumId(userId, curriculumId, { level });
 }
 export const CurriculumService = {
   async getAssignedCurriculum(userId: string) {
@@ -822,23 +943,56 @@ export const CurriculumService = {
 
   async getUnit(userId: string, unitSlug: string) {
     const curriculum = await getCurriculumGraph(userId);
+    const admin = await isAdminUserId(userId);
     const unit = curriculum.units.find((entry) => entry.slug === unitSlug);
 
-    if (!unit) {
+    if (unit) {
+      if (unit.status === "locked" && !admin) {
+        throw new AppError("UNIT_LOCKED", "Complete the current unit first.", 403);
+      }
+
+      return {
+        curriculum,
+        unit,
+      };
+    }
+
+    if (!admin) {
       throw new AppError("NOT_FOUND", "Curriculum unit not found.", 404);
     }
 
-    if (unit.status === "locked") {
-      throw new AppError("UNIT_LOCKED", "Complete the current unit first.", 403);
+    const previewUnit = await prisma.curriculumUnit.findFirst({
+      where: { slug: unitSlug },
+      select: {
+        curriculumId: true,
+      },
+    });
+
+    if (!previewUnit) {
+      throw new AppError("NOT_FOUND", "Curriculum unit not found.", 404);
+    }
+
+    await ensurePreviewCurriculumProgress(userId, previewUnit.curriculumId);
+
+    const previewCurriculum = await buildCurriculumGraphForCurriculumId(
+      userId,
+      previewUnit.curriculumId,
+      { includeArchived: false }
+    );
+    const previewUnitView = previewCurriculum.units.find((entry) => entry.slug === unitSlug);
+
+    if (!previewUnitView) {
+      throw new AppError("NOT_FOUND", "Curriculum unit not found.", 404);
     }
 
     return {
-      curriculum,
-      unit,
+      curriculum: previewCurriculum,
+      unit: previewUnitView,
     };
   },
 
   async getUnitActivity(userId: string, unitSlug: string, activityType: UnitActivityType) {
+    const admin = await isAdminUserId(userId);
     const { curriculum, unit } = await this.getUnit(userId, unitSlug);
     const activity = unit.activities.find((entry) => entry.activityType === activityType);
 
@@ -846,7 +1000,7 @@ export const CurriculumService = {
       throw new AppError("NOT_FOUND", "Unit activity not found.", 404);
     }
 
-    if (activity.status === "locked") {
+    if (activity.status === "locked" && !admin) {
       throw new AppError("ACTIVITY_LOCKED", "Complete earlier unit steps first.", 403);
     }
 
@@ -871,6 +1025,7 @@ export const CurriculumService = {
     responsePayload?: Record<string, unknown>;
   }): Promise<UnitActivityCompletionResult> {
     const unitData = await this.getUnitActivity(userId, unitSlug, activityType);
+    const admin = await isAdminUserId(userId);
 
     const dbUnit = await prisma.curriculumUnit.findUniqueOrThrow({
       where: { id: unitData.unit.id },
@@ -897,12 +1052,14 @@ export const CurriculumService = {
       },
     });
 
-    invariant(
-      activityProgress.status !== "locked",
-      "ACTIVITY_LOCKED",
-      "Complete earlier unit steps first.",
-      403
-    );
+    if (!admin) {
+      invariant(
+        activityProgress.status !== "locked",
+        "ACTIVITY_LOCKED",
+        "Complete earlier unit steps first.",
+        403
+      );
+    }
 
     const now = new Date();
 
@@ -1002,7 +1159,12 @@ export const CurriculumService = {
 
     await reconcileCurriculumProgressForUser(userId);
 
-    const refreshed = await getCurriculumGraph(userId);
+    const refreshed =
+      unitData.curriculum.curriculum.id === (await getCurriculumGraph(userId)).curriculum.id
+        ? await getCurriculumGraph(userId)
+        : await buildCurriculumGraphForCurriculumId(userId, unitData.curriculum.curriculum.id, {
+            includeArchived: false,
+          });
     const nextUnit = refreshed.currentUnit;
     const nextActivity = refreshed.currentActivity;
     const nextActionHref = nextActivity?.href ?? "/app/learn";
@@ -1064,11 +1226,11 @@ export const CurriculumService = {
     if (!["baseline_quick", "baseline_full", "reassessment"].includes(reportType)) {
       return {
         promoted: false,
-        currentLevel: await resolveCurrentLevel(userId),
+        currentLevel: await resolveCanonicalCurrentLevel(userId),
       };
     }
 
-    const currentLevel = await resolveCurrentLevel(userId);
+    const currentLevel = await resolveCanonicalCurrentLevel(userId);
     const incomingLevel = normalizeLevelLabel(levelLabel);
 
     if (getLevelRank(incomingLevel) <= getLevelRank(currentLevel)) {

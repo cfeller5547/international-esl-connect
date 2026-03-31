@@ -24,6 +24,7 @@ Current core model:
 - `Learn` is curriculum-only
 - `Tools` contains `Homework Help` and `Test Prep Sprint`
 - `User.currentLevel` is the canonical level assignment
+- `User.role` now supports internal `admin` users for QA preview access
 - `currentLevel` can only stay the same or be promoted
 - only qualifying assessments can change level:
   - `baseline_quick`
@@ -54,6 +55,7 @@ Current fixed curriculum system:
 Current Learn UX shape:
 - Learn landing emphasizes the current unit and next required step
 - Learn roadmap is a separate one-tap view for all 6 units in the assigned current level; it is available from Learn but is not the default landing
+- internal admin users may use an account-menu `Preview level` override to temporarily browse another level in Learn/Home without changing canonical `currentLevel`
 - unit overview is optional, not the primary path
 - activity execution is in focus mode
 - lesson flow is:
