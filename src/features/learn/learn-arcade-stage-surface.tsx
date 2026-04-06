@@ -2,6 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { LaneRunnerCanvas } from "@/features/learn/canvas/lane-runner-canvas";
+import { SortRushCanvas } from "@/features/learn/canvas/sort-rush-canvas";
+import { RouteRaceCanvas } from "@/features/learn/canvas/route-race-canvas";
+import { ReactionPickCanvas } from "@/features/learn/canvas/reaction-pick-canvas";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -56,6 +60,8 @@ type ThemeStyles = {
   accent: string;
   glow: string;
 };
+
+type FloatingText = { id: number; text: string; key: string };
 
 type Props = {
   backHref: string;
@@ -278,6 +284,7 @@ function LaneRunnerBoard({
   collectedIds,
   movePulse,
   tokenPulse,
+  floatingTexts,
   onMove,
   locked,
 }: {
@@ -288,100 +295,94 @@ function LaneRunnerBoard({
   collectedIds: string[];
   movePulse: MovePulse | null;
   tokenPulse: TokenPulse | null;
+  floatingTexts: FloatingText[];
   onMove: (lane: number, column: number) => void;
   locked: boolean;
 }) {
   const tokenTravelDuration = Math.max(0.4, ((stage.motionRules?.travelMs ?? 620) / 1000) * 0.88);
-  const targetRail =
-    stage.targetSequenceIds.length <= 5
-      ? stage.targetSequenceIds
-          .map((tokenId) => stage.tokens.find((token) => token.id === tokenId))
-          .filter((token): token is LaneRunnerGameStage["tokens"][number] => Boolean(token))
-      : [];
   const nextTargetId = stage.targetSequenceIds[collectedIds.length] ?? null;
   const nextTarget =
     nextTargetId ? stage.tokens.find((token) => token.id === nextTargetId) ?? null : null;
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2 rounded-[1.2rem] border border-white/12 bg-slate-950/20 px-4 py-3 text-white/80">
-        <span className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em]">
-          <Sparkles className="size-3.5 text-sky-200" />
-          Start
-        </span>
-        <div className="inline-flex min-w-0 items-center gap-2 rounded-full border border-white/12 bg-white/10 px-3 py-1.5 text-xs font-semibold">
-          <span className="uppercase tracking-[0.14em] text-white/58">Next piece</span>
+      {/* Target indicator */}
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-center gap-3">
           {nextTarget ? (
-            <>
-              <SpriteChip src={stage.spriteRefs?.target} alt={nextTarget.label} size={18} />
-              <span className="truncate text-white">{nextTarget.label}</span>
-            </>
+            <motion.div
+              key={nextTarget.id}
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="flex items-center gap-2.5"
+            >
+              <div className="size-8 rounded-xl bg-emerald-500/20 flex items-center justify-center border border-emerald-400/30">
+                <SpriteChip src={stage.spriteRefs?.target} alt={nextTarget.label} size={20} />
+              </div>
+              <span className="text-sm font-semibold text-white">Find: {nextTarget.label}</span>
+            </motion.div>
           ) : (
-            <span className="text-emerald-100">Rail complete</span>
+            <span className="text-sm font-semibold text-emerald-400">All found!</span>
           )}
         </div>
-        <span className="ml-auto inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em]">
-          Exit
-          <ChevronRight className="size-3.5 text-amber-200" />
-        </span>
+
+        <div className="flex items-center gap-1.5">
+          {stage.targetSequenceIds.map((id, i) => (
+            <div
+              key={i}
+              className={`size-2 rounded-full transition-colors duration-300 ${
+                i < collectedIds.length
+                  ? "bg-emerald-400"
+                  : i === collectedIds.length
+                    ? "bg-white"
+                    : "bg-white/15"
+              }`}
+            />
+          ))}
+        </div>
       </div>
 
-      {targetRail.length > 0 ? (
-        <div className="rounded-[1.35rem] border border-white/12 bg-white/10 px-4 py-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-white/60">
-              {stageHelperLabel(stage, "Intro rail")}
-            </span>
-            {targetRail.map((token, index) => {
-              const collected = collectedIds.includes(token.id);
-              const activeTarget = !collected && token.id === nextTargetId;
-              return (
-                <motion.div
-                  key={token.id}
-                  animate={
-                    activeTarget
-                      ? { scale: [1, 1.03, 1], y: [0, -2, 0] }
-                      : { scale: 1, y: 0 }
-                  }
-                  transition={
-                    activeTarget
-                      ? { type: "tween", duration: 0.68, repeat: Number.POSITIVE_INFINITY, repeatDelay: 0.22 }
-                      : { duration: 0.2, ease: "easeOut" }
-                  }
-                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition ${
-                    collected
-                      ? "border-emerald-300/72 bg-emerald-300/20 text-emerald-50"
-                      : activeTarget
-                        ? "border-sky-300/62 bg-sky-300/16 text-sky-50 shadow-[0_16px_32px_-24px_rgba(56,189,248,0.52)]"
-                      : "border-white/14 bg-slate-950/20 text-white/76"
-                  }`}
-                >
-                  <span className="inline-flex size-5 items-center justify-center rounded-full bg-white/12 text-[11px]">
-                    {index + 1}
-                  </span>
-                  <SpriteChip src={stage.spriteRefs?.target} alt={token.label} size={20} />
-                  <span>{token.label}</span>
-                  {activeTarget ? (
-                    <span className="rounded-full border border-sky-300/42 bg-sky-300/12 px-2 py-0.5 text-[10px] uppercase tracking-[0.16em] text-sky-100/88">
-                      Next
-                    </span>
-                  ) : null}
-                </motion.div>
-              );
-            })}
-          </div>
+      {/* Game board — flat, no 3D perspective */}
+      <div
+        className="relative w-full overflow-hidden rounded-2xl border border-white/8"
+        style={{ height: `${Math.max(280, stage.lanes.length * 100)}px` }}
+      >
+        {/* Lane backgrounds */}
+        <div className="absolute inset-0 flex flex-col">
+          {stage.lanes.map((lane, i) => (
+            <div
+              key={lane.id}
+              className={`flex-1 border-b border-white/[0.04] last:border-0 ${
+                i % 2 === 0 ? "bg-white/[0.02]" : "bg-transparent"
+              }`}
+            />
+          ))}
         </div>
-      ) : null}
 
-      <div className="grid gap-2" style={{ gridTemplateColumns: `6.25rem repeat(${GRID_COLUMNS}, minmax(0, 1fr))` }}>
-        {stage.lanes.map((lane, laneIndex) => (
-          <div key={lane.id} className="contents">
-            <div className="flex items-center pr-2">
-              <div className="w-full rounded-full border border-white/12 bg-white/10 px-3 py-2 text-right text-xs font-semibold uppercase tracking-[0.14em] text-white/72">
-                {lane.label}
-              </div>
-            </div>
-            {Array.from({ length: GRID_COLUMNS }, (_, columnIndex) => {
+        {/* Touch controls */}
+        {!locked && (
+          <div className="absolute inset-0 z-50 grid grid-cols-2" style={{ gridTemplateRows: `repeat(${stage.lanes.length}, 1fr)`, touchAction: "none" }}>
+            {stage.lanes.map((lane, laneIndex) => (
+              <div key={`left-${lane.id}`} className="col-span-1" onPointerDown={() => onMove(laneIndex, runnerColumn - 1)} />
+            ))}
+            {stage.lanes.map((lane, laneIndex) => (
+              <div key={`right-${lane.id}`} className="col-span-1" onPointerDown={() => onMove(laneIndex, runnerColumn + 1)} />
+            ))}
+            <div className="absolute inset-x-0 top-0 h-12 z-50" onPointerDown={() => onMove(runnerLane - 1, runnerColumn)} />
+            <div className="absolute inset-x-0 bottom-0 h-12 z-50" onPointerDown={() => onMove(runnerLane + 1, runnerColumn)} />
+          </div>
+        )}
+
+        {/* Grid */}
+        <div
+          className="absolute inset-0 grid"
+          style={{
+            gridTemplateColumns: `repeat(${GRID_COLUMNS}, 1fr)`,
+            gridTemplateRows: `repeat(${stage.lanes.length}, 1fr)`,
+          }}
+        >
+          {stage.lanes.flatMap((lane, laneIndex) =>
+            Array.from({ length: GRID_COLUMNS }, (_, columnIndex) => {
               const token = stage.tokens.find(
                 (entry) =>
                   tokenPositions[entry.id]?.lane === laneIndex &&
@@ -389,114 +390,70 @@ function LaneRunnerBoard({
               );
               const cleared = token ? collectedIds.includes(token.id) : false;
               const active = laneIndex === runnerLane && columnIndex === runnerColumn;
-              const pulsingCell =
-                movePulse?.lane === laneIndex && movePulse.column === columnIndex ? movePulse : null;
               const pulsingToken = tokenPulse && token?.id === tokenPulse.tokenId ? tokenPulse : null;
+              const floatingText = floatingTexts.find((ft) => ft.key === token?.id);
 
               return (
-                <motion.button
-                  key={`${lane.id}-${columnIndex}`}
-                  type="button"
-                  onClick={() => onMove(laneIndex, columnIndex)}
-                  disabled={locked}
-                  whileTap={locked ? undefined : { scale: 0.98 }}
-                  animate={
-                    pulsingCell
-                      ? pulsingCell.outcome === "miss"
-                        ? { scale: 1, x: [0, -6, 6, -4, 4, 0] }
-                        : pulsingCell.outcome === "near_miss"
-                          ? { scale: [1, 1.02, 1], x: [0, -2, 2, 0] }
-                          : { scale: [1, 1.028, 1], x: 0 }
-                      : { scale: 1, x: 0 }
-                  }
-                  transition={
-                    pulsingCell
-                      ? pulsingCell.outcome === "miss"
-                        ? { duration: 0.28, ease: "easeOut" }
-                        : { type: "tween", duration: 0.22, ease: "easeOut", times: [0, 0.5, 1] }
-                      : { duration: 0.2, ease: "easeOut" }
-                  }
-                  className={`relative min-h-20 overflow-hidden rounded-[1.35rem] border transition ${
-                    active
-                      ? "border-white/85 bg-white/18 shadow-[0_10px_30px_-18px_rgba(255,255,255,0.9)]"
-                      : "border-white/12 bg-slate-950/18 hover:border-white/28 hover:bg-white/10"
-                  } ${locked ? "cursor-default" : ""}`}
-                >
-                  {token && !cleared && token.id === nextTargetId ? (
-                    <motion.span
-                      aria-hidden
-                      className="absolute inset-2 rounded-[1.1rem] border border-sky-300/26"
-                      animate={{ opacity: [0.22, 0.7, 0.22], scale: [0.96, 1.02, 0.98] }}
-                      transition={{ duration: 0.9, repeat: Number.POSITIVE_INFINITY, ease: "easeOut" }}
-                    />
-                  ) : null}
-                  <span className="absolute inset-x-3 top-1/2 h-1 -translate-y-1/2 rounded-full bg-white/10" />
-                  <span className="absolute inset-x-4 top-1/2 h-px -translate-y-1/2 border-t border-dashed border-white/16" />
-                  {columnIndex === GRID_COLUMNS - 1 ? (
-                    <span className="absolute inset-y-3 right-2 w-1 rounded-full bg-gradient-to-b from-sky-300/16 via-white/12 to-amber-200/24" />
-                  ) : null}
+                <div key={`${lane.id}-${columnIndex}`} className="relative flex items-center justify-center">
+                  {/* Floating feedback */}
+                  <AnimatePresence>
+                    {floatingText ? (
+                      <motion.div
+                        initial={{ opacity: 1, y: 0 }}
+                        animate={{ opacity: 0, y: -40 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.6 }}
+                        className="absolute z-[60] pointer-events-none"
+                      >
+                        <span className="rounded-lg bg-rose-500 px-2.5 py-1 text-[10px] font-bold text-white shadow-lg">
+                          {floatingText.text}
+                        </span>
+                      </motion.div>
+                    ) : null}
+                  </AnimatePresence>
+
+                  {/* Token */}
                   {token && !cleared ? (
-                    <motion.span
-                      layout="position"
-                      initial={{ scale: 0.86, opacity: 0.4 }}
+                    <motion.div
+                      layoutId={token.id}
+                      initial={false}
                       animate={
-                        pulsingToken
-                          ? pulsingToken.outcome === "miss"
-                            ? { scale: 1, opacity: 1, x: [0, -6, 6, -4, 4, 0] }
-                            : pulsingToken.outcome === "near_miss"
-                              ? { scale: [1, 1.03, 1], opacity: 1, x: [0, -2, 2, 0] }
-                              : { scale: [1, 1.06, 1], opacity: 1, y: [0, -4, 0] }
-                          : { scale: 1, opacity: 1, x: 0, y: 0 }
+                        pulsingToken?.outcome === "miss"
+                          ? { x: [0, -6, 6, -3, 0] }
+                          : {}
                       }
-                      transition={
-                        pulsingToken
-                          ? pulsingToken.outcome === "miss"
-                            ? { layout: { duration: tokenTravelDuration, ease: "linear" }, duration: 0.28, ease: "easeOut" }
-                            : { layout: { duration: tokenTravelDuration, ease: "linear" }, type: "tween", duration: 0.22, ease: "easeOut", times: [0, 0.48, 1] }
-                          : { layout: { duration: tokenTravelDuration, ease: "linear" }, duration: tokenTravelDuration }
-                      }
-                      className={`absolute inset-x-2 top-2 flex flex-col items-start rounded-xl border px-2 py-2 text-left text-xs font-semibold ${
+                      transition={{
+                        layout: { duration: tokenTravelDuration, ease: "linear" },
+                      }}
+                      className={`absolute z-30 rounded-xl border px-3 py-2 text-center shadow-md ${
                         token.role === "target"
-                          ? "border-emerald-200/25 bg-emerald-300/18 text-emerald-50"
-                          : "border-rose-200/20 bg-rose-300/16 text-rose-50"
+                          ? token.id === nextTargetId
+                            ? "border-emerald-400/50 bg-emerald-500/15 text-emerald-50 ring-1 ring-emerald-400/30"
+                            : "border-emerald-400/25 bg-emerald-500/8 text-emerald-100"
+                          : "border-rose-400/30 bg-rose-500/12 text-rose-100"
                       }`}
                     >
-                      <SpriteChip
-                        src={token.role === "target" ? stage.spriteRefs?.target : stage.spriteRefs?.hazard}
-                        alt={token.label}
-                        size={24}
-                        className="mb-1"
-                      />
-                      <span>{token.label}</span>
-                    </motion.span>
+                      <span className="text-xs font-semibold leading-tight">{token.label}</span>
+                    </motion.div>
                   ) : null}
+
+                  {/* Player */}
                   {active ? (
-                    <motion.span
-                      layout
-                      initial={{ scale: 0.9, opacity: 0.5 }}
-                      animate={
-                        pulsingCell
-                          ? pulsingCell.outcome === "miss"
-                            ? { scale: 1, opacity: 1, x: [0, -4, 4, -2, 2, 0] }
-                            : { scale: [1, 1.04, 1], opacity: 1 }
-                          : { scale: 1, opacity: 1 }
-                      }
-                      transition={
-                        pulsingCell?.outcome === "miss"
-                          ? { duration: 0.24, ease: "easeOut" }
-                          : { type: "tween", duration: 0.2, ease: "easeOut", times: [0, 0.48, 1] }
-                      }
-                      className="absolute bottom-2 left-2 inline-flex max-w-[calc(100%-1rem)] items-center gap-2 rounded-full bg-white/92 px-2.5 py-2 text-xs font-semibold text-slate-950 shadow-[0_12px_28px_-18px_rgba(255,255,255,0.82)]"
+                    <motion.div
+                      layoutId="player"
+                      transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                      className="absolute z-40"
                     >
-                      <SpriteChip src={stage.spriteRefs?.player} alt="Player" size={36} />
-                      <span>You</span>
-                    </motion.span>
+                      <div className="size-11 rounded-full bg-white flex items-center justify-center shadow-[0_0_20px_rgba(255,255,255,0.5)] border-2 border-white">
+                        <SpriteChip src={stage.spriteRefs?.player} alt="Player" size={28} />
+                      </div>
+                    </motion.div>
                   ) : null}
-                </motion.button>
+                </div>
               );
-            })}
-          </div>
-        ))}
+            })
+          )}
+        </div>
       </div>
     </div>
   );
@@ -508,6 +465,7 @@ function SortRushBoard({
   activeCardId,
   assignments,
   assignmentPulse,
+  floatingTexts,
   onFocusCard,
   onAssign,
   locked,
@@ -517,6 +475,7 @@ function SortRushBoard({
   activeCardId: string | null;
   assignments: Record<string, string>;
   assignmentPulse: AssignmentPulse | null;
+  floatingTexts: FloatingText[];
   onFocusCard: (cardId: string | null) => void;
   onAssign: (laneId: string) => void;
   locked: boolean;
@@ -608,7 +567,9 @@ function SortRushBoard({
       </div>
 
       <div className={`grid gap-3 ${stage.lanes.length >= 3 ? "lg:grid-cols-3" : "md:grid-cols-2"}`}>
-        {stage.lanes.map((lane, index) => (
+        {stage.lanes.map((lane, index) => {
+          const floatingText = floatingTexts.find(ft => ft.key === lane.id);
+          return (
           <motion.button
             key={lane.id}
             type="button"
@@ -642,8 +603,24 @@ function SortRushBoard({
               }
             }}
             disabled={locked}
-            className="min-h-40 rounded-[1.6rem] border border-white/12 bg-white/12 px-4 py-4 text-left transition hover:border-white/22 hover:bg-white/14"
+            className="relative min-h-40 rounded-[1.6rem] border border-white/12 bg-white/12 px-4 py-4 text-left transition hover:border-white/22 hover:bg-white/14"
           >
+            <AnimatePresence>
+              {floatingText && (
+                <motion.div
+                  initial={{ opacity: 1, y: 0, scale: 0.8 }}
+                  animate={{ opacity: 0, y: -60, scale: 1.2 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.8 }}
+                  className="absolute z-[60] top-0 left-1/2 -translate-x-1/2 pointer-events-none"
+                >
+                  <span className="bg-rose-500 text-white font-bold text-[11px] uppercase tracking-tighter px-3 py-1 rounded-lg shadow-[0_0_15px_rgba(244,63,94,0.6)] whitespace-nowrap">
+                    {floatingText.text}
+                  </span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <div className="flex items-center gap-2">
               <SpriteChip src={stage.spriteRefs?.accent ?? stage.spriteRefs?.target} alt={lane.label} size={20} />
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-white/64">
@@ -682,7 +659,7 @@ function SortRushBoard({
                 ))}
             </div>
           </motion.button>
-        ))}
+        )})}
       </div>
     </div>
   );
@@ -692,12 +669,14 @@ function RouteRaceBoard({
   stage,
   pathIds,
   nodePulse,
+  floatingTexts,
   onSelect,
   locked,
 }: {
   stage: RouteRaceGameStage;
   pathIds: string[];
   nodePulse: NodePulse | null;
+  floatingTexts: FloatingText[];
   onSelect: (nodeId: string) => void;
   locked: boolean;
 }) {
@@ -783,7 +762,9 @@ function RouteRaceBoard({
         })}
       </svg>
 
-      {stage.nodes.map((node, index) => (
+      {stage.nodes.map((node, index) => {
+        const floatingText = floatingTexts.find(ft => ft.key === node.id);
+        return (
         <motion.button
           key={node.id}
           type="button"
@@ -820,6 +801,22 @@ function RouteRaceBoard({
               : "border-white/14 bg-white/12 text-white hover:border-white/24 hover:bg-white/16"
           }`}
         >
+          <AnimatePresence>
+            {floatingText && (
+              <motion.div
+                initial={{ opacity: 1, y: 0, scale: 0.8 }}
+                animate={{ opacity: 0, y: -60, scale: 1.2 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.8 }}
+                className="absolute z-[60] top-0 left-1/2 -translate-x-1/2 pointer-events-none"
+              >
+                <span className="bg-rose-500 text-white font-bold text-[11px] uppercase tracking-tighter px-3 py-1 rounded-lg shadow-[0_0_15px_rgba(244,63,94,0.6)] whitespace-nowrap">
+                  {floatingText.text}
+                </span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <div className="flex items-center gap-2">
             <SpriteChip
               src={
@@ -841,7 +838,7 @@ function RouteRaceBoard({
             </p>
           ) : null}
         </motion.button>
-      ))}
+      )})}
       </div>
     </div>
   );
@@ -853,6 +850,7 @@ function ReactionPickBoard({
   onSelect,
   lockedOptionId,
   feedbackOutcome,
+  floatingTexts,
   locked,
 }: {
   stage: ReactionPickGameStage;
@@ -860,6 +858,7 @@ function ReactionPickBoard({
   onSelect: (optionId: string) => void;
   lockedOptionId: string | null;
   feedbackOutcome: "hit" | "miss" | "near_miss" | null;
+  floatingTexts: FloatingText[];
   locked: boolean;
 }) {
   if (!currentRound) {
@@ -897,7 +896,9 @@ function ReactionPickBoard({
             <p className="mt-2 text-sm text-white/72">{currentRound.dialoguePrompt}</p>
           ) : null}
         </div>
-        {currentRound.options.map((option, index) => (
+        {currentRound.options.map((option, index) => {
+          const floatingText = floatingTexts.find(ft => ft.key === option.id);
+          return (
           <motion.button
             key={option.id}
             type="button"
@@ -936,6 +937,22 @@ function ReactionPickBoard({
             }}
             disabled={Boolean(lockedOptionId) || locked}
           >
+            <AnimatePresence>
+              {floatingText && (
+                <motion.div
+                  initial={{ opacity: 1, y: 0, scale: 0.8 }}
+                  animate={{ opacity: 0, y: -60, scale: 1.2 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.8 }}
+                  className="absolute z-[60] top-0 left-1/2 -translate-x-1/2 pointer-events-none"
+                >
+                  <span className="bg-rose-500 text-white font-bold text-[11px] uppercase tracking-tighter px-3 py-1 rounded-lg shadow-[0_0_15px_rgba(244,63,94,0.6)] whitespace-nowrap">
+                    {floatingText.text}
+                  </span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/12 bg-slate-950/18 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/60">
               <span className="inline-flex size-4 items-center justify-center rounded-full bg-white/10 text-[10px] text-white/78">
                 {index + 1}
@@ -962,7 +979,7 @@ function ReactionPickBoard({
               <p className="mt-1 text-sm text-white/74">{option.detail}</p>
             ) : null}
           </motion.button>
-        ))}
+        )})}
       </div>
     );
   }
@@ -988,7 +1005,9 @@ function ReactionPickBoard({
       <div className="relative">
         <div className="pointer-events-none absolute inset-x-10 top-6 hidden h-px bg-gradient-to-r from-transparent via-white/16 to-transparent lg:block" />
         <div className="grid gap-3 lg:grid-cols-3">
-        {currentRound.options.map((option: GameChoiceOption, index) => (
+        {currentRound.options.map((option: GameChoiceOption, index) => {
+          const floatingText = floatingTexts.find(ft => ft.key === option.id);
+          return (
           <motion.button
             key={option.id}
             type="button"
@@ -1012,7 +1031,7 @@ function ReactionPickBoard({
                   : { type: "tween", duration: 0.28, ease: "easeOut", times: [0, 0.45, 1] }
                 : { type: "tween", duration: 0.26, delay: index * 0.05 }
             }
-            className={`min-h-36 rounded-[1.5rem] border px-4 py-4 text-left text-white transition ${
+            className={`relative min-h-36 rounded-[1.5rem] border px-4 py-4 text-left text-white transition ${
               lockedOptionId === option.id
                 ? feedbackOutcome === "hit"
                   ? "border-emerald-300/70 bg-emerald-400/18"
@@ -1023,6 +1042,22 @@ function ReactionPickBoard({
             } ${lockedOptionId && lockedOptionId !== option.id ? "opacity-80" : ""} ${index === 1 ? "lg:mt-6" : index === 2 ? "lg:mt-10" : ""}`}
             disabled={Boolean(lockedOptionId) || locked}
           >
+            <AnimatePresence>
+              {floatingText && (
+                <motion.div
+                  initial={{ opacity: 1, y: 0, scale: 0.8 }}
+                  animate={{ opacity: 0, y: -60, scale: 1.2 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.8 }}
+                  className="absolute z-[60] top-0 left-1/2 -translate-x-1/2 pointer-events-none"
+                >
+                  <span className="bg-rose-500 text-white font-bold text-[11px] uppercase tracking-tighter px-3 py-1 rounded-lg shadow-[0_0_15px_rgba(244,63,94,0.6)] whitespace-nowrap">
+                    {floatingText.text}
+                  </span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <div className="mb-3 flex items-center justify-between gap-2">
               <span className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-slate-950/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/60">
                 <span className="inline-flex size-4 items-center justify-center rounded-full bg-white/10 text-[10px] text-white/78">
@@ -1054,7 +1089,7 @@ function ReactionPickBoard({
               <p className="mt-2 text-sm text-white/74">{option.detail}</p>
             ) : null}
           </motion.button>
-        ))}
+        )})}
         </div>
       </div>
     </div>
@@ -1248,7 +1283,9 @@ export function LearnArcadeStageSurface({
   const [tokenPulse, setTokenPulse] = useState<TokenPulse | null>(null);
   const [assignmentPulse, setAssignmentPulse] = useState<AssignmentPulse | null>(null);
   const [nodePulse, setNodePulse] = useState<NodePulse | null>(null);
+  const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([]);
   const pulseRef = useRef(0);
+  const floatingTextIdRef = useRef(0);
   const timeRemainingRef = useRef(stage.timerMs);
   const livesRemainingRef = useRef(stage.lives);
   const comboPeakRef = useRef(0);
@@ -1260,7 +1297,6 @@ export function LearnArcadeStageSurface({
   const runnerLaneRef = useRef(stage.kind === "lane_runner" ? Math.max(0, stage.lanes.length - 1) : 0);
   const runnerColumnRef = useRef(0);
   const submittedRef = useRef(false);
-  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
   const spokenEvaluationKeyRef = useRef<string | null>(null);
 
   const { muted, toggleMuted } = usePersistentGameAudioMute();
@@ -1296,6 +1332,14 @@ export function LearnArcadeStageSurface({
   const resolvedSpeechText = useMemo(() => getStageResolvedSpeechText(stage), [stage]);
   const statusMessage = error ?? notice ?? localMessage ?? recorderError;
   const flashMode = flash ?? (evaluation?.outcome === "strong" ? "clear" : null);
+
+  const addFloatingText = useCallback((text: string, key: string) => {
+    const id = ++floatingTextIdRef.current;
+    setFloatingTexts((current) => [...current, { id, text, key }]);
+    setTimeout(() => {
+      setFloatingTexts((current) => current.filter((item) => item.id !== id));
+    }, 800);
+  }, []);
 
   const focusSortCard = useCallback(
     (cardId: string | null) => {
@@ -1344,6 +1388,7 @@ export function LearnArcadeStageSurface({
     setTokenPulse(null);
     setAssignmentPulse(null);
     setNodePulse(null);
+    setFloatingTexts([]);
     resetError();
   }, [isSupported, resetError, stage, stopSpeech, voiceEnabled]);
 
@@ -1503,12 +1548,70 @@ export function LearnArcadeStageSurface({
   );
 
   useEffect(() => {
+    // Lane runner uses Canvas — skip DOM movement logic
     if (stage.kind !== "lane_runner" || paused || pending || evaluation) {
       return;
     }
+    // Canvas handles all lane_runner movement and collision
+    return;
 
-    const travelMs = stage.motionRules?.travelMs ?? 720;
-    const timer = window.setInterval(() => {
+    const baseTravelMs = stage.motionRules?.travelMs ?? 720;
+    const rampStep = (stage.motionRules as Record<string, unknown> | undefined)?.speedRampStepMs as number ?? 40;
+    const minTravelMs = Math.max(200, baseTravelMs * 0.4);
+    let moveCount = 0;
+    let timeoutId: number | undefined;
+
+    const lrStage = stage as LaneRunnerGameStage;
+
+    function checkCollision(positions: Record<string, LaneTokenPosition>) {
+      const currentCollectedIds = collectedIdsRef.current;
+      const currentRunnerLane = runnerLaneRef.current;
+      const currentRunnerColumn = runnerColumnRef.current;
+      const collisionToken = lrStage.tokens.find(
+        (token: { id: string; role: string; detail?: string }) =>
+          !currentCollectedIds.includes(token.id) &&
+          positions[token.id]?.lane === currentRunnerLane &&
+          positions[token.id]?.column === currentRunnerColumn
+      );
+
+      if (!collisionToken) return;
+
+      const pulse = nextPulseId();
+      if (
+        collisionToken.role === "target" &&
+        collisionToken.id === lrStage.targetSequenceIds[currentCollectedIds.length]
+      ) {
+        const nextCollected = [...currentCollectedIds, collisionToken.id];
+        collectedIdsRef.current = nextCollected;
+        setCollectedIds(nextCollected);
+        setMovePulse({
+          lane: positions[collisionToken.id]?.lane ?? currentRunnerLane,
+          column: positions[collisionToken.id]?.column ?? currentRunnerColumn,
+          pulse,
+          outcome: "hit",
+        });
+        setTokenPulse({ tokenId: collisionToken.id, pulse, outcome: "hit" });
+        registerHit();
+        if (nextCollected.length === lrStage.targetSequenceIds.length) {
+          void submitArcade({ collectedIds: nextCollected });
+        }
+      } else {
+        setMovePulse({
+          lane: positions[collisionToken.id]?.lane ?? currentRunnerLane,
+          column: positions[collisionToken.id]?.column ?? currentRunnerColumn,
+          pulse,
+          outcome: "miss",
+        });
+        setTokenPulse({ tokenId: collisionToken.id, pulse, outcome: "miss" });
+        addFloatingText(collisionToken.detail || "Incorrect", collisionToken.id);
+        registerMiss();
+      }
+    }
+
+    function tick() {
+      const effectiveTravelMs = Math.max(minTravelMs, baseTravelMs - moveCount * rampStep);
+      moveCount++;
+
       const currentTokens = laneTokenStateRef.current;
       const next = Object.fromEntries(
         Object.entries(currentTokens).map(([tokenId, token]) => {
@@ -1525,54 +1628,22 @@ export function LearnArcadeStageSurface({
 
       laneTokenStateRef.current = next;
       setLaneTokenState(next);
+      checkCollision(next);
 
-      const currentCollectedIds = collectedIdsRef.current;
-      const currentRunnerLane = runnerLaneRef.current;
-      const currentRunnerColumn = runnerColumnRef.current;
-      const collisionToken = stage.tokens.find(
-        (token) =>
-          !currentCollectedIds.includes(token.id) &&
-          next[token.id]?.lane === currentRunnerLane &&
-          next[token.id]?.column === currentRunnerColumn
-      );
+      timeoutId = window.setTimeout(tick, Math.max(280, effectiveTravelMs));
+    }
 
-      if (!collisionToken) {
-        return;
-      }
+    // High-frequency collision check (every 80ms) so hits register instantly
+    const collisionInterval = window.setInterval(() => {
+      checkCollision(laneTokenStateRef.current);
+    }, 80);
 
-      const pulse = nextPulseId();
-      if (
-        collisionToken.role === "target" &&
-        collisionToken.id === stage.targetSequenceIds[currentCollectedIds.length]
-      ) {
-        const nextCollected = [...currentCollectedIds, collisionToken.id];
-        collectedIdsRef.current = nextCollected;
-        setCollectedIds(nextCollected);
-        setMovePulse({
-          lane: next[collisionToken.id]?.lane ?? currentRunnerLane,
-          column: next[collisionToken.id]?.column ?? currentRunnerColumn,
-          pulse,
-          outcome: "hit",
-        });
-        setTokenPulse({ tokenId: collisionToken.id, pulse, outcome: "hit" });
-        registerHit();
-        if (nextCollected.length === stage.targetSequenceIds.length) {
-          void submitArcade({ collectedIds: nextCollected });
-        }
-        return;
-      }
+    timeoutId = window.setTimeout(tick, Math.max(520, baseTravelMs));
 
-      setMovePulse({
-        lane: next[collisionToken.id]?.lane ?? currentRunnerLane,
-        column: next[collisionToken.id]?.column ?? currentRunnerColumn,
-        pulse,
-        outcome: "miss",
-      });
-      setTokenPulse({ tokenId: collisionToken.id, pulse, outcome: "miss" });
-      registerMiss();
-    }, Math.max(520, travelMs));
-
-    return () => window.clearInterval(timer);
+    return () => {
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+      window.clearInterval(collisionInterval);
+    };
   }, [
     evaluation,
     nextPulseId,
@@ -1582,6 +1653,7 @@ export function LearnArcadeStageSurface({
     registerMiss,
     stage,
     submitArcade,
+    addFloatingText,
   ]);
 
   useEffect(() => {
@@ -1688,6 +1760,7 @@ export function LearnArcadeStageSurface({
 
     setMovePulse({ lane: nextLane, column: nextColumn, pulse: movePulseId, outcome: "miss" });
     setTokenPulse({ tokenId: token.id, pulse: movePulseId, outcome: "miss" });
+    addFloatingText(token.detail || "Incorrect", token.id);
     registerMiss();
   }, [
     collectedIds,
@@ -1704,6 +1777,7 @@ export function LearnArcadeStageSurface({
     stage,
     submitArcade,
     timeRemainingMs,
+    addFloatingText,
   ]);
 
   const assignSort = useCallback((laneId: string) => {
@@ -1729,6 +1803,7 @@ export function LearnArcadeStageSurface({
       registerHit();
     } else {
       setAssignmentPulse({ laneId, cardId: currentSortCard.id, pulse, outcome: "miss" });
+      addFloatingText(currentSortCard.detail || "Incorrect", laneId);
       registerMiss();
     }
 
@@ -1753,6 +1828,7 @@ export function LearnArcadeStageSurface({
     stage,
     submitArcade,
     timeRemainingMs,
+    addFloatingText,
   ]);
 
   const selectNode = useCallback((nodeId: string) => {
@@ -1791,6 +1867,8 @@ export function LearnArcadeStageSurface({
       pulse,
       outcome: routeOutcome,
     });
+    const node = stage.nodes.find((n) => n.id === nodeId);
+    if (routeOutcome !== "near_miss") addFloatingText(node?.detail || "Incorrect", nodeId);
     registerMiss(routeOutcome);
   }, [
     evaluation,
@@ -1804,6 +1882,7 @@ export function LearnArcadeStageSurface({
     stage,
     submitArcade,
     timeRemainingMs,
+    addFloatingText,
   ]);
 
   const selectReaction = useCallback((optionId: string) => {
@@ -1836,6 +1915,7 @@ export function LearnArcadeStageSurface({
     if (outcome === "hit") {
       registerHit();
     } else {
+      if (outcome !== "near_miss") addFloatingText(selectedOption?.detail || "Incorrect", optionId);
       registerMiss(outcome);
     }
 
@@ -1870,6 +1950,7 @@ export function LearnArcadeStageSurface({
     stage,
     submitArcade,
     timeRemainingMs,
+    addFloatingText,
   ]);
 
   const handleVoiceBurst = useCallback(async () => {
@@ -2006,7 +2087,7 @@ export function LearnArcadeStageSurface({
                 Game
               </Badge>
               <Badge variant="outline" className="rounded-full bg-background/85 px-3 py-1">
-                Stage {stageIndex + 1} of {totalStages}
+                {totalStages > 1 ? `Round ${stageIndex + 1} of ${totalStages}` : "Challenge"}
               </Badge>
               <span className="text-sm text-muted-foreground">{attemptLabel}</span>
             </div>
@@ -2060,161 +2141,94 @@ export function LearnArcadeStageSurface({
                     : { duration: 0.24, ease: "easeOut" }
               }
               style={{
-                backgroundImage: `linear-gradient(135deg, rgba(9,16,36,0.85), rgba(15,23,42,0.62)), url(${boardAsset})`,
+                backgroundImage: `linear-gradient(135deg, rgba(9,16,36,0.95), rgba(15,23,42,0.88))`,
                 backgroundSize: "cover",
                 backgroundPosition: "center",
               }}
             >
-              <div className="space-y-5 px-4 py-4 sm:px-5 sm:py-5">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="outline" className="rounded-full border-white/18 bg-white/10 px-3 py-1 text-white">
-                        {game.gameTitle}
-                      </Badge>
-                      <Badge variant="outline" className="rounded-full border-white/18 bg-white/10 px-3 py-1 text-white/82">
-                        {stage.presentation?.boardTitle ?? stage.title}
-                      </Badge>
-                    </div>
-                    <p className="max-w-2xl text-sm text-white/78">{stageObjective(stage)}</p>
-                  </div>
-                  <div className="flex flex-wrap items-center justify-end gap-2">
-                    <span className="inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/10 px-3 py-1.5 text-sm font-medium">
-                      <span className="text-white/64">Time</span>
-                      <span>{timerLabel}</span>
+              <div className="space-y-4 px-4 py-4 sm:px-5 sm:py-5">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-medium text-white/80">{stage.presentation?.boardTitle ?? stage.title}</p>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold tabular-nums text-white">{timerLabel}</span>
+                    <span className="inline-flex items-center gap-1 text-sm font-medium">
+                      <Heart className="size-3.5 text-rose-400" />
+                      <span className="text-white">{livesRemaining}</span>
                     </span>
-                    <span className="inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/10 px-3 py-1.5 text-sm font-medium">
-                      <Heart className="size-4 text-rose-300" />
-                      {livesRemaining}
-                    </span>
-                    <span className="inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/10 px-3 py-1.5 text-sm font-medium">
-                      <Trophy className="size-4 text-amber-300" />
-                      {score}
-                    </span>
-                    <span className="inline-flex items-center gap-2 rounded-full border border-white/16 bg-white/10 px-3 py-1.5 text-sm font-medium">
-                      <Zap className="size-4 text-sky-300" />
-                      x{combo}
-                    </span>
-                    <Button
+                    {combo > 0 ? (
+                      <span className="inline-flex items-center gap-1 text-sm font-medium">
+                        <Zap className="size-3.5 text-amber-400" />
+                        <span className="text-white">x{combo}</span>
+                      </span>
+                    ) : null}
+                    <button
                       type="button"
-                      variant="outline"
-                      size="sm"
-                      className="rounded-full border-white/18 bg-white/10 text-white hover:bg-white/16"
+                      className="text-white/40 transition hover:text-white/70"
                       onClick={toggleMuted}
                     >
                       {muted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="rounded-full border-white/18 bg-white/10 text-white hover:bg-white/16"
-                      onClick={() => setPaused((current) => !current)}
-                      disabled={inputLocked}
-                    >
-                      {paused ? <Play className="size-4" /> : <Pause className="size-4" />}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="rounded-full border-white/18 bg-white/10 text-white hover:bg-white/16"
-                      onClick={() => {
-                        resetStageState();
-                        if (evaluation) {
-                          onRetry();
-                        }
-                      }}
-                      disabled={pending}
-                    >
-                      <RefreshCcw className="size-4" />
-                    </Button>
+                    </button>
                   </div>
                 </div>
 
                 <div
                   className="rounded-[1.8rem] border border-white/12 bg-slate-950/18 px-4 py-4 sm:px-5 sm:py-5"
-                  onTouchStart={(event) => {
-                    const touch = event.changedTouches[0];
-                    if (!touch) return;
-                    swipeStartRef.current = { x: touch.clientX, y: touch.clientY };
-                  }}
-                  onTouchEnd={(event) => {
-                    if (stage.kind !== "lane_runner") {
-                      swipeStartRef.current = null;
-                      return;
-                    }
-                    const start = swipeStartRef.current;
-                    const touch = event.changedTouches[0];
-                    if (!start || !touch) return;
-                    const dx = touch.clientX - start.x;
-                    const dy = touch.clientY - start.y;
-                    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 18) {
-                      moveRunner(runnerLane, runnerColumn + (dx > 0 ? 1 : -1));
-                    } else if (Math.abs(dy) > 16) {
-                      moveRunner(runnerLane + (dy > 0 ? 1 : -1), runnerColumn);
-                    }
-                    swipeStartRef.current = null;
-                  }}
                 >
                   <AnimatePresence mode="wait">
                     <motion.div
-                      key={stage.id}
+                      key={`${stage.id}-${attemptLabel}`}
                       initial={{ opacity: 0, x: 26 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -26 }}
                       transition={{ type: "spring", stiffness: 240, damping: 24, mass: 0.7 }}
                     >
                       {stage.kind === "lane_runner" ? (
-                        <LaneRunnerBoard
+                        <LaneRunnerCanvas
                           stage={stage}
-                          runnerLane={runnerLane}
-                          runnerColumn={runnerColumn}
-                          tokenPositions={laneTokenState}
-                          collectedIds={collectedIds}
-                          movePulse={movePulse}
-                          tokenPulse={tokenPulse}
-                          onMove={moveRunner}
                           locked={inputLocked}
+                          onCollect={(tokenId) => {
+                            registerHit();
+                          }}
+                          onMiss={(tokenId, reason) => {
+                            registerMiss();
+                          }}
+                          onAllCollected={() => {
+                            // Canvas tracks its own collected IDs — build from targetSequenceIds
+                            void submitArcade({ collectedIds: [...stage.targetSequenceIds] });
+                          }}
                         />
                       ) : null}
                       {stage.kind === "sort_rush" ? (
-                        <SortRushBoard
+                        <SortRushCanvas
                           stage={stage}
-                          queueCards={queueCards}
-                          activeCardId={focusedSortCardId ?? currentSortCard?.id ?? null}
-                          assignments={sortAssignments}
-                          assignmentPulse={assignmentPulse}
-                          onFocusCard={focusSortCard}
-                          onAssign={assignSort}
                           locked={inputLocked}
+                          onCorrectSort={() => registerHit()}
+                          onIncorrectSort={() => registerMiss()}
+                          onAllSorted={(assignments) => {
+                            void submitArcade({ sortAssignments: assignments });
+                          }}
                         />
                       ) : null}
                       {stage.kind === "route_race" ? (
-                        <RouteRaceBoard
+                        <RouteRaceCanvas
                           stage={stage}
-                          pathIds={pathIds}
-                          nodePulse={nodePulse}
-                          onSelect={selectNode}
                           locked={inputLocked}
+                          onCorrectNode={() => registerHit()}
+                          onIncorrectNode={() => registerMiss()}
+                          onPathComplete={(pathIds2) => {
+                            void submitArcade({ pathIds: pathIds2 });
+                          }}
                         />
                       ) : null}
                       {stage.kind === "reaction_pick" ? (
-                        <ReactionPickBoard
+                        <ReactionPickCanvas
                           stage={stage}
-                          currentRound={currentRound}
-                          onSelect={selectReaction}
-                          lockedOptionId={
-                            reactionFeedback && reactionFeedback.roundId === currentRound?.id
-                              ? reactionFeedback.optionId
-                              : null
-                          }
-                          feedbackOutcome={
-                            reactionFeedback && reactionFeedback.roundId === currentRound?.id
-                              ? reactionFeedback.outcome
-                              : null
-                          }
                           locked={inputLocked}
+                          onCorrect={() => registerHit()}
+                          onIncorrect={(isNearMiss) => registerMiss(isNearMiss ? "near_miss" : "miss")}
+                          onAllRoundsComplete={(selections) => {
+                            void submitArcade({ reactionSelections: selections });
+                          }}
                         />
                       ) : null}
                       {stage.kind === "voice_burst" ? (
@@ -2284,7 +2298,7 @@ export function LearnArcadeStageSurface({
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge variant="outline" className="rounded-full border-white/18 bg-white/12 px-3 py-1 text-white">
                             {evaluation.outcome === "strong"
-                              ? "Stage cleared"
+                              ? "Challenge cleared"
                               : evaluation.nearMiss
                                 ? "Close call"
                                 : "One more pass"}
@@ -2299,7 +2313,7 @@ export function LearnArcadeStageSurface({
                         </div>
                         <p className="mt-3 text-xl font-semibold text-white">
                           {evaluation.outcome === "strong"
-                            ? stage.presentation?.resolvedTitle ?? "Stage cleared"
+                            ? stage.presentation?.resolvedTitle ?? "Challenge cleared"
                             : evaluation.nearMiss
                               ? "Close call"
                               : "One more pass"}
@@ -2349,7 +2363,7 @@ export function LearnArcadeStageSurface({
                             onClick={onNext}
                           >
                             <Send className="mr-2 size-4" />
-                            {stageIndex + 1 === totalStages ? "See summary" : "Next stage"}
+                            {stageIndex + 1 === totalStages ? "See summary" : "Next challenge"}
                           </Button>
                         ) : (
                           <Button
@@ -2361,7 +2375,7 @@ export function LearnArcadeStageSurface({
                             }}
                           >
                             <RefreshCcw className="mr-2 size-4" />
-                            Try stage again
+                            Replay challenge
                           </Button>
                         )}
                       </div>

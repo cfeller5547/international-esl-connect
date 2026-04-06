@@ -229,7 +229,7 @@ This document translates product and UX principles into concrete, testable scree
   - `Start game` in brief
   - one active stage control at a time in game
   - `Continue to speaking` in summary
-- Secondary actions: `Back to roadmap`, optional replay of the hardest stages from summary.
+- Secondary actions: `Back to roadmap`, optional replay of the hardest attempt from summary.
 - Required components:
   - brief state with:
     - one clear reason the game matters for the current unit
@@ -282,19 +282,19 @@ This document translates product and UX principles into concrete, testable scree
     - showcase route-race boards should visually distinguish clean routes from detour branches
     - showcase `voice_burst` boards should keep mode choice and primary action in one compact decision area
     - one coaching note and up to two stage retries where the payload allows it
-    - compact resolved-state feedback before the next stage with:
+    - compact resolved-state feedback before the next required action with:
       - result banner
       - medal/rank
       - score delta and combo carry when arcade metrics apply
       - one authored why-it-worked note
-      - one clear `Next stage` CTA
-      - a short stage-clear interstitial before the next authored stage appears
+      - one clear `Next stage` CTA when another authored stage remains, otherwise transition to summary handoff
+      - a short stage-clear interstitial before the next authored stage appears or summary handoff
   - summary state with:
     - completion confirmation
     - one strength pattern
     - one next focus
     - one authored bridge into speaking
-    - optional replay list for the hardest stages
+    - optional replay list for the hardest attempt
     - one dominant `Continue to speaking` CTA
 - Current authored scope:
   - the current `very_basic` and `basic` games use authored Stage 9 arcade payloads

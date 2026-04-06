@@ -1,4 +1,5 @@
 import { differenceInCalendarDays } from "date-fns";
+import { Prisma } from "@/generated/prisma/client";
 
 import { STREAK_MILESTONES } from "@/lib/constants";
 import { prisma } from "@/server/prisma";
@@ -7,13 +8,26 @@ import { trackEvent } from "../analytics";
 
 export const StreakService = {
   async getOrCreate(userId: string) {
-    return prisma.userStreak.upsert({
-      where: { userId },
-      update: {},
-      create: {
-        userId,
-      },
-    });
+    try {
+      return await prisma.userStreak.upsert({
+        where: { userId },
+        update: {},
+        create: {
+          userId,
+        },
+      });
+    } catch (error: any) {
+      if (error?.code === "P2002") {
+        // High concurrency race condition: another request created the streak right after we checked
+        const existingStreak = await prisma.userStreak.findUnique({
+          where: { userId },
+        });
+        if (existingStreak) {
+          return existingStreak;
+        }
+      }
+      throw error;
+    }
   },
 
   async getSnapshot(userId: string) {

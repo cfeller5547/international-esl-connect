@@ -103,7 +103,7 @@ Content sourcing behavior:
   - outer Learn shell: back, unit title, stage count, slim progress, attempt label
   - in-board HUD: timer, hearts, score, combo, mute, pause, restart
 - Active arcade stages must never visibly remain live at `0:00`; once the timer expires, input locks and the board resolves immediately into fail, close-call, or cleared state.
-- Current-12 stage-clear flow should use a compact interstitial with medal, score delta, combo carry, one short why-it-worked note, and a dominant `Next stage` action only after a clear; failed stages should resolve into retry-only state instead of exposing forward progression.
+- Current-12 game-clear flow should use a compact resolved-stage interstitial with medal, score delta, combo carry, one short why-it-worked note, and a dominant forward action after a clear (`Next stage` when another stage exists, otherwise transition directly to game summary); failed stages should resolve into retry-only state instead of exposing forward progression.
 - The top-4 showcase games should use game-specific board art and sprite kits where needed so the scene fantasy is legible at a glance.
 - Showcase `voice_burst` stages should keep mode choice and primary action visually connected instead of reading like a tall stacked form.
 - There is no separate Games tab or standalone game route; the game remains inside the existing Learn unit flow.

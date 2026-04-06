@@ -16,6 +16,9 @@ import {
   Volume2,
   VolumeX,
   WandSparkles,
+  Zap,
+  Trophy,
+  ShieldCheck,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -389,7 +392,7 @@ function getResolvedStageTitle(
   evaluation: LearnGameEvaluation
 ) {
   if (evaluation.outcome === "strong") {
-    return stage.presentation?.resolvedTitle ?? "Stage ready";
+    return stage.presentation?.resolvedTitle ?? "Challenge ready";
   }
 
   return stage.presentation?.resolvedTitle ?? "One more pass";
@@ -1552,6 +1555,7 @@ export function LearnGamePlayer({
     ? review.stages.filter((stage) => stage.medal && stage.medal !== "retry").length
     : 0;
   const medalCount = useAnimatedCount(medalCountTarget, phase === "summary" && Boolean(review), 640);
+  const isPerfectGame = review && review.stages.length > 0 && review.stages.every((stage) => stage.medal === "gold");
 
   useEffect(() => {
     if (!voiceEnabled || !voiceSupported) {
@@ -1663,7 +1667,7 @@ export function LearnGamePlayer({
         | { error?: { message?: string } };
 
       if (!response.ok || !("stageId" in payload)) {
-        throw new Error(payload.error?.message ?? "Unable to check this stage right now.");
+        throw new Error(payload.error?.message ?? "Unable to check this challenge right now.");
       }
 
       setAttemptCounts((current) => ({
@@ -1680,7 +1684,7 @@ export function LearnGamePlayer({
       setError(
         evaluationError instanceof Error
           ? evaluationError.message
-          : "Unable to check this stage right now."
+          : "Unable to check this challenge right now."
       );
     } finally {
       setPending(false);
@@ -2144,14 +2148,18 @@ export function LearnGamePlayer({
                 <p className="text-sm font-medium text-foreground">{describeGameFlow(game)}</p>
               </div>
 
-              <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <div
+                className={`mt-4 grid gap-3 ${
+                  game.stages.length > 1 ? "md:grid-cols-3" : "md:grid-cols-1"
+                }`}
+              >
                 {game.stages.map((stage, index) => (
                   <div
                     key={stage.id}
                     className="rounded-[1.3rem] border border-border/70 bg-background/95 px-4 py-4"
                   >
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                      Stage {index + 1}
+                      {game.stages.length > 1 ? `Round ${index + 1}` : "Challenge"}
                     </p>
                     <p className="mt-2 text-xl font-semibold text-foreground">{stage.title}</p>
                     <p className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -2227,7 +2235,9 @@ export function LearnGamePlayer({
                     Game
                   </Badge>
                   <Badge variant="outline" className="rounded-full bg-background/85 px-3 py-1">
-                    Stage {currentStageIndex + 1} of {game.stages.length}
+                    {game.stages.length > 1
+                      ? `Round ${currentStageIndex + 1} of ${game.stages.length}`
+                      : "Challenge"}
                   </Badge>
                 </div>
                 <div className="flex flex-wrap items-end justify-between gap-3">
@@ -2310,7 +2320,7 @@ export function LearnGamePlayer({
                       </div>
                       <div className="space-y-2">
                         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-secondary">
-                          {currentStage.presentation?.boardTitle ?? "Stage board"}
+                          {currentStage.presentation?.boardTitle ?? "Challenge board"}
                         </p>
                         <p className="text-sm leading-6 text-muted-foreground">
                           {currentStage.presentation?.helperText ?? currentStage.prompt}
@@ -2464,7 +2474,7 @@ export function LearnGamePlayer({
                   <Send className="size-4" />
                   {pending
                     ? "Checking..."
-                    : getStageActionLabel(currentStage) ?? "Check stage"}
+                    : getStageActionLabel(currentStage) ?? "Check challenge"}
                 </Button>
 
                 {canClearStageSelection(currentStage, {
@@ -2634,10 +2644,9 @@ export function LearnGamePlayer({
                 </p>
 
                 <div className="mt-5 flex flex-wrap items-center gap-3">
-                  {currentEvaluation.outcome !== "strong" && currentEvaluation.retryAllowed ? (
+                  {currentEvaluation.outcome !== "strong" ? (
                     <Button
-                      variant="outline"
-                      className="rounded-full"
+                      className={`rounded-full bg-gradient-to-r px-5 text-white ${theme.accent}`}
                       onClick={() => {
                         setCurrentEvaluation(null);
                         setError(null);
@@ -2645,16 +2654,16 @@ export function LearnGamePlayer({
                       }}
                     >
                       <RefreshCcw className="size-4" />
-                      Retry once
+                      Try again
                     </Button>
-                  ) : null}
-
-                  <Button
-                    className={`rounded-full bg-gradient-to-r px-5 text-white ${theme.accent}`}
-                    onClick={finalizeCurrentStage}
-                  >
-                    {currentStageIndex + 1 >= game.stages.length ? "Finish game" : "Next stage"}
-                  </Button>
+                  ) : (
+                    <Button
+                      className={`rounded-full bg-gradient-to-r px-5 text-white ${theme.accent}`}
+                      onClick={finalizeCurrentStage}
+                    >
+                      {currentStageIndex + 1 >= game.stages.length ? "Finish game" : "Next stage"}
+                    </Button>
+                  )}
                 </div>
               </motion.div>
             ) : null}
@@ -2696,13 +2705,41 @@ export function LearnGamePlayer({
                 <p className="text-base leading-7 text-muted-foreground">
                   {review.bridgeToSpeaking}
                 </p>
-                <div className="flex flex-wrap gap-3">
-                  <div className="rounded-full border border-border/70 bg-background/85 px-4 py-2 text-sm font-medium text-foreground">
-                    Score {completionScore}
+                <div className="flex flex-wrap gap-4 mt-2">
+                  <div className="flex items-center gap-3 rounded-[1.2rem] border border-border bg-background p-3 pr-5 shadow-sm">
+                    <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <Zap className="size-5" />
+                    </div>
+                    <div>
+                      <p className="text-[0.7rem] font-bold uppercase tracking-widest text-muted-foreground">Score</p>
+                      <p className="text-xl font-semibold leading-none text-foreground">{completionScore}</p>
+                    </div>
                   </div>
-                  <div className="rounded-full border border-border/70 bg-background/85 px-4 py-2 text-sm font-medium text-foreground">
-                    Medals {medalCount}
+                  <div className="flex items-center gap-3 rounded-[1.2rem] border border-border bg-background p-3 pr-5 shadow-sm">
+                    <div className="flex size-10 items-center justify-center rounded-full bg-amber-500/10 text-amber-500">
+                      <Trophy className="size-5" />
+                    </div>
+                    <div>
+                      <p className="text-[0.7rem] font-bold uppercase tracking-widest text-muted-foreground">Medals</p>
+                      <p className="text-xl font-semibold leading-none text-foreground">{medalCount}</p>
+                    </div>
                   </div>
+                  {isPerfectGame && (
+                    <motion.div 
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ type: "spring", delay: 0.6, bounce: 0.4 }}
+                      className="flex items-center gap-3 rounded-[1.2rem] border border-emerald-500/30 bg-emerald-500/10 p-3 pr-5 shadow-sm"
+                    >
+                      <div className="flex size-10 items-center justify-center rounded-full bg-emerald-500 text-emerald-50 shadow-[0_0_15px_rgba(16,185,129,0.5)]">
+                        <ShieldCheck className="size-5" />
+                      </div>
+                      <div>
+                        <p className="text-[0.7rem] font-bold uppercase tracking-widest text-emerald-600/80">Bonus</p>
+                        <p className="text-sm font-semibold leading-tight text-emerald-700">Streak Shield Earned!</p>
+                      </div>
+                    </motion.div>
+                  )}
                 </div>
               </motion.div>
             </div>
