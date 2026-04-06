@@ -5,15 +5,15 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/ui-kit/app-shell";
 import { PageShell } from "@/components/ui-kit/page-shell";
 import { getAdminPreviewLevel, getCurrentUser, isAdminUserId } from "@/server/auth";
-import { bootstrapDatabase } from "@/server/bootstrap-data";
 import { trackEvent } from "@/server/analytics";
+import { ensureRuntimeBootstrap } from "@/server/runtime-bootstrap";
 
 export default async function AuthenticatedLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  await bootstrapDatabase();
+  await ensureRuntimeBootstrap();
 
   const user = await getCurrentUser();
 

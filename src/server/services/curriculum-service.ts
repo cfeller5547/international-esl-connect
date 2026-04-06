@@ -1,12 +1,12 @@
 import { prisma } from "@/server/prisma";
 import { getAdminPreviewLevel, isAdminUserId } from "@/server/auth";
+import type { CurriculumLevel } from "@/server/curriculum-levels";
 
 import {
-  type CurriculumLevel,
   type UnitActivityType,
   getLevelRank,
   normalizeLevelLabel,
-} from "../curriculum-blueprint";
+} from "../curriculum-meta";
 import { AppError, invariant } from "../errors";
 import { trackEvent } from "../analytics";
 

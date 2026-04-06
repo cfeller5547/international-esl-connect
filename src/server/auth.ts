@@ -4,7 +4,10 @@ import bcrypt from "bcryptjs";
 import { cache } from "react";
 
 import { Prisma } from "@/generated/prisma/client";
-import { CURRICULUM_LEVELS, type CurriculumLevel } from "@/server/curriculum-blueprint";
+import {
+  isCurriculumLevel,
+  type CurriculumLevel,
+} from "@/server/curriculum-levels";
 import { prisma } from "@/server/prisma";
 
 import { env } from "./env";
@@ -128,9 +131,7 @@ export const getAdminPreviewLevel = cache(async function getAdminPreviewLevel(
     return null;
   }
 
-  return CURRICULUM_LEVELS.includes(value as CurriculumLevel)
-    ? (value as CurriculumLevel)
-    : null;
+  return isCurriculumLevel(value) ? value : null;
 });
 
 export async function requireCurrentUser() {

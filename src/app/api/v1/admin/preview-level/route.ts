@@ -7,7 +7,7 @@ import {
   setAdminPreviewLevelCookie,
 } from "@/server/auth";
 import { trackEvent } from "@/server/analytics";
-import { CURRICULUM_LEVELS } from "@/server/curriculum-blueprint";
+import { CURRICULUM_LEVELS } from "@/server/curriculum-levels";
 import { AppError, toErrorResponse } from "@/server/errors";
 import { ok, parseJson } from "@/server/http";
 

@@ -1,15 +1,17 @@
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/server/prisma";
 import { reconcileCurriculumProgressForUser } from "@/server/services/curriculum-service";
-
 import {
-  CURRICULUM_BLUEPRINTS,
   getActivityId,
   getCurriculumId,
   getLessonContentId,
   getPracticeContentId,
   getUnitId,
   normalizeLevelLabel,
+} from "@/server/curriculum-meta";
+
+import {
+  CURRICULUM_BLUEPRINTS,
 } from "./curriculum-blueprint";
 
 const LEGACY_CONTENT_ITEMS: Prisma.ContentItemCreateInput[] = [
