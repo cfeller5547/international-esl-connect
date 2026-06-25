@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Lightbulb, Send, Volume2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +13,7 @@ import {
   SpeakReviewPanel,
   SpeakTranscriptPane,
 } from "@/features/speak/speak-session-ui";
+import { SpeakMissionStageFrame } from "@/features/speak/speak-live-stage";
 import { trackClientEvent } from "@/lib/client-analytics";
 import {
   buildSpeakHelpPrompt,
@@ -39,10 +41,12 @@ export function SpeakSessionPanel({
   initialTurns,
   initialReview,
 }: SpeakSessionPanelProps) {
+  const router = useRouter();
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
   const [transcript, setTranscript] = useState<SpeakTranscriptTurn[]>(initialTurns);
   const [review, setReview] = useState<SpeakSessionReview | null>(initialReview);
+  const [transcriptOpen, setTranscriptOpen] = useState(false);
   const [phase, setPhase] = useState<"brief" | "conversation" | "review">(
     status !== "active"
       ? "review"
@@ -98,6 +102,9 @@ export function SpeakSessionPanel({
         {
           turnIndex: nextStudentTurnIndex,
           speaker: "student",
+          speakerRole: "student",
+          channel: "scene",
+          deliveryMode: interactionMode === "voice" ? "spoken" : "text_only",
           text: payload.studentTranscriptText?.trim() || input,
           coaching: payload.microCoaching
             ? {
@@ -110,6 +117,10 @@ export function SpeakSessionPanel({
         {
           turnIndex: nextStudentTurnIndex + 1,
           speaker: "ai",
+          speakerRole: "counterpart",
+          channel: "scene",
+          voiceProfile: "scene_counterpart",
+          deliveryMode: interactionMode === "voice" ? "spoken" : "text_only",
           text: payload.aiResponseText,
           coaching: null,
         },
@@ -138,6 +149,7 @@ export function SpeakSessionPanel({
       const reviewResponse = await fetch(`/api/v1/speak/session/${sessionId}/transcript`);
       setReview((await reviewResponse.json()) as SpeakSessionReview);
       setPhase("review");
+      setTranscriptOpen(false);
     } finally {
       setPending(false);
     }
@@ -244,75 +256,68 @@ export function SpeakSessionPanel({
       ) : null}
 
       {phase === "conversation" ? (
-        <Card className="border-border/70 bg-card/95 shadow-sm">
-          <CardHeader className="flex flex-row items-start justify-between gap-4">
-            <div className="space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="outline" className="rounded-full px-3 py-1 text-xs uppercase">
-                  {mission.mode === "free_speech" ? "Free speech" : "Conversation"}
-                </Badge>
-                {showCounterpart ? (
-                  <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs">
-                    {counterpartLabel}
-                  </Badge>
-                ) : null}
-              </div>
-              <div>
-                <CardTitle className="text-2xl">{mission.scenarioTitle}</CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {mission.mode === "free_speech"
-                    ? mission.contextHint ?? "Start from a real topic and keep the conversation natural."
-                    : mission.canDoStatement ?? mission.performanceTask}
-                </p>
-              </div>
-            </div>
-            <Button variant="outline" size="sm" onClick={speakLatestAiTurn}>
-              <Volume2 className="size-4" />
-              Play AI
+        <SpeakMissionStageFrame
+          mission={mission}
+          turns={transcript}
+          stateLabel={pending ? "Thinking" : interactionMode === "voice" ? "Voice live" : "Text ready"}
+          liveTone={pending ? "thinking" : "ready"}
+          studentTurnCount={studentTurnCount}
+          onBack={() => router.push("/app/speak")}
+          topAction={
+            <Button variant="ghost" onClick={handleFinish} disabled={pending} className="rounded-full">
+              Finish
             </Button>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <SpeakTranscriptPane turns={transcript} />
-
-            {interactionMode === "text" ? (
-              <>
-                <div className="grid gap-3 lg:grid-cols-[auto_1fr_auto_auto]">
-                  <Button variant="outline" onClick={revealHelpPrompt}>
-                    <Lightbulb className="size-4" />
-                    Help me
-                  </Button>
-                  <Input
-                    value={input}
-                    onChange={(event) => setInput(event.target.value)}
-                    placeholder="Write your next answer."
-                  />
-                  <Button onClick={handleSend} disabled={pending || input.trim().length < 2}>
-                    <Send className="size-4" />
-                    Send
-                  </Button>
-                  <Button variant="secondary" onClick={handleFinish} disabled={pending}>
-                    Finish session
-                  </Button>
-                </div>
-                {helpPrompt ? (
-                  <div className="rounded-[1.5rem] border border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-                    {helpPrompt}
-                  </div>
-                ) : null}
-              </>
-            ) : (
-              <div className="rounded-[1.5rem] border border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-                This transcript stays available after live voice sessions finish so you can review what you said and save useful phrases.
+          }
+          primaryControl={
+            interactionMode === "text" ? (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Input
+                  value={input}
+                  onChange={(event) => setInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !pending && input.trim().length >= 2) {
+                      void handleSend();
+                    }
+                  }}
+                  placeholder="Type your reply to the scene."
+                  className="h-14 rounded-full border-border/70 bg-background/80 px-5 text-base"
+                />
+                <Button
+                  onClick={handleSend}
+                  disabled={pending || input.trim().length < 2}
+                  className="h-14 rounded-full px-6"
+                >
+                  <Send className="mr-2 size-4" />
+                  Send reply
+                </Button>
               </div>
-            )}
-
-            <div className="rounded-[1.5rem] border border-border/70 bg-muted/15 px-4 py-3 text-sm text-muted-foreground">
-              {mission.mode === "free_speech"
-                ? "Finish the session to see what sounded natural, one thing to try next, and phrases worth reusing."
-                : "Finish the session to unlock a cleaner coach summary, key moments, and reusable phrases."}
-            </div>
-          </CardContent>
-        </Card>
+            ) : (
+              <div className="rounded-full border border-border/70 bg-muted/20 px-5 py-4 text-sm text-muted-foreground">
+                Voice is not active in this fallback panel. Use the live voice path to continue speaking.
+              </div>
+            )
+          }
+          secondaryControls={
+            <>
+              <Button variant="outline" onClick={revealHelpPrompt} className="rounded-full">
+                <Lightbulb className="mr-2 size-4" />
+                Help me
+              </Button>
+              <Button variant="ghost" size="sm" onClick={speakLatestAiTurn} className="rounded-full">
+                <Volume2 className="mr-2 size-4" />
+                Replay latest line
+              </Button>
+              <Badge variant="outline" className="rounded-full px-3 py-1 text-xs">
+                {showCounterpart ? counterpartLabel : "Conversation partner"}
+              </Badge>
+            </>
+          }
+          transcriptOpen={transcriptOpen}
+          onTranscriptToggle={() => setTranscriptOpen((current) => !current)}
+          transcriptDrawer={<SpeakTranscriptPane turns={transcript} />}
+          helpPrompt={helpPrompt}
+          repairNotice={null}
+        />
       ) : null}
 
       {phase === "review" ? (

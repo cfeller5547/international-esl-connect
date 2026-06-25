@@ -1,20 +1,28 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Lightbulb, Mic, PhoneOff, Radio } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Lightbulb, PhoneOff, Radio, RotateCcw } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { speakCoachCue } from "@/features/speak/coach-audio-orchestrator";
 import {
   SpeakCompletionCard,
   SpeakReviewPanel,
   SpeakTranscriptPane,
 } from "@/features/speak/speak-session-ui";
 import {
+  SpeakMissionStageFrame,
+  SpeakVoicePrimaryControl,
+  type SpeakLiveTone,
+} from "@/features/speak/speak-live-stage";
+import {
   buildSpeakHelpPrompt,
   getSpeakCounterpartLabel,
   normalizeSpeakTurnSignals,
+  type SpeakCoachCue,
   type SpeakMissionDetails,
   type SpeakSessionReview,
   type SpeakTranscriptTurn,
@@ -72,11 +80,35 @@ function getStateCopy(state: LiveState) {
   }
 }
 
+function mapLiveTone(state: LiveState): SpeakLiveTone {
+  switch (state) {
+    case "connecting":
+      return "thinking";
+    case "ready":
+      return "ready";
+    case "listening":
+    case "still_listening":
+      return "listening";
+    case "thinking":
+      return "thinking";
+    case "speaking":
+      return "speaking";
+    case "didnt_catch_that":
+    case "noisy_room":
+      return "repair";
+    case "error":
+      return "error";
+    default:
+      return "idle";
+  }
+}
+
 export function SpeakRealtimeSessionPanel({
   sessionId,
   mission,
   initialTurns,
 }: SpeakRealtimeSessionPanelProps) {
+  const router = useRouter();
   const [transcript, setTranscript] = useState<SpeakTranscriptTurn[]>(initialTurns);
   const [state, setState] = useState<LiveState>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -85,6 +117,10 @@ export function SpeakRealtimeSessionPanel({
   const [helpPrompt, setHelpPrompt] = useState<string | null>(null);
   const [ambientNoise, setAmbientNoise] = useState<AmbientNoiseLevel>("quiet");
   const [repairNotice, setRepairNotice] = useState<string | null>(null);
+  const [transcriptOpen, setTranscriptOpen] = useState(false);
+  const [coachCue, setCoachCue] = useState<SpeakCoachCue | null>(null);
+  const [coachSpeaking, setCoachSpeaking] = useState(false);
+  const [coachMouthPulseKey, setCoachMouthPulseKey] = useState(0);
   const [lastQuestion, setLastQuestion] = useState<string | null>(
     initialTurns.filter((turn) => turn.speaker === "ai").at(-1)?.text ?? null
   );
@@ -104,6 +140,8 @@ export function SpeakRealtimeSessionPanel({
   const pendingSyncSignatureRef = useRef("");
   const sessionStartedAtRef = useRef<number | null>(null);
   const closingSessionRef = useRef(false);
+  const coachSpeechCleanupRef = useRef<(() => void) | null>(null);
+  const lastCoachCueIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     transcriptRef.current = transcript;
@@ -112,6 +150,78 @@ export function SpeakRealtimeSessionPanel({
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  const teardownLiveSession = useCallback(() => {
+    coachSpeechCleanupRef.current?.();
+    coachSpeechCleanupRef.current = null;
+    lastCoachCueIdRef.current = null;
+    setCoachSpeaking(false);
+
+    connectionRef.current?.close();
+    connectionRef.current = null;
+
+    dataChannelRef.current?.close();
+    dataChannelRef.current = null;
+
+    localStreamRef.current?.getTracks().forEach((track) => track.stop());
+    localStreamRef.current = null;
+
+    noiseCleanupRef.current?.();
+    noiseCleanupRef.current = null;
+
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.pause();
+      remoteAudioRef.current.srcObject = null;
+      remoteAudioRef.current = null;
+    }
+
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (
+      state === "connecting" ||
+      state === "thinking" ||
+      state === "speaking" ||
+      state === "review" ||
+      state === "error"
+    ) {
+      coachSpeechCleanupRef.current?.();
+      coachSpeechCleanupRef.current = null;
+      setCoachSpeaking(false);
+    }
+  }, [state]);
+
+  useEffect(() => {
+    if (!coachCue || coachCue.deliveryMode === "text_only") {
+      return;
+    }
+
+    if (
+      state === "connecting" ||
+      state === "thinking" ||
+      state === "speaking" ||
+      state === "review" ||
+      state === "error"
+    ) {
+      return;
+    }
+
+    if (coachCue.id === lastCoachCueIdRef.current) {
+      return;
+    }
+
+    coachSpeechCleanupRef.current?.();
+    coachSpeechCleanupRef.current = speakCoachCue({
+      cue: coachCue,
+      remoteAudio: remoteAudioRef.current,
+      onSpeakingChange: setCoachSpeaking,
+      onBoundary: () => setCoachMouthPulseKey((current) => current + 1),
+    });
+    lastCoachCueIdRef.current = coachCue.id;
+  }, [coachCue, state]);
 
   useEffect(() => {
     return () => {
@@ -124,15 +234,9 @@ export function SpeakRealtimeSessionPanel({
       if (listeningTimerRef.current) {
         window.clearTimeout(listeningTimerRef.current);
       }
-      noiseCleanupRef.current?.();
-      connectionRef.current?.close();
-      dataChannelRef.current?.close();
-      localStreamRef.current?.getTracks().forEach((track) => track.stop());
-      if (remoteAudioRef.current) {
-        remoteAudioRef.current.srcObject = null;
-      }
+      teardownLiveSession();
     };
-  }, []);
+  }, [teardownLiveSession]);
 
   const studentTurnCount = useMemo(
     () =>
@@ -375,11 +479,7 @@ export function SpeakRealtimeSessionPanel({
     setHelpPrompt(null);
     setTranscript((current) => {
       const trimmedText = turn.text.trim();
-      if (
-        turn.speaker === "ai" &&
-        current.length === 1 &&
-        current[0]?.speaker === "ai"
-      ) {
+      if (turn.speaker === "ai" && current.length === 1 && current[0]?.speaker === "ai") {
         const next = [
           {
             ...current[0],
@@ -396,9 +496,13 @@ export function SpeakRealtimeSessionPanel({
         {
           turnIndex: current.length + 1,
           speaker: turn.speaker,
+          speakerRole: turn.speaker === "student" ? "student" : "counterpart",
+          channel: "scene",
+          voiceProfile: turn.speaker === "ai" ? "scene_counterpart" : null,
+          deliveryMode: "spoken",
           text: trimmedText,
           coaching: null,
-        },
+        } as SpeakTranscriptTurn,
       ];
       transcriptRef.current = next;
       if (turn.speaker === "ai") {
@@ -532,6 +636,10 @@ export function SpeakRealtimeSessionPanel({
   }
 
   async function startLiveConversation() {
+    if (stateRef.current !== "idle" && stateRef.current !== "error") {
+      return;
+    }
+
     if (
       typeof window === "undefined" ||
       typeof navigator === "undefined" ||
@@ -547,6 +655,8 @@ export function SpeakRealtimeSessionPanel({
     setState("connecting");
 
     try {
+      teardownLiveSession();
+
       const credentialResponse = await fetch(`/api/v1/speak/session/${sessionId}/realtime`, {
         method: "POST",
       });
@@ -645,10 +755,7 @@ export function SpeakRealtimeSessionPanel({
       sessionStartedAtRef.current ??= Date.now();
       setState("ready");
     } catch (startError) {
-      connectionRef.current?.close();
-      dataChannelRef.current?.close();
-      localStreamRef.current?.getTracks().forEach((track) => track.stop());
-      noiseCleanupRef.current?.();
+      teardownLiveSession();
       setState("error");
       setError(
         startError instanceof Error
@@ -676,15 +783,9 @@ export function SpeakRealtimeSessionPanel({
         type: "response.cancel",
       });
 
-      connectionRef.current?.close();
-      dataChannelRef.current?.close();
-      localStreamRef.current?.getTracks().forEach((track) => track.stop());
-      noiseCleanupRef.current?.();
+      teardownLiveSession();
       if (listeningTimerRef.current) {
         window.clearTimeout(listeningTimerRef.current);
-      }
-      if (remoteAudioRef.current) {
-        remoteAudioRef.current.srcObject = null;
       }
 
       pendingSyncRef.current = null;
@@ -719,6 +820,8 @@ export function SpeakRealtimeSessionPanel({
       setReview((await reviewResponse.json()) as SpeakSessionReview);
 
       setState("review");
+      setTranscriptOpen(false);
+      setCoachCue(null);
     } catch (finishError) {
       setState("error");
       setError(
@@ -755,6 +858,8 @@ export function SpeakRealtimeSessionPanel({
   const showMissionBrief =
     mission.mode === "guided" && state === "idle" && transcript.length === 0 && !review;
   const showActiveSession = !showMissionBrief && state !== "review";
+  const liveTone = mapLiveTone(state);
+  const transcriptToggleLabel = transcriptOpen ? "Hide transcript" : "Open transcript";
 
   return (
     <div className="space-y-6">
@@ -814,12 +919,12 @@ export function SpeakRealtimeSessionPanel({
 
               {mission.openingPrompt ? (
                 <div className="rounded-[1.5rem] border border-border/70 bg-card/90 px-4 py-3 text-sm text-muted-foreground">
-                  Opening line: <span className="font-medium text-foreground">{mission.openingPrompt}</span>
+                  Opening line:{" "}
+                  <span className="font-medium text-foreground">{mission.openingPrompt}</span>
                 </div>
               ) : null}
 
               <Button size="lg" onClick={startLiveConversation}>
-                <Mic className="size-4" />
                 Start live conversation
               </Button>
             </div>
@@ -828,124 +933,71 @@ export function SpeakRealtimeSessionPanel({
       ) : null}
 
       {showActiveSession ? (
-        <Card className="border-border/70 bg-card/95 shadow-sm">
-          <CardHeader className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="space-y-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="outline" className="rounded-full px-3 py-1 text-xs uppercase">
-                    {mission.mode === "free_speech" ? "Free speech live" : "Speak live"}
-                  </Badge>
-                  {showCounterpart ? (
-                    <Badge variant="secondary" className="rounded-full px-3 py-1 text-xs">
-                      {counterpartLabel}
-                    </Badge>
-                  ) : null}
-                  <Badge
-                    variant={state === "error" ? "destructive" : "outline"}
-                    className="rounded-full px-3 py-1 text-xs"
-                  >
-                    <Radio className="mr-1 size-3.5" />
-                    {getStateCopy(state)}
-                  </Badge>
-                  <Badge variant="outline" className="rounded-full px-3 py-1 text-xs">
-                    Room: {ambientNoise === "very_noisy" ? "Very noisy" : ambientNoise === "noisy" ? "Noisy" : "Quiet"}
-                  </Badge>
-                </div>
-                <div>
-                  <CardTitle className="text-3xl leading-tight">{mission.scenarioTitle}</CardTitle>
-                  <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-                    {mission.mode === "free_speech"
-                      ? mission.contextHint ?? "Start from a real topic and let the conversation move naturally."
-                      : mission.canDoStatement ?? mission.performanceTask}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" onClick={revealHelpPrompt}>
-                  <Lightbulb className="size-4" />
-                  Help me
-                </Button>
-                {state === "idle" ? (
-                  <Button onClick={startLiveConversation}>
-                    <Mic className="size-4" />
-                    Start live conversation
-                  </Button>
-                ) : null}
-                <Button
-                  variant="outline"
-                  onClick={finishSession}
-                  disabled={finishing || studentTurnCount === 0 || state === "connecting"}
-                >
-                  <PhoneOff className="size-4" />
-                  {finishing ? "Wrapping up..." : "Finish session"}
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-
-          <CardContent className="space-y-4">
-            <SpeakTranscriptPane turns={transcript} />
-
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-[1.5rem] border border-border/70 bg-muted/15 px-4 py-3">
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-foreground">
-                  {state === "idle"
-                    ? "Start live voice when you are ready. The conversation will open with one natural question."
-                    : state === "listening"
-                      ? "Speak naturally. The AI will answer when you pause."
-                      : state === "still_listening"
-                        ? "Keep going. The AI is still listening for the rest of your thought."
-                      : state === "speaking"
-                        ? "The AI is responding out loud right now."
-                      : state === "thinking"
-                        ? "The AI is preparing the next spoken reply."
-                        : state === "didnt_catch_that"
-                          ? "The last turn did not count. Answer the question again in one short sentence."
-                          : state === "noisy_room"
-                            ? "The room sounds noisy. Move closer to the mic and answer again."
-                          : "Your microphone stays live for the conversation once connected."}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Student turns recorded: {studentTurnCount}
-                </p>
-              </div>
-              {state === "error" ? (
-                <Button variant="outline" onClick={startLiveConversation}>
-                  Retry connection
-                </Button>
-              ) : state === "didnt_catch_that" || state === "noisy_room" ? (
-                <Button variant="outline" onClick={requestRepeatedQuestion}>
+        <SpeakMissionStageFrame
+          mission={mission}
+          turns={transcript}
+          stateLabel={getStateCopy(state)}
+          liveTone={liveTone}
+          studentTurnCount={studentTurnCount}
+          onBack={() => router.push("/app/speak")}
+          topAction={
+            <Button
+              variant="ghost"
+              onClick={finishSession}
+              disabled={finishing || studentTurnCount === 0 || state === "connecting"}
+              className="rounded-full"
+            >
+              <PhoneOff className="mr-2 size-4" />
+              {finishing ? "Finishing..." : "Finish"}
+            </Button>
+          }
+          primaryControl={
+            <SpeakVoicePrimaryControl liveTone={liveTone} onStart={startLiveConversation} />
+          }
+          secondaryControls={
+            <>
+              <Button variant="outline" onClick={revealHelpPrompt} className="rounded-full">
+                <Lightbulb className="mr-2 size-4" />
+                Help me
+              </Button>
+              {(state === "didnt_catch_that" || state === "noisy_room") && lastQuestion ? (
+                <Button variant="ghost" onClick={requestRepeatedQuestion} className="rounded-full">
+                  <RotateCcw className="mr-2 size-4" />
                   Say that again
                 </Button>
-              ) : state === "idle" ? (
-                <Button variant="outline" onClick={startLiveConversation}>
-                  Start now
-                </Button>
               ) : null}
-            </div>
+              {showCounterpart ? (
+                <Badge variant="outline" className="rounded-full px-3 py-1 text-xs">
+                  {counterpartLabel}
+                </Badge>
+              ) : null}
+              {ambientNoise !== "quiet" ? (
+                <Badge variant="outline" className="rounded-full px-3 py-1 text-xs">
+                  {ambientNoise === "very_noisy" ? "Very noisy room" : "Noisy room"}
+                </Badge>
+              ) : null}
+              {error ? (
+                <span className="rounded-full border border-red-300/40 bg-red-100/40 px-3 py-1 text-xs text-red-900">
+                  {error}
+                </span>
+              ) : null}
 
-            {repairNotice ? (
-              <div className="rounded-[1.5rem] border border-border/70 bg-background/80 px-4 py-3 text-sm">
-                <p className="font-medium text-foreground">Recovery</p>
-                <p className="mt-1 text-muted-foreground">{repairNotice}</p>
-                {lastQuestion ? (
-                  <p className="mt-3 text-xs text-muted-foreground">
-                    Last question: <span className="font-medium text-foreground">{lastQuestion}</span>
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-
-            {helpPrompt ? (
-              <div className="rounded-[1.5rem] border border-border/70 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-                {helpPrompt}
-              </div>
-            ) : null}
-
-            {error ? <p className="text-sm text-destructive">{error}</p> : null}
-          </CardContent>
-        </Card>
+            </>
+          }
+          transcriptOpen={transcriptOpen}
+          onTranscriptToggle={() => setTranscriptOpen((current) => !current)}
+          transcriptDrawer={<SpeakTranscriptPane turns={transcript} />}
+          helpPrompt={helpPrompt}
+          repairNotice={
+            repairNotice ??
+            ((state === "didnt_catch_that" || state === "noisy_room") && lastQuestion
+              ? `Last valid question: ${lastQuestion}`
+              : null)
+          }
+          coachSpeaking={coachSpeaking}
+          coachMouthPulseKey={coachMouthPulseKey}
+          onCoachCueChange={setCoachCue}
+        />
       ) : null}
 
       {state === "review" ? (

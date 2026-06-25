@@ -489,3 +489,4 @@ This guide follows the practical pattern that effective AI-agent handoffs should
 - explicit next steps
 
 That is the difference between a useful handoff and a vague summary.
+

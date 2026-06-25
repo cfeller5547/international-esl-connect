@@ -20,7 +20,10 @@ export type ConversationMissionKind =
   | "free_speech"
   | "guided"
   | "unit_speaking"
-  | "unit_benchmark";
+  | "unit_benchmark"
+  | "check_in"
+  | "story"
+  | "mission";
 
 export type ConversationContext = {
   surface: ConversationSurface;

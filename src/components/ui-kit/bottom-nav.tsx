@@ -26,7 +26,7 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border/50 bg-background/92 backdrop-blur-xl xl:hidden">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-border/50 bg-background/92 backdrop-blur-xl lg:hidden">
       <div className="mx-auto grid max-w-6xl grid-cols-5 px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2">
         {ITEMS.map((item) => {
           const Icon = ICONS[item.key];

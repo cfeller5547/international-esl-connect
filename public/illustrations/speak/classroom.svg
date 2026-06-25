@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" fill="none">
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eff6ff"/><stop offset="1" stop-color="#dbeafe"/></linearGradient>
+  </defs>
+  <rect width="400" height="200" rx="16" fill="url(#wall)"/>
+  <!-- Floor -->
+  <rect x="0" y="155" width="400" height="45" rx="0" fill="#f1f5f9"/>
+  <rect x="0" y="153" width="400" height="3" rx="1.5" fill="#cbd5e1"/>
+  <!-- Whiteboard -->
+  <rect x="100" y="12" width="200" height="75" rx="6" fill="#ffffff" stroke="#94a3b8" stroke-width="2"/>
+  <!-- Board content -->
+  <rect x="115" y="24" width="90" height="5" rx="2.5" fill="#3b82f6" opacity="0.6"/>
+  <rect x="115" y="35" width="130" height="4" rx="2" fill="#64748b" opacity="0.3"/>
+  <rect x="115" y="44" width="110" height="4" rx="2" fill="#64748b" opacity="0.25"/>
+  <rect x="115" y="53" width="80" height="4" rx="2" fill="#10b981" opacity="0.4"/>
+  <rect x="115" y="62" width="60" height="4" rx="2" fill="#64748b" opacity="0.2"/>
+  <!-- Board tray -->
+  <rect x="110" y="87" width="180" height="6" rx="3" fill="#94a3b8" opacity="0.4"/>
+  <!-- Marker -->
+  <rect x="140" y="85" width="20" height="4" rx="2" fill="#ef4444"/>
+  <!-- Desks (warm wood color) -->
+  <rect x="40" y="125" width="80" height="30" rx="6" fill="#d97706" opacity="0.5"/>
+  <rect x="160" y="125" width="80" height="30" rx="6" fill="#d97706" opacity="0.5"/>
+  <rect x="280" y="125" width="80" height="30" rx="6" fill="#d97706" opacity="0.5"/>
+  <!-- Students -->
+  <!-- Student 1 (blue) -->
+  <circle cx="80" cy="112" r="12" fill="#fde68a"/>
+  <rect x="72" y="124" width="16" height="6" rx="3" fill="#3b82f6"/>
+  <circle cx="76" cy="110" r="1.5" fill="#1c1917"/>
+  <circle cx="84" cy="110" r="1.5" fill="#1c1917"/>
+  <!-- Student 2 (purple) -->
+  <circle cx="200" cy="112" r="12" fill="#fde68a"/>
+  <rect x="192" y="124" width="16" height="6" rx="3" fill="#8b5cf6"/>
+  <circle cx="196" cy="110" r="1.5" fill="#1c1917"/>
+  <circle cx="204" cy="110" r="1.5" fill="#1c1917"/>
+  <!-- Student 3 (green) -->
+  <circle cx="320" cy="112" r="12" fill="#fde68a"/>
+  <rect x="312" y="124" width="16" height="6" rx="3" fill="#10b981"/>
+  <circle cx="316" cy="110" r="1.5" fill="#1c1917"/>
+  <circle cx="324" cy="110" r="1.5" fill="#1c1917"/>
+  <!-- Raised hand -->
+  <rect x="316" y="95" width="6" height="16" rx="3" fill="#fde68a"/>
+  <circle cx="319" cy="93" r="4" fill="#fde68a"/>
+  <!-- Book on desk -->
+  <rect x="50" y="130" width="20" height="14" rx="2" fill="#3b82f6" opacity="0.6"/>
+  <rect x="170" y="130" width="20" height="14" rx="2" fill="#f43f5e" opacity="0.5"/>
+  <!-- Clock -->
+  <circle cx="360" cy="25" r="12" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
+  <line x1="360" y1="25" x2="360" y2="17" stroke="#1c1917" stroke-width="1.5"/>
+  <line x1="360" y1="25" x2="366" y2="25" stroke="#1c1917" stroke-width="1"/>
+</svg>

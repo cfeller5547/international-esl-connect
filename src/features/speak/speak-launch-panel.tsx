@@ -1,11 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Mic, Sparkles } from "lucide-react";
+import { Mic, Sparkles, Flame, TrendingUp, MessageCircle, Target } from "lucide-react";
+
+import { getMissionIllustration } from "@/features/speak/speak-session-ui";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -15,70 +18,41 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { trackClientEvent } from "@/lib/client-analytics";
-import type { SpeakLaunchStarter, SpeakMissionPlan } from "@/features/speak/speak-view-model";
+import type { SpeakLaunchViewModel } from "@/features/speak/speak-view-model";
 
 type SpeakLaunchPanelProps = {
-  recommendation: SpeakMissionPlan;
-  starters: SpeakLaunchStarter[];
-  guidedScenarios: Array<{ key: string; title: string; description: string }>;
+  viewModel: SpeakLaunchViewModel;
   voiceConfigured: boolean;
   plan: "free" | "pro";
 };
 
 type StartPayload = {
-  mode: "free_speech" | "guided";
+  type: "free_speech" | "mission";
   interactionMode: "text" | "voice";
-  starterKey: string | null;
-  scenarioKey: string | null;
+  id: string | null;
 };
 
 export function SpeakLaunchPanel({
-  recommendation,
-  starters,
-  guidedScenarios,
+  viewModel,
   voiceConfigured,
   plan,
 }: SpeakLaunchPanelProps) {
   const router = useRouter();
-  const recommendedInteractionMode =
-    recommendation.recommendedInteractionMode === "voice" && voiceConfigured && plan === "pro"
-      ? "voice"
-      : "text";
 
-  const [selectedMode, setSelectedMode] = useState<"free_speech" | "guided">(
-    recommendation.mode
-  );
+  const [activeTab, setActiveTab] = useState<"missions" | "free_speech">("missions");
+  
+  const defaultInteractionMode =
+    voiceConfigured && plan === "pro" ? "voice" : "text";
+
   const [interactionMode, setInteractionMode] = useState<"text" | "voice">(
-    recommendedInteractionMode
-  );
-  const [starterKey, setStarterKey] = useState(
-    recommendation.starterKey ?? starters[0]?.key ?? "today"
-  );
-  const [scenarioKey, setScenarioKey] = useState(
-    recommendation.scenarioKey ?? guidedScenarios[0]?.key ?? "class_discussion"
+    defaultInteractionMode
   );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const selectedStarter =
-    starters.find((starter) => starter.key === starterKey) ?? starters[0] ?? null;
-  const selectedScenario =
-    guidedScenarios.find((scenario) => scenario.key === scenarioKey) ?? guidedScenarios[0] ?? null;
-
-  async function handleStart(payload: StartPayload, source: "recommended" | "manual") {
+  async function handleStart(payload: StartPayload) {
     setPending(true);
     setError(null);
-
-    if (source === "recommended") {
-      trackClientEvent({
-        eventName: "speak_recommendation_started",
-        route: "/app/speak",
-        properties: {
-          mode: payload.mode,
-          scenario_key: payload.scenarioKey ?? payload.starterKey,
-        },
-      });
-    }
 
     const response = await fetch("/api/v1/speak/session/start", {
       method: "POST",
@@ -112,7 +86,6 @@ export function SpeakLaunchPanel({
   function renderInteractionModeControl() {
     return (
       <div className="space-y-2">
-        <Label className="text-sm font-medium text-foreground">Interaction mode</Label>
         <Select
           value={interactionMode}
           onValueChange={(value: "text" | "voice") => setInteractionMode(value)}
@@ -127,208 +100,211 @@ export function SpeakLaunchPanel({
             </SelectItem>
           </SelectContent>
         </Select>
-        <p className="text-sm text-muted-foreground">
-          {interactionMode === "voice" && plan !== "pro"
-            ? "Voice is on Pro. Text works now."
-            : interactionMode === "voice"
-              ? "Live voice, no send buttons."
-              : "Text-first, same coaching flow."}
-        </p>
       </div>
     );
   }
 
-  function renderModeSwitch() {
+  function renderDashboard() {
     return (
-      <div className="inline-flex w-full flex-col rounded-[1rem] border border-border/70 bg-card/80 p-1.5 shadow-sm sm:w-auto sm:flex-row">
-        {[
-          { key: "free_speech" as const, title: "Free speech" },
-          { key: "guided" as const, title: "Guided scenario" },
-        ].map((mode) => {
-          const isSelected = selectedMode === mode.key;
-
-          return (
-            <button
-              key={mode.key}
-              type="button"
-              onClick={() => setSelectedMode(mode.key)}
-              className={`rounded-[0.8rem] px-4 py-3 text-left transition sm:min-w-[180px] ${
-                isSelected
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-foreground hover:bg-muted/40"
-              }`}
-            >
-              <span className="font-semibold">{mode.title}</span>
-            </button>
-          );
-        })}
-      </div>
-    );
-  }
-
-  function renderFooter(content: {
-    hint: string;
-    buttonLabel: string;
-    onStart: () => void;
-  }) {
-    return (
-      <div className="flex flex-col gap-3 border-t border-border/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="max-w-2xl text-sm text-muted-foreground">{content.hint}</p>
-        <div className="w-full sm:w-auto">
-          {error ? <p className="mb-2 text-sm text-destructive">{error}</p> : null}
-          <Button
-            size="lg"
-            className="w-full sm:min-w-[220px]"
-            disabled={pending}
-            onClick={content.onStart}
-          >
-            {interactionMode === "voice" ? <Mic className="size-4" /> : null}
-            {pending ? "Starting..." : content.buttonLabel}
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  function renderFreeSpeechMode() {
-    return (
-      <Card className="border-border/70 bg-card/95 shadow-sm">
-        <CardContent className="space-y-6 p-6 lg:p-8">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="space-y-2 lg:max-w-3xl">
-              <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-                Free speech
-              </h2>
-              <p className="max-w-3xl text-base text-muted-foreground sm:text-lg">
-                Pick one topic and start talking naturally.
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <Card className="bg-primary/5 border-primary/20">
+          <CardContent className="p-6 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground mb-1">Speaking Confidence</p>
+              <div className="flex items-end gap-2">
+                <span className="text-4xl font-bold tracking-tight text-foreground">{viewModel.stats.confidenceScore}%</span>
+                <TrendingUp className="size-5 text-primary mb-1" />
+              </div>
+              <p className="text-sm text-muted-foreground mt-2">
+                Grammar <span className="text-primary">↑</span> • Fluency <span className="text-muted-foreground">→</span> • Vocab <span className="text-primary">↑</span>
               </p>
             </div>
-            <div className="w-full lg:max-w-[280px]">{renderInteractionModeControl()}</div>
+            <div className="size-16 rounded-full bg-primary/20 flex items-center justify-center">
+                <Sparkles className="size-8 text-primary" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card/60 border-border/70">
+          <CardContent className="p-6 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground mb-1">Current Streak</p>
+              <div className="flex items-end gap-2">
+                <span className="text-4xl font-bold tracking-tight text-foreground">{viewModel.stats.streak}</span>
+                <span className="text-lg font-medium text-muted-foreground mb-1">days</span>
+              </div>
+              <p className="text-sm text-muted-foreground mt-2">
+                Practice today to keep it going!
+              </p>
+            </div>
+            <div className="size-16 rounded-full bg-orange-500/10 flex items-center justify-center">
+                <Flame className={`size-8 text-orange-500`} />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  function renderMissions() {
+    return (
+      <section className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {viewModel.missions.map((mission) => {
+            const illustration = getMissionIllustration(mission.title);
+            return (
+              <Card
+                key={mission.id}
+                className="group hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 flex flex-col h-full overflow-hidden cursor-pointer"
+                onClick={() => !pending && handleStart({ type: "mission", id: mission.id, interactionMode })}
+              >
+                {/* Scene illustration — bright, colorful */}
+                <div className="relative h-36 w-full overflow-hidden">
+                  <Image
+                    src={illustration}
+                    alt={mission.title}
+                    fill
+                    className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-card via-card/20 to-transparent" />
+                  <div className="absolute top-3 left-3">
+                    <div className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-primary shadow-sm">
+                      <Target className="size-3" />
+                      Mission
+                    </div>
+                  </div>
+                </div>
+
+                <CardHeader className="pb-2 pt-3">
+                  <CardTitle className="text-base leading-snug">{mission.title}</CardTitle>
+                </CardHeader>
+
+                <CardContent className="flex-grow pb-3">
+                  <p className="text-sm text-muted-foreground mb-3">{mission.objective}</p>
+                  <ul className="space-y-1.5">
+                    {mission.successCriteria.slice(0, 2).map((criteria, i) => (
+                      <li key={i} className="text-xs flex items-start gap-2 text-muted-foreground">
+                        <div className="size-1 rounded-full bg-primary/50 mt-1.5 shrink-0" />
+                        <span>{criteria}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+
+                <CardFooter className="pt-0 mt-auto pb-4">
+                  <Button
+                    className="w-full rounded-full"
+                    size="sm"
+                    disabled={pending}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleStart({ type: "mission", id: mission.id, interactionMode });
+                    }}
+                  >
+                    {interactionMode === "voice" ? <Mic className="size-3.5 mr-1.5" /> : <MessageCircle className="size-3.5 mr-1.5" />}
+                    {pending ? "Starting..." : "Start"}
+                  </Button>
+                </CardFooter>
+              </Card>
+            );
+          })}
+        </div>
+      </section>
+    );
+  }
+
+  function renderFreeSpeech() {
+    return (
+      <section className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        {/* Hero card with illustration */}
+        <Card className="overflow-hidden border-border/70 shadow-sm">
+          <div className="relative h-40 w-full overflow-hidden">
+            <Image
+              src="/illustrations/speak/free-talk.svg"
+              alt="Free conversation"
+              fill
+              className="object-cover"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-card via-card/30 to-transparent" />
+            <div className="absolute bottom-4 left-5 right-5">
+              <h2 className="text-2xl font-semibold tracking-tight text-foreground">Open Conversation</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Practice naturally with your AI tutor. No goals, no pressure — just talk.
+              </p>
+            </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            {starters.map((starter) => {
-              const isSelected = starter.key === starterKey;
-
-              return (
+          <CardContent className="p-5 space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              {viewModel.freeSpeechStarters.map((starter) => (
                 <button
-                  key={starter.key}
+                  key={starter.id}
                   type="button"
                   disabled={pending}
-                  onClick={() => setStarterKey(starter.key)}
-                  className={`rounded-[1rem] border px-4 py-4 text-left transition ${
-                    isSelected
-                      ? "border-primary bg-primary/8"
-                      : "border-border/70 bg-card hover:bg-muted/20"
-                  } ${pending ? "opacity-70" : ""}`}
+                  onClick={() => handleStart({ type: "free_speech", id: starter.id, interactionMode })}
+                  className={`group rounded-xl border border-border/60 bg-card px-4 py-3.5 text-left transition-all hover:border-primary/30 hover:bg-primary/5 hover:shadow-sm ${pending ? "opacity-70" : ""}`}
                 >
-                  <p className="font-semibold text-foreground">{starter.label}</p>
-                  <p className="mt-2 text-sm text-muted-foreground">{starter.prompt}</p>
+                  <p className="font-semibold text-foreground group-hover:text-primary transition-colors">{starter.label}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{starter.prompt}</p>
                 </button>
-              );
-            })}
-          </div>
-
-          {renderFooter({
-            hint:
-              selectedStarter?.hint ??
-              recommendation.mission.contextHint ??
-              "Start from class or daily life.",
-            buttonLabel: "Start free speech",
-            onStart: () =>
-              selectedStarter
-                ? void handleStart(
-                    {
-                      mode: "free_speech",
-                      interactionMode,
-                      starterKey: selectedStarter.key,
-                      scenarioKey: null,
-                    },
-                    selectedStarter.key === recommendation.starterKey ? "recommended" : "manual"
-                  )
-                : undefined,
-          })}
-        </CardContent>
-      </Card>
-    );
-  }
-
-  function renderGuidedMode() {
-    return (
-      <Card className="border-border/70 bg-card/95 shadow-sm">
-        <CardContent className="space-y-6 p-6 lg:p-8">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="space-y-2 lg:max-w-3xl">
-              <h2 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-                Guided scenario
-              </h2>
-              <p className="max-w-3xl text-base text-muted-foreground sm:text-lg">
-                Choose one structured role-play.
-              </p>
+              ))}
             </div>
-            <div className="w-full lg:max-w-[280px]">{renderInteractionModeControl()}</div>
-          </div>
 
-          <div className="grid gap-3">
-            {guidedScenarios.map((scenario) => (
-              <button
-                key={scenario.key}
-                type="button"
-                onClick={() => setScenarioKey(scenario.key)}
-                className={`rounded-[1rem] border px-4 py-4 text-left transition ${
-                  scenarioKey === scenario.key
-                    ? "border-primary bg-primary/8"
-                    : "border-border/70 bg-card hover:bg-muted/20"
-                }`}
-              >
-                <p className="font-semibold text-foreground">{scenario.title}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{scenario.description}</p>
-              </button>
-            ))}
-          </div>
-
-          {renderFooter({
-            hint: "You’ll get a short mission brief before the conversation starts.",
-            buttonLabel: "Start guided scenario",
-            onStart: () =>
-              selectedScenario
-                ? void handleStart(
-                    {
-                      mode: "guided",
-                      interactionMode,
-                      starterKey: null,
-                      scenarioKey: selectedScenario.key,
-                    },
-                    selectedScenario.key === recommendation.scenarioKey ? "recommended" : "manual"
-                  )
-                : undefined,
-          })}
-        </CardContent>
-      </Card>
+            <Button
+              size="lg"
+              className="w-full rounded-full"
+              disabled={pending}
+              onClick={() => handleStart({ type: "free_speech", id: null, interactionMode })}
+            >
+              {interactionMode === "voice" ? <Mic className="size-4 mr-2" /> : <MessageCircle className="size-4 mr-2" />}
+              {pending ? "Starting..." : "Just start talking"}
+            </Button>
+          </CardContent>
+        </Card>
+      </section>
     );
   }
 
   return (
-    <div className="space-y-5">
-      <section className="space-y-4 px-1">
-        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-          <Sparkles className="size-4 text-primary" />
-          Speak practice
-        </div>
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-2">
-            <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-              Choose how you want to practice
-            </h1>
-            <p className="max-w-3xl text-base text-muted-foreground sm:text-lg">
-              Free speech is open conversation. Guided is structured practice.
-            </p>
+    <div className="w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      {renderDashboard()}
+      
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="inline-flex w-full flex-col rounded-[1rem] border border-border/70 bg-card/80 p-1.5 shadow-sm sm:w-auto sm:flex-row">
+            {[
+              { key: "missions" as const, title: "Missions" },
+              { key: "free_speech" as const, title: "Free Speech" },
+            ].map((tab) => {
+              const isSelected = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`rounded-[0.8rem] px-4 py-2.5 text-center transition sm:min-w-[150px] ${
+                    isSelected
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-foreground hover:bg-muted/40"
+                  }`}
+                >
+                  <span className="font-semibold">{tab.title}</span>
+                </button>
+              );
+            })}
           </div>
-          {renderModeSwitch()}
+          
+          <div className="w-full sm:w-48">
+            {renderInteractionModeControl()}
+          </div>
         </div>
-      </section>
+        
+        {error && <p className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">{error}</p>}
 
-      {selectedMode === "free_speech" ? renderFreeSpeechMode() : renderGuidedMode()}
+        {activeTab === "missions" ? renderMissions() : renderFreeSpeech()}
+      </div>
     </div>
   );
 }

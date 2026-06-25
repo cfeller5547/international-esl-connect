@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" fill="none">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fef3c7"/><stop offset="1" stop-color="#fde68a"/></linearGradient>
+    <linearGradient id="counter" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#78350f"/><stop offset="1" stop-color="#92400e"/></linearGradient>
+  </defs>
+  <rect width="400" height="200" rx="16" fill="url(#sky)"/>
+  <!-- Wall -->
+  <rect x="0" y="0" width="400" height="130" rx="16" fill="#fbbf24" opacity="0.15"/>
+  <!-- Window -->
+  <rect x="260" y="15" width="110" height="70" rx="8" fill="#7dd3fc" opacity="0.5" stroke="#f59e0b" stroke-width="2" stroke-opacity="0.3"/>
+  <rect x="313" y="15" width="2" height="70" fill="#f59e0b" opacity="0.3"/>
+  <rect x="260" y="48" width="110" height="2" fill="#f59e0b" opacity="0.3"/>
+  <!-- Counter -->
+  <rect x="0" y="120" width="400" height="80" rx="0" fill="url(#counter)"/>
+  <rect x="0" y="118" width="400" height="6" rx="3" fill="#b45309"/>
+  <!-- Coffee cup 1 (large, teal) -->
+  <rect x="60" y="88" width="36" height="38" rx="6" fill="#2dd4bf"/>
+  <rect x="54" y="82" width="48" height="10" rx="5" fill="#14b8a6"/>
+  <ellipse cx="78" cy="92" rx="10" ry="4" fill="#ffffff" opacity="0.4"/>
+  <path d="M96 96 Q108 96 108 108 Q108 118 96 118" stroke="#14b8a6" stroke-width="3" fill="none"/>
+  <!-- Coffee cup 2 (small, orange) -->
+  <rect x="160" y="95" width="28" height="30" rx="5" fill="#fb923c"/>
+  <rect x="156" y="90" width="36" height="8" rx="4" fill="#f97316"/>
+  <ellipse cx="174" cy="97" rx="8" ry="3" fill="#ffffff" opacity="0.35"/>
+  <!-- Pastry/muffin -->
+  <ellipse cx="240" cy="118" rx="18" ry="12" fill="#d97706"/>
+  <ellipse cx="240" cy="112" rx="16" ry="10" fill="#fbbf24"/>
+  <circle cx="235" cy="110" r="2" fill="#92400e" opacity="0.5"/>
+  <circle cx="243" cy="108" r="2" fill="#92400e" opacity="0.4"/>
+  <!-- Menu board -->
+  <rect x="20" y="12" width="100" height="70" rx="8" fill="#1c1917" opacity="0.85"/>
+  <rect x="30" y="24" width="50" height="4" rx="2" fill="#fbbf24"/>
+  <rect x="30" y="34" width="70" height="3" rx="1.5" fill="#ffffff" opacity="0.5"/>
+  <rect x="30" y="42" width="60" height="3" rx="1.5" fill="#ffffff" opacity="0.4"/>
+  <rect x="30" y="50" width="65" height="3" rx="1.5" fill="#ffffff" opacity="0.35"/>
+  <rect x="30" y="58" width="40" height="3" rx="1.5" fill="#ffffff" opacity="0.3"/>
+  <!-- Barista (simple) -->
+  <circle cx="330" cy="95" r="14" fill="#fde68a"/>
+  <rect x="320" y="110" width="20" height="30" rx="4" fill="#059669"/>
+  <rect x="316" y="106" width="28" height="8" rx="4" fill="#059669"/>
+  <!-- Steam -->
+  <path d="M72 78 Q75 70 78 78" stroke="#ffffff" stroke-width="1.5" fill="none" opacity="0.4"/>
+  <path d="M80 76 Q83 68 86 76" stroke="#ffffff" stroke-width="1.5" fill="none" opacity="0.3"/>
+  <!-- Warm ambient -->
+  <circle cx="200" cy="100" r="80" fill="#fbbf24" opacity="0.04"/>
+</svg>

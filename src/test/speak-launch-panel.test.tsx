@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SpeakLaunchPanel } from "@/features/speak/speak-launch-panel";
+import { buildSpeakLaunchViewModel } from "@/features/speak/speak-view-model";
 
 const push = vi.fn();
 
@@ -11,33 +12,6 @@ vi.mock("next/navigation", () => ({
     push,
   }),
 }));
-
-const starters = [
-  {
-    key: "today",
-    label: "Something from today",
-    prompt: "Start with something that happened today.",
-    hint: "Anything from class or daily life is a good place to start.",
-  },
-  {
-    key: "learning",
-    label: "Something I'm learning",
-    prompt: "Talk about something you are learning in class.",
-    hint: "Use cell division or another class idea that feels current.",
-  },
-  {
-    key: "say_better",
-    label: "Something I want to say better",
-    prompt: "Pick one idea you want to explain more clearly.",
-    hint: "A good fit if you want to sound clearer in speaking.",
-  },
-  {
-    key: "surprise_me",
-    label: "Surprise me",
-    prompt: "Let the AI choose a good topic from your context.",
-    hint: "We will choose a natural topic from your level and recent context.",
-  },
-] as const;
 
 describe("SpeakLaunchPanel", () => {
   beforeEach(() => {
@@ -48,152 +22,118 @@ describe("SpeakLaunchPanel", () => {
     }));
   });
 
-  it("shows explicit mode switches and starts free speech from the selected lane", async () => {
+  it("renders missions and free speech and can start a mission", async () => {
     const user = userEvent.setup();
+    const viewModel = buildSpeakLaunchViewModel({
+      currentLevel: "intermediate",
+      weakestSkill: "grammar",
+      activeTopics: ["photosynthesis"],
+      currentLearnTitle: null,
+      plan: "pro",
+    });
 
     render(
       <SpeakLaunchPanel
-        recommendation={{
-          mode: "free_speech",
-          starterKey: "learning",
-          starterLabel: "Something I'm learning",
-          scenarioKey: null,
-          recommendedInteractionMode: "text",
-          title: "Pick a topic and start talking",
-          description: "Start from class or daily life and let the conversation move naturally.",
-          speakingGoal: null,
-          whyNow: null,
-          mission: {
-            scenarioTitle: "Something I'm learning",
-            scenarioSetup: "Have an open conversation about something the learner is studying.",
-            counterpartRole: null,
-            canDoStatement: null,
-            performanceTask: null,
-            openingQuestion: "What are you learning right now?",
-            introductionText: null,
-            targetPhrases: ["I'm learning...", "One part that stands out is..."],
-            followUpPrompts: ["Ask what part feels easiest right now."],
-            successCriteria: ["Keep the conversation moving with clear, connected answers."],
-            starterPrompt: "Talk about something you are learning right now.",
-            recommendationReason:
-              "Cell division gives you a real topic to practice instead of a generic prompt.",
-            activeTopic: "cell division",
-            focusSkill: null,
-            learnerLevel: "intermediate",
-            contextHint: "Use cell division or another class idea that feels current.",
-            starterKey: "learning",
-            starterLabel: "Something I'm learning",
-          },
-        }}
-        starters={[...starters]}
-        guidedScenarios={[
-          {
-            key: "class_discussion",
-            title: "Class discussion",
-            description: "Practice answering a teacher's follow-up questions.",
-          },
-        ]}
+        viewModel={viewModel}
         voiceConfigured
-        plan="free"
+        plan="pro"
       />
     );
 
-    expect(screen.getByText(/choose how you want to practice/i)).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /free speech/i }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: /guided scenario/i }).length).toBeGreaterThan(0);
-    expect(
-      screen.getByText(/^Free speech$/i, {
-        selector: "h2",
-      })
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/class discussion/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Speaking Confidence/i)).toBeInTheDocument();
+    expect(screen.getByText(/Current Streak/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Start/i)[0]).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /something i'm learning/i }));
-    await user.click(screen.getByRole("button", { name: /start free speech/i }));
+    const startButtons = screen.getAllByRole("button", { name: /Start/i });
+    await user.click(startButtons[0]);
 
     expect(fetch).toHaveBeenCalledWith(
       "/api/v1/speak/session/start",
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({
-          mode: "free_speech",
-          interactionMode: "text",
-          starterKey: "learning",
-          scenarioKey: null,
+          type: "mission",
+          id: viewModel.missions[0].id,
+          interactionMode: "voice",
         }),
       })
     );
     expect(push).toHaveBeenCalledWith("/app/speak/session/speak-session-1");
   });
 
-  it("shows only guided content when guided mode is selected", async () => {
+  it("can switch to free speech and start a session", async () => {
     const user = userEvent.setup();
+    const viewModel = buildSpeakLaunchViewModel({
+      currentLevel: "intermediate",
+      weakestSkill: "grammar",
+      activeTopics: ["photosynthesis"],
+      currentLearnTitle: null,
+      plan: "pro",
+    });
 
     render(
       <SpeakLaunchPanel
-        recommendation={{
-          mode: "free_speech",
-          starterKey: "today",
-          starterLabel: "Something from today",
-          scenarioKey: null,
-          recommendedInteractionMode: "text",
-          title: "Pick a topic and start talking",
-          description: "Start from class or daily life and let the conversation move naturally.",
-          speakingGoal: null,
-          whyNow: null,
-          mission: {
-            scenarioTitle: "Something from today",
-            scenarioSetup: "Have an open conversation about something from today.",
-            counterpartRole: null,
-            canDoStatement: null,
-            performanceTask: null,
-            openingQuestion: "What happened today?",
-            introductionText: null,
-            targetPhrases: ["Today I...", "One thing that happened was..."],
-            followUpPrompts: ["Ask what stood out most from today."],
-            successCriteria: ["Keep the conversation moving with clear, connected answers."],
-            starterPrompt: "Talk about something from today.",
-            recommendationReason: "Start from a real moment from today.",
-            activeTopic: null,
-            focusSkill: null,
-            learnerLevel: "intermediate",
-            contextHint: "Anything from class or daily life is a good place to start.",
-            starterKey: "today",
-            starterLabel: "Something from today",
-          },
-        }}
-        starters={[...starters]}
-        guidedScenarios={[
-          {
-            key: "class_discussion",
-            title: "Class discussion",
-            description: "Practice answering a teacher's follow-up questions.",
-          },
-          {
-            key: "office_hours",
-            title: "Office hours",
-            description: "Ask for help and clarify something from class.",
-          },
-        ]}
+        viewModel={viewModel}
         voiceConfigured
         plan="pro"
       />
     );
 
-    await user.click(screen.getByRole("button", { name: /guided scenario/i }));
+    const freeSpeechTab = screen.getByRole("button", { name: /Free Speech/i });
+    await user.click(freeSpeechTab);
 
-    expect(screen.getByRole("button", { name: /start guided scenario/i })).toBeInTheDocument();
-    expect(
-      screen.getByText(/^Guided scenario$/i, {
-        selector: "h2",
+    expect(screen.getByText(/Open Conversation/i)).toBeInTheDocument();
+    
+    const startButton = screen.getByRole("button", { name: /Start Free Speech/i });
+    await user.click(startButton);
+
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/v1/speak/session/start",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          type: "free_speech",
+          id: null,
+          interactionMode: "voice",
+        }),
       })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/^Class discussion$/i, {
-        selector: "button p",
+    );
+  });
+
+  it("falls back to text mode for free tier", async () => {
+    const user = userEvent.setup();
+    const viewModel = buildSpeakLaunchViewModel({
+      currentLevel: "intermediate",
+      weakestSkill: "grammar",
+      activeTopics: ["photosynthesis"],
+      currentLearnTitle: null,
+      plan: "free",
+    });
+
+    render(
+      <SpeakLaunchPanel
+        viewModel={viewModel}
+        voiceConfigured
+        plan="free"
+      />
+    );
+
+    const freeSpeechTab = screen.getByRole("button", { name: /Free Speech/i });
+    await user.click(freeSpeechTab);
+
+    const startButton = screen.getByRole("button", { name: /Start Free Speech/i });
+    await user.click(startButton);
+
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/v1/speak/session/start",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          type: "free_speech",
+          id: null,
+          interactionMode: "text",
+        }),
       })
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/something i want to say better/i)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /start guided scenario/i })).toBeInTheDocument();
+    );
   });
 });

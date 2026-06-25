@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" fill="none">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7dd3fc"/><stop offset="0.6" stop-color="#bae6fd"/><stop offset="1" stop-color="#e0f2fe"/></linearGradient>
+  </defs>
+  <rect width="400" height="200" rx="16" fill="url(#sky)"/>
+  <!-- Ground -->
+  <rect x="0" y="140" width="400" height="60" rx="0" fill="#86efac" opacity="0.4"/>
+  <!-- Sidewalk -->
+  <rect x="0" y="145" width="400" height="20" rx="0" fill="#e2e8f0"/>
+  <!-- Road -->
+  <rect x="155" y="90" width="90" height="110" rx="0" fill="#64748b" opacity="0.5"/>
+  <rect x="196" y="95" width="4" height="15" rx="2" fill="#fbbf24" opacity="0.6"/>
+  <rect x="196" y="118" width="4" height="15" rx="2" fill="#fbbf24" opacity="0.6"/>
+  <rect x="196" y="141" width="4" height="15" rx="2" fill="#fbbf24" opacity="0.6"/>
+  <!-- Building 1 (left, blue) -->
+  <rect x="20" y="50" width="60" height="95" rx="4" fill="#3b82f6" opacity="0.7"/>
+  <rect x="28" y="60" width="16" height="16" rx="2" fill="#bfdbfe"/>
+  <rect x="50" y="60" width="16" height="16" rx="2" fill="#bfdbfe"/>
+  <rect x="28" y="84" width="16" height="16" rx="2" fill="#bfdbfe"/>
+  <rect x="50" y="84" width="16" height="16" rx="2" fill="#bfdbfe"/>
+  <rect x="38" y="110" width="20" height="35" rx="2" fill="#1e40af" opacity="0.5"/>
+  <!-- Building 2 (right, orange) -->
+  <rect x="300" y="40" width="70" height="105" rx="4" fill="#f97316" opacity="0.6"/>
+  <rect x="310" y="52" width="16" height="16" rx="2" fill="#fed7aa"/>
+  <rect x="336" y="52" width="16" height="16" rx="2" fill="#fed7aa"/>
+  <rect x="310" y="76" width="16" height="16" rx="2" fill="#fed7aa"/>
+  <rect x="336" y="76" width="16" height="16" rx="2" fill="#fed7aa"/>
+  <rect x="324" y="105" width="22" height="40" rx="2" fill="#c2410c" opacity="0.4"/>
+  <!-- Sign post -->
+  <rect x="268" y="65" width="4" height="80" rx="2" fill="#78716c"/>
+  <rect x="254" y="58" width="55" height="22" rx="6" fill="#ffffff" stroke="#3b82f6" stroke-width="1.5"/>
+  <rect x="262" y="66" width="30" height="4" rx="2" fill="#3b82f6" opacity="0.6"/>
+  <!-- Arrow on sign -->
+  <path d="M288 68 L296 68 L293 64 M296 68 L293 72" stroke="#3b82f6" stroke-width="1.5" fill="none"/>
+  <!-- Person with map (teal) -->
+  <circle cx="140" cy="108" r="14" fill="#fde68a"/>
+  <rect x="130" y="124" width="20" height="30" rx="5" fill="#14b8a6"/>
+  <circle cx="136" cy="106" r="1.5" fill="#1c1917"/>
+  <circle cx="144" cy="106" r="1.5" fill="#1c1917"/>
+  <!-- Map in hand -->
+  <rect x="148" y="118" width="16" height="12" rx="2" fill="#ffffff" stroke="#94a3b8" stroke-width="0.8"/>
+  <rect x="150" y="121" width="5" height="2" rx="1" fill="#ef4444" opacity="0.5"/>
+  <rect x="150" y="125" width="8" height="1" rx="0.5" fill="#64748b" opacity="0.3"/>
+  <!-- Map pin -->
+  <circle cx="200" cy="30" r="10" fill="#ef4444" opacity="0.8"/>
+  <circle cx="200" cy="30" r="4" fill="#ffffff" opacity="0.8"/>
+  <path d="M200 40 L200 50" stroke="#ef4444" stroke-width="2" opacity="0.6"/>
+  <!-- Cloud -->
+  <ellipse cx="100" cy="22" rx="30" ry="14" fill="#ffffff" opacity="0.7"/>
+  <ellipse cx="85" cy="24" rx="18" ry="10" fill="#ffffff" opacity="0.6"/>
+  <ellipse cx="330" cy="18" rx="22" ry="10" fill="#ffffff" opacity="0.5"/>
+  <!-- Trees -->
+  <circle cx="110" cy="120" r="16" fill="#22c55e" opacity="0.6"/>
+  <rect x="108" y="130" width="4" height="15" rx="2" fill="#78716c"/>
+</svg>

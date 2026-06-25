@@ -145,6 +145,14 @@ Avoid equal visual weight between overall trend and per-skill detail.
 - Show one quiet ambient-noise badge during active voice sessions.
 - Keep repair notices in-line with the transcript and anchor the last valid question when the learner needs to try again.
 - Accepted-turn coaching should be visually quieter than the AI reply; rejected-turn repair should be distinct from normal coaching.
+- If a mission-stage coach character is present:
+  - keep it visually separate from the scenario counterpart
+  - place it in its own fixed left sidebar outside the main mission scene on wide layouts
+  - on desktop, let that sidebar run from just below the app header to the bottom of the viewport so it reads like a true product panel, not a floating card
+  - use its bubble for hints, repair, and support rather than the main role-play line
+  - use a polished code-native AI orb with layered glow, mesh-like motion, and state-driven energy changes rather than a weak human mascot
+  - animate pulse, orbit, and idle motion only when the coach is actively presenting support copy
+  - keep the tutor rail feeling like a product surface, not empty gutter filler
 
 ### 6.1 Learn Game Treatment
 
@@ -282,3 +290,4 @@ Design constraints:
 2. Do not use status colors for brand CTAs.
 3. Keep contrast standards for all text/interactive combinations.
 4. Use the same semantic token names across design and code.
+

@@ -3,13 +3,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  buildRecommendedSpeakMission,
-  buildSpeakMission,
+  buildSpeakLaunchViewModel,
+  buildSpeakMissionPayload,
 } from "@/features/speak/speak-view-model";
 
 describe("speak view model", () => {
-  it("prioritizes the latest weak skill while grounding the recommendation in a real topic", () => {
-    const recommendation = buildRecommendedSpeakMission({
+  it("builds the launch view model with an active topic", () => {
+    const viewModel = buildSpeakLaunchViewModel({
       currentLevel: "intermediate",
       weakestSkill: "grammar",
       activeTopics: ["photosynthesis"],
@@ -17,14 +17,14 @@ describe("speak view model", () => {
       plan: "pro",
     });
 
-    expect(recommendation.scenarioKey).toBe("office_hours");
-    expect(recommendation.title).toMatch(/photosynthesis/i);
-    expect(recommendation.whyNow).toMatch(/grammar/i);
-    expect(recommendation.mission.targetPhrases.length).toBeGreaterThan(0);
+    expect(viewModel.stats.streak).toBeGreaterThan(0);
+    expect(viewModel.freeSpeechStarters.length).toBeGreaterThan(0);
+    expect(viewModel.missions).toBeDefined();
+    expect(viewModel.missions[0]?.recommendedInteractionMode).toBe("voice");
   });
 
-  it("falls back to topic-driven free speech when there is no report yet", () => {
-    const recommendation = buildRecommendedSpeakMission({
+  it("falls back to text mode for free tier", () => {
+    const viewModel = buildSpeakLaunchViewModel({
       currentLevel: null,
       weakestSkill: null,
       activeTopics: ["preterite tense"],
@@ -32,18 +32,13 @@ describe("speak view model", () => {
       plan: "free",
     });
 
-    expect(recommendation.mode).toBe("free_speech");
-    expect(recommendation.starterKey).toBe("learning");
-    expect(recommendation.recommendedInteractionMode).toBe("text");
-    expect(recommendation.mission.contextHint).toMatch(/preterite tense/i);
+    expect(viewModel.missions[0]?.recommendedInteractionMode).toBe("text");
   });
 
-  it("builds free-speech missions as open conversation lanes instead of role-play missions", () => {
-    const mission = buildSpeakMission(
-      {
-        mode: "free_speech",
-        starterKey: "say_better",
-      },
+  it("builds mission payloads correctly for free speech", () => {
+    const payload = buildSpeakMissionPayload(
+      "free_speech",
+      "today",
       {
         currentLevel: "intermediate",
         weakestSkill: "speaking",
@@ -53,19 +48,14 @@ describe("speak view model", () => {
       }
     );
 
-    expect(mission.mode).toBe("free_speech");
-    expect(mission.mission.counterpartRole).toBeNull();
-    expect(mission.mission.canDoStatement).toBeNull();
-    expect(mission.mission.performanceTask).toBeNull();
-    expect(mission.mission.openingQuestion).toMatch(/explain better/i);
+    expect(payload.scenarioTitle).toBe("Free Speech");
+    expect(payload.starterPrompt).toBeDefined();
   });
 
-  it("builds manual guided missions with level-aware phrases and a real opening question", () => {
-    const mission = buildSpeakMission(
-      {
-        mode: "guided",
-        scenarioKey: "presentation_practice",
-      },
+  it("builds mission payloads correctly for mission", () => {
+    const payload = buildSpeakMissionPayload(
+      "mission",
+      "coffee_shop",
       {
         currentLevel: "advanced",
         weakestSkill: "vocabulary",
@@ -75,8 +65,7 @@ describe("speak view model", () => {
       }
     );
 
-    expect(mission.mission.openingQuestion).toMatch(/cell division/i);
-    expect(mission.mission.targetPhrases[0]).toBe("One reason is...");
-    expect(mission.mission.recommendationReason).toMatch(/vocabulary/i);
+    expect(payload.scenarioTitle).toBe("The Coffee Shop Mix-Up");
+    expect(payload.targetPhrases?.length).toBeGreaterThan(0);
   });
 });

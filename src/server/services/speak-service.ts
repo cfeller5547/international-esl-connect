@@ -1,9 +1,8 @@
 import {
   buildSpeakLaunchViewModel,
-  buildSpeakMission,
+  buildSpeakMissionPayload,
   type SpeakLaunchViewModel,
 } from "@/features/speak/speak-view-model";
-import { SPEAK_STARTERS } from "@/lib/constants";
 import { AppError } from "@/server/errors";
 import { prisma } from "@/server/prisma";
 
@@ -13,9 +12,6 @@ import { ContextService } from "./context-service";
 import { ConversationService } from "./conversation-service";
 import { CurriculumService } from "./curriculum-service";
 import { UsageService } from "./usage-service";
-
-type SpeakStarterKey = (typeof SPEAK_STARTERS)[number]["key"];
-type GuidedScenarioKey = "class_discussion" | "presentation_practice" | "office_hours";
 
 async function getSpeakPersonalizationSnapshot(userId: string) {
   const [user, activeTopics, subscription] = await Promise.all([
@@ -68,10 +64,6 @@ function countCoachedTurns(turns: Array<{ metricsPayload: unknown }>) {
 }
 
 export const SpeakService = {
-  async getStarters() {
-    return SPEAK_STARTERS;
-  },
-
   async getLaunchState(userId: string): Promise<{
     viewModel: SpeakLaunchViewModel;
     plan: "free" | "pro";
@@ -86,40 +78,31 @@ export const SpeakService = {
 
   async startSession({
     userId,
-    mode,
+    type,
     interactionMode,
-    starterKey,
-    scenarioKey,
+    id,
     summaryPayload = {},
   }: {
     userId: string;
-    mode: "free_speech" | "guided";
+    type: "free_speech" | "mission";
     interactionMode: "text" | "voice";
-    starterKey?: SpeakStarterKey | null;
-    scenarioKey?: GuidedScenarioKey | null;
+    id?: string | null;
     summaryPayload?: Record<string, unknown>;
   }) {
     const snapshot = await getSpeakPersonalizationSnapshot(userId);
-    const missionPlan = buildSpeakMission(
-      {
-        mode,
-        starterKey,
-        scenarioKey,
-      },
-      snapshot
-    );
+    const missionPayload = buildSpeakMissionPayload(type, id ?? null, snapshot);
 
     try {
       const session = await ConversationService.startSession({
         userId,
-        mode,
+        mode: type,
         interactionMode,
         surface: "speak",
-        missionKind: mode,
-        scenarioKey: missionPlan.scenarioKey ?? missionPlan.starterKey,
+        missionKind: type,
+        scenarioKey: id ?? type,
         seedOpeningTurn: interactionMode !== "voice",
         summaryPayload: {
-          ...missionPlan.mission,
+          ...missionPayload,
           ...summaryPayload,
         },
       });
@@ -129,14 +112,14 @@ export const SpeakService = {
         route: "/app/speak",
         userId,
         properties: {
-          mode,
-          scenario_key: missionPlan.scenarioKey ?? missionPlan.starterKey,
+          mode: type,
+          scenario_key: id ?? type,
         },
       });
 
       return {
         sessionId: session.sessionId,
-        starterPrompt: missionPlan.mission.starterPrompt,
+        starterPrompt: missionPayload.starterPrompt,
       };
     } catch (error) {
       if (error instanceof AppError && error.code === "VOICE_MODE_UPGRADE_REQUIRED") {

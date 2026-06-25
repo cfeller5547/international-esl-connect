@@ -77,7 +77,9 @@ export default async function SpeakSessionPage({
     openingPrompt: createOpeningPrompt({
       surface: "speak",
       missionKind:
-        (session.missionKind as "free_speech" | "guided" | null) ?? "guided",
+        (session.missionKind as "free_speech" | "guided" | "mission" | null) === "free_speech"
+          ? "free_speech"
+          : "guided",
       interactionMode: session.interactionMode as "text" | "voice",
       scenarioKey: session.scenarioKey,
       scenarioTitle: String(summaryPayload.scenarioTitle ?? "Speaking practice"),
@@ -171,6 +173,11 @@ export default async function SpeakSessionPage({
       typeof summaryPayload.activeTopic === "string" ? summaryPayload.activeTopic : null,
     contextHint:
       typeof summaryPayload.contextHint === "string" ? summaryPayload.contextHint : null,
+    sceneType:
+      summaryPayload.sceneType === "cinematic_2d" ? "cinematic_2d" : null,
+    stageKey:
+      typeof summaryPayload.stageKey === "string" ? (summaryPayload.stageKey as any) : null,
+    sceneBeats: null,
   };
   const turns = session.turns.map((turn) => {
     const metrics = turn.metricsPayload as

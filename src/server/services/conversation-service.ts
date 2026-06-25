@@ -31,7 +31,7 @@ import { UsageService } from "./usage-service";
 
 type StartConversationSessionInput = {
   userId: string;
-  mode: "free_speech" | "guided";
+  mode: "free_speech" | "guided" | "check_in" | "story" | "mission";
   interactionMode: "text" | "voice";
   surface: ConversationSurface;
   missionKind: ConversationMissionKind;

@@ -173,8 +173,17 @@ First-run behavior:
 - Free Speech does not use a mission card. It should start directly in the conversation surface with only light topic/context framing.
 
 Session behavior:
-- Once the mission starts, the transcript becomes the dominant surface.
+- Once the mission starts, the live mission stage becomes the dominant surface.
 - Speak should not use a persistent coaching sidebar or worksheet-style support rail during the live exchange.
+- The active session should be stage-first:
+  - visible counterpart
+  - persistent left-side tutor rail outside the scene on larger screens
+  - compact tutor strip on smaller screens
+  - animated mission scene
+  - subtitle rail for the latest lines
+  - one compact objective HUD
+  - one primary action rail
+- Transcript should become a secondary drawer instead of the main page body.
 - Free Speech should feel topic-led and learner-led:
   - no role-play framing by default
   - no visible performance task or success criteria in the live UI
@@ -187,13 +196,22 @@ Session behavior:
 - Only accepted learner turns should receive visible coaching.
 - Clarification, acknowledgement-only, and noisy turns should render as repair moments and should not advance the live conversation state as if they were full answers.
 - The AI should teach mostly through natural recasts, level-aware follow-up questions, and better modeled language inside the conversation.
+- Coach and counterpart should use separate voice identities, but only one may speak at a time.
+- Guided missions may use the coach as an active guide at controlled turn boundaries:
+  - mission start
+  - repair / retry
+  - strong correction landed
+  - final wrap
 - One minimal `Help me` action can reveal a contextual hint without sending a turn or interrupting the conversation.
+- The role-play counterpart and the coach must remain visually distinct:
+  - counterpart is the in-scene character
+  - coach is support, not the role-play partner
+- Bespoke guided missions may use authored animated scene beats when the UI can map turns into meaningful visual events.
 - Once the session is completed, Speak should switch into a review-first state:
   - show a concise completion summary before any transcript detail
   - surface `What to keep`, `Next focus`, and a few key moments first
   - keep the full transcript secondary and collapsible
   - phrase saving should prioritize reusable multi-word chunks, not generic single words
-
 ### 2.4 Progress
 Purpose:
 - Report history, overall score timeline, per-skill trend analysis, reassessment
@@ -380,3 +398,4 @@ Streak contract:
 - Text fallback for voice interactions
 - Captions and transcripts for audio features
 - Color-independent status communication
+

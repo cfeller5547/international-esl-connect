@@ -441,24 +441,48 @@ This document translates product and UX principles into concrete, testable scree
     - mode badge
     - topic / lane label
     - optional small context hint
-  - shared transcript pane
-  - compact mission header after the session starts; no persistent coach sidebar
+  - shared live mission stage after the session starts:
+    - compact top bar with `Back`, shared activity-state chip, and `Finish session`
+    - dominant animated scene with visible counterpart presence
+    - persistent virtual tutor in a fixed full-height left sidebar anchored under the app header on larger screens
+    - compact tutor strip above the stage controls on smaller screens
+    - coach and counterpart remain separate roles:
+      - counterpart owns the in-scene role-play exchange
+      - coach owns hints, recovery, support cues, and active guide nudges
+      - coach and counterpart must never speak over each other
+    - tutor rail contains:
+      - tutor identity
+      - animated AI orb with state-driven pulse, orbit, and idle motion
+      - anchored tutor bubble
+    - subtitle rail for the latest AI line and latest learner line
+    - one focused objective HUD with target-phrase progress
+    - one primary action rail under the stage
+  - transcript is secondary by default:
+    - collapsible transcript drawer
+    - side drawer on larger screens
+    - bottom sheet on smaller screens
+    - transcript keeps per-turn coaching and annotations
   - activity-state indicator (`Ready to start`, `Connecting`, `Listening`, `Still listening`, `Thinking`, `Speaking`, `Didn't catch that`, `Noisy room`, `Session complete`, `Connection issue`)
-  - text input controls for text-first sessions
+  - text input controls for text-first sessions:
+    - one stage-styled input rail
+    - no chat-app composer chrome as the dominant visual
   - live voice surface for active Pro voice sessions:
     - explicit `Start live conversation` CTA
     - browser mic handoff
-    - transcript that grows as the live session unfolds
     - one visible `Finish session` action
     - quiet ambient-noise badge
     - repair notice with the last valid question when the previous learner turn was rejected
     - one `Say that again` recovery action after rejected turns
+  - guided live missions must support visible scene beats when authored, including:
+    - visible counterpart actor state changes
+    - prop animation for mission events
+    - bespoke stage treatment for flagship missions
+    - reusable cinematic fallback stage for non-authored missions
   - subtle per-turn coaching on learner turns only:
-    - one short coach label derived from turn signals
-    - one concise coaching note
+    - coaching remains transcript-native inside the drawer and debrief
     - no numeric scores
     - no large correction boxes during the live exchange
-  - rejected learner turns should render repair instead of normal coaching
+  - rejected learner turns should render repair instead of normal coaching on the main stage
   - one minimal `Help me` support action that reveals one contextual hint without sending a turn
   - post-session completion mode:
     - dedicated completion summary card
@@ -470,12 +494,12 @@ This document translates product and UX principles into concrete, testable scree
 - Voice rule:
   - active voice sessions should feel like real-time back-and-forth audio, not turn-by-turn upload
   - transcript sync must survive overlapping browser updates without dropping the session
-  - accepted-turn coaching appears only after a learner turn lands in the transcript
+  - the live mission stage, not the transcript, is the dominant surface during active conversation
+  - accepted-turn coaching appears only after a learner turn lands in the transcript drawer or debrief
   - clarification, acknowledgement-only, and noisy turns should not be treated as accepted progress
   - free-speech voice sessions should not display the guided mission brief before `Start live conversation`
 - Exit transition: completion summary first, then recommend next Learn step.
 - Instrumentation: `speak_turn_submitted`, `speak_turn_coaching_shown`, `speak_help_requested`, `speak_session_completed`, `transcript_phrase_saved`.
-
 ## 3.6 Progress
 
 ### `/app/progress`
@@ -630,3 +654,4 @@ This document translates product and UX principles into concrete, testable scree
 - Trigger: expired session during protected action.
 - Primary CTA: `Log in to continue`.
 - Must preserve in-progress state and route.
+
